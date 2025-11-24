@@ -205,14 +205,37 @@ const updateOrganization = async () => {
   }
 }
 
-const upgradePlan = () => {
-  // TODO: Implement Stripe checkout
-  alert('Upgrade feature coming soon!')
+const upgradePlan = async () => {
+  try {
+    const response = await $fetch('/api/stripe/create-checkout', {
+      method: 'POST',
+      body: {
+        planId: 'PRO'
+      }
+    })
+
+    if (response.url) {
+      window.location.href = response.url
+    }
+  } catch (error: any) {
+    console.error('Checkout error:', error)
+    alert('Failed to start checkout. Please try again.')
+  }
 }
 
-const manageBilling = () => {
-  // TODO: Redirect to Stripe billing portal
-  alert('Billing management coming soon!')
+const manageBilling = async () => {
+  try {
+    const response = await $fetch('/api/stripe/create-portal', {
+      method: 'POST'
+    })
+
+    if (response.url) {
+      window.location.href = response.url
+    }
+  } catch (error: any) {
+    console.error('Billing portal error:', error)
+    alert('Failed to open billing portal. Please try again.')
+  }
 }
 
 const deleteOrganization = async () => {
