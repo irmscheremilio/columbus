@@ -50,27 +50,21 @@ serve(async (req) => {
       )
     }
 
-    // Get organization details
-    const { data: org, error: orgError } = await supabaseClient
-      .from('organizations')
-      .select('domain')
-      .eq('id', profile.organization_id)
-      .single()
+    // Get request body (required: domain, optional: businessDescription)
+    const body = await req.json().catch(() => ({}))
+    const domain = body.domain
+    const includeCompetitorGaps = body.includeCompetitorGaps ?? true
+    const businessDescription = body.businessDescription || ''
 
-    if (orgError || !org?.domain) {
+    if (!domain) {
       return new Response(
-        JSON.stringify({ error: 'Organization domain not configured' }),
+        JSON.stringify({ error: 'Domain is required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       )
     }
-
-    // Get request body (optional parameters)
-    const body = await req.json().catch(() => ({}))
-    const includeCompetitorGaps = body.includeCompetitorGaps ?? true
-    const businessDescription = body.businessDescription || ''
 
     // Create job record in database for workers to process
     const { data: job, error: jobError } = await supabaseClient
@@ -80,7 +74,7 @@ serve(async (req) => {
         job_type: 'website_analysis',
         status: 'queued',
         metadata: {
-          domain: org.domain,
+          domain: domain,
           includeCompetitorGaps,
           businessDescription
         }
@@ -92,14 +86,14 @@ serve(async (req) => {
       throw jobError
     }
 
-    console.log(`Website analysis job created: ${job.id} for domain: ${org.domain}`)
+    console.log(`Website analysis job created: ${job.id} for domain: ${domain}`)
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Website analysis started',
         jobId: job.id,
-        domain: org.domain
+        domain: domain
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
