@@ -49,14 +49,17 @@ RUN apt-get update && apt-get install -y \
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies
+# Install production dependencies (DO NOT skip browser download)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Install Playwright browsers (as root for system dependencies)
-RUN npx playwright install --with-deps chromium
+# Verify Playwright is installed and install browsers
+RUN npm list playwright && \
+    npx playwright install chromium && \
+    npx playwright install-deps chromium
 
 # Create non-root user and set permissions
 RUN groupadd -g 1001 nodejs && \

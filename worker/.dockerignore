@@ -1,15 +1,9 @@
 node_modules
 dist
-npm-debug.log
 .env
-.env.*
+.env.local
 *.log
+.DS_Store
+*.md
 .git
 .gitignore
-README.md
-.DS_Store
-coverage
-.nyc_output
-
-# Don't exclude package-lock.json - Docker needs it!
-!package-lock.json
