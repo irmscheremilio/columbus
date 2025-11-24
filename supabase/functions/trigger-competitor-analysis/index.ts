@@ -1,7 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Queue } from 'https://esm.sh/bullmq@5'
-import { Redis } from 'https://deno.land/x/upstash_redis@v1.22.1/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -117,33 +115,28 @@ serve(async (req) => {
       )
     }
 
-    // Connect to Redis and enqueue job
-    console.log('Connecting to Redis...')
-    const redis = Redis.fromEnv()
-    const competitorAnalysisQueue = new Queue('competitor-analysis', {
-      connection: redis
-    })
-
-    // Add job to queue
-    const job = await competitorAnalysisQueue.add('analyze', {
-      organizationId: profile.organization_id,
-      brandName: org.name,
-      competitorId: competitor.id,
-      competitorName: competitor.name,
-      promptIds: prompts.map(p => p.id)
-    })
-
-    console.log(`Competitor analysis job queued: ${job.id} for ${competitor.name}`)
-
-    // Create job tracking record
-    await supabaseClient
+    // Create job record in database for workers to process
+    const { data: job, error: jobError } = await supabaseClient
       .from('jobs')
       .insert({
         organization_id: profile.organization_id,
         job_type: 'competitor_analysis',
         status: 'queued',
-        metadata: { competitorId: competitor.id, competitorName: competitor.name, jobId: job.id }
+        metadata: {
+          competitorId: competitor.id,
+          competitorName: competitor.name,
+          brandName: org.name,
+          promptIds: prompts.map(p => p.id)
+        }
       })
+      .select()
+      .single()
+
+    if (jobError) {
+      throw jobError
+    }
+
+    console.log(`Competitor analysis job created: ${job.id} for ${competitor.name}`)
 
     return new Response(
       JSON.stringify({

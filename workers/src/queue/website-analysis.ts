@@ -17,6 +17,7 @@ export interface WebsiteAnalysisJobData {
   organizationId: string
   domain: string
   includeCompetitorGaps?: boolean
+  jobId?: string
 }
 
 /**
@@ -143,6 +144,17 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       console.log(`[Website Analysis] Successfully completed analysis for ${domain}`)
 
+      // Mark job as completed if jobId provided
+      if (job.data.jobId) {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', job.data.jobId)
+      }
+
       return {
         success: true,
         domain,
@@ -152,6 +164,19 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       }
     } catch (error) {
       console.error('[Website Analysis] Error:', error)
+
+      // Mark job as failed if jobId provided
+      if (job.data.jobId) {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: error instanceof Error ? error.message : 'Unknown error'
+          })
+          .eq('id', job.data.jobId)
+      }
+
       throw error
     }
   },

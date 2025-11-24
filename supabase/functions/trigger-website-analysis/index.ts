@@ -1,7 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Queue } from 'https://esm.sh/bullmq@5'
-import { Redis } from 'https://deno.land/x/upstash_redis@v1.22.1/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,34 +71,26 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const includeCompetitorGaps = body.includeCompetitorGaps ?? true
 
-    // Connect to Redis and enqueue job
-    console.log('Connecting to Redis...')
-    const redisUrl = Deno.env.get('REDIS_URL') || 'redis://localhost:6379'
-
-    // Create BullMQ queue
-    const redis = Redis.fromEnv()
-    const websiteAnalysisQueue = new Queue('website-analysis', {
-      connection: redis
-    })
-
-    // Add job to queue
-    const job = await websiteAnalysisQueue.add('analyze', {
-      organizationId: profile.organization_id,
-      domain: org.domain,
-      includeCompetitorGaps
-    })
-
-    console.log(`Website analysis job queued: ${job.id} for domain: ${org.domain}`)
-
-    // Create job tracking record
-    await supabaseClient
+    // Create job record in database for workers to process
+    const { data: job, error: jobError } = await supabaseClient
       .from('jobs')
       .insert({
         organization_id: profile.organization_id,
         job_type: 'website_analysis',
         status: 'queued',
-        metadata: { domain: org.domain, jobId: job.id }
+        metadata: {
+          domain: org.domain,
+          includeCompetitorGaps
+        }
       })
+      .select()
+      .single()
+
+    if (jobError) {
+      throw jobError
+    }
+
+    console.log(`Website analysis job created: ${job.id} for domain: ${org.domain}`)
 
     return new Response(
       JSON.stringify({
