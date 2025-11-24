@@ -91,7 +91,7 @@ serve(async (req) => {
 
     // 3. Update user with organization_id
     const { error: updateError } = await supabaseAdmin
-      .from('users')
+      .from('profiles')
       .update({ organization_id: org.id })
       .eq('id', user.id)
 

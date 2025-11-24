@@ -2,38 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Craw Modern Font - Download from https://www.1001fonts.com/craw-modern-font.html */
+/* Place the OPTICrawModern.otf file in /public/fonts/ directory */
+@font-face {
+  font-family: 'Craw Modern';
+  src: url('/fonts/OPTICrawModern.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
+  /* Columbus Brand Styles - Background always #F5F5F5 */
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-background text-gray-900;
+  }
+
+  /* Headings default to sans-serif, use .brand-text for display font */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans;
   }
 }
 
 @layer components {
+  /* Base button */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply px-6 py-3 rounded-lg font-medium transition-colors;
   }
 
+  /* Primary button - Brand orange */
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    @apply bg-brand text-white hover:bg-primary-600;
   }
 
+  /* Secondary button - White with border */
   .btn-secondary {
-    @apply bg-gray-200 text-gray-900 hover:bg-gray-300;
+    @apply bg-background-highlight text-gray-900 border border-border hover:border-brand;
   }
 
+  /* Outline button */
   .btn-outline {
-    @apply border-2 border-primary-600 text-primary-600 hover:bg-primary-50;
+    @apply border border-brand text-brand hover:bg-brand hover:text-white;
   }
 
+  /* Card - No shadow, thin gray border, same background as page */
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply bg-background-card border border-border rounded-lg p-6;
   }
 
+  /* Highlighted card - White background for emphasis */
+  .card-highlight {
+    @apply bg-background-highlight border border-border rounded-lg p-6;
+  }
+
+  /* Input field - White background */
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-2 bg-background-highlight border border-border rounded-lg focus:outline-none focus:border-brand transition-colors;
   }
 
+  /* Label */
   .label {
     @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+
+  /* Brand text - Use International font for highlighting important words */
+  .brand-text {
+    @apply font-display text-brand;
   }
 }

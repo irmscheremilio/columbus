@@ -11,35 +11,45 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
+        // Columbus Brand Colors
+        brand: {
+          orange: '#F29901', // Primary brand color
+          DEFAULT: '#F29901',
         },
-        secondary: {
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7e22ce',
-          800: '#6b21a8',
-          900: '#581c87',
-          950: '#3b0764',
+        background: {
+          DEFAULT: '#F5F5F5', // General background
+          card: '#F5F5F5', // Cards use same color, separated by border
+          highlight: '#FFFFFF', // White for highlights
+        },
+        border: {
+          DEFAULT: '#E5E5E5', // Thin gray border for cards
+        },
+        // Keep primary as orange-based shades for compatibility
+        primary: {
+          50: '#FEF7E6',
+          100: '#FDECC9',
+          200: '#FBD894',
+          300: '#F9C15F',
+          400: '#F6A930',
+          500: '#F29901', // Main brand color
+          600: '#D68501',
+          700: '#B16F01',
+          800: '#8C5701',
+          900: '#6C4301',
+          950: '#4D2F01',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Craw Modern', 'Georgia', 'serif'], // For highlighting important words
+      },
+      borderWidth: {
+        DEFAULT: '1px',
+      },
+      boxShadow: {
+        // Remove default shadows, use borders instead
+        none: 'none',
+        card: 'none', // Cards should have no shadow
       },
     },
   },

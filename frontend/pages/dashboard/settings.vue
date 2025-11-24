@@ -145,7 +145,7 @@ const loadSettings = async () => {
   try {
     // Load user's organization
     const { data: userData } = await supabase
-      .from('users')
+      .from('profiles')
       .select('organization_id')
       .eq('id', user.value?.id)
       .single()

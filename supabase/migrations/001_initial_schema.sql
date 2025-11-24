@@ -17,7 +17,7 @@ CREATE TABLE organizations (
 );
 
 -- Users table (extends Supabase auth.users)
-CREATE TABLE users (
+CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
   email TEXT UNIQUE NOT NULL,
@@ -150,7 +150,7 @@ CREATE INDEX idx_api_usage_org ON api_usage(organization_id);
 
 -- Enable Row Level Security
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prompts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prompt_results ENABLE ROW LEVEL SECURITY;
@@ -166,74 +166,74 @@ ALTER TABLE api_usage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own organization"
   ON organizations FOR SELECT
   USING (id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 CREATE POLICY "Users can update their own organization"
   ON organizations FOR UPDATE
   USING (id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid()) AND role IN ('owner', 'admin')
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid()) AND role IN ('owner', 'admin')
   ));
 
 -- Users: users can view their own record
 CREATE POLICY "Users can view their own record"
-  ON users FOR SELECT
+  ON profiles FOR SELECT
   USING (id = (SELECT auth.uid()));
 
 -- Subscriptions: users can view their organization's subscription
 CREATE POLICY "Users can view their organization's subscription"
   ON subscriptions FOR SELECT
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Prompts: users can manage their organization's prompts
 CREATE POLICY "Users can manage their organization's prompts"
   ON prompts FOR ALL
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Prompt results: users can view their organization's results
 CREATE POLICY "Users can view their organization's prompt results"
   ON prompt_results FOR SELECT
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Visibility scores: users can view their organization's scores
 CREATE POLICY "Users can view their organization's visibility scores"
   ON visibility_scores FOR SELECT
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Fix recommendations: users can manage their organization's recommendations
 CREATE POLICY "Users can manage their organization's recommendations"
   ON fix_recommendations FOR ALL
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Competitors: users can manage their organization's competitors
 CREATE POLICY "Users can manage their organization's competitors"
   ON competitors FOR ALL
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Jobs: users can view their organization's jobs
 CREATE POLICY "Users can view their organization's jobs"
   ON jobs FOR SELECT
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- API usage: users can view their organization's API usage
 CREATE POLICY "Users can view their organization's API usage"
   ON api_usage FOR SELECT
   USING (organization_id IN (
-    SELECT organization_id FROM users WHERE id = (SELECT auth.uid())
+    SELECT organization_id FROM public.profiles WHERE id = (SELECT auth.uid())
   ));
 
 -- Function to update updated_at timestamp

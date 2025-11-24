@@ -90,13 +90,13 @@ onMounted(async () => {
     statusMessage.value = 'Checking your account...'
 
     const { data: userData, error: userError } = await supabase
-      .from('users')
+      .from('profiles')
       .select('organization_id')
       .eq('id', user.id)
-      .single()
+      .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
 
     // If user doesn't exist in users table yet, or has no organization, show setup
-    if (userError || !userData || !userData.organization_id) {
+    if (!userData || !userData.organization_id) {
       statusMessage.value = 'Almost there!'
       showSetup.value = true
 
@@ -129,12 +129,15 @@ const completeSetup = async () => {
       .from('organizations')
       .insert([{
         name: setupForm.value.companyName,
-        plan: 'free',
+        // plan defaults to 'free' in database
       }])
       .select()
       .single()
 
-    if (orgError) throw orgError
+    if (orgError) {
+      console.error('Organization creation error:', orgError)
+      throw orgError
+    }
 
     // 2. Create brand
     const { data: brand, error: brandError } = await supabase
@@ -152,7 +155,7 @@ const completeSetup = async () => {
 
     // 3. Create/update user record with organization_id
     const { error: updateError } = await supabase
-      .from('users')
+      .from('profiles')
       .upsert({
         id: user.id,
         email: user.email!,

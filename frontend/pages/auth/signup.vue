@@ -167,7 +167,7 @@ const handleSignup = async () => {
           .from('organizations')
           .insert([{
             name: companyName.value,
-            plan: 'free',
+            // plan defaults to 'free' in database
           }])
           .select()
           .single()
@@ -190,7 +190,7 @@ const handleSignup = async () => {
 
         // 3. Update user with organization_id
         const { error: updateError } = await supabase
-          .from('users')
+          .from('profiles')
           .upsert({
             id: authData.user.id,
             email: email.value,

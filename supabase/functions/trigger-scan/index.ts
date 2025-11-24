@@ -47,7 +47,7 @@ serve(async (req) => {
 
     // Get user's organization
     const { data: userData, error: userDataError } = await supabaseClient
-      .from('users')
+      .from('profiles')
       .select('organization_id')
       .eq('id', user.id)
       .single()
