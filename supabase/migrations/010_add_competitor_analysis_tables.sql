@@ -1,7 +1,7 @@
 -- Competitor Results Table
 -- Stores results from testing prompts that include competitor mentions
 CREATE TABLE IF NOT EXISTS competitor_results (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
   competitor_id UUID REFERENCES competitors(id) ON DELETE CASCADE NOT NULL,
   prompt_id UUID REFERENCES prompts(id) ON DELETE CASCADE NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS competitor_results (
 -- Visibility Gaps Table
 -- Tracks specific instances where competitors appear but brand doesn't
 CREATE TABLE IF NOT EXISTS visibility_gaps (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
   competitor_id UUID REFERENCES competitors(id) ON DELETE CASCADE NOT NULL,
   prompt_id UUID REFERENCES prompts(id) ON DELETE CASCADE NOT NULL,
