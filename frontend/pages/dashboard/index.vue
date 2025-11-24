@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-background">
     <DashboardNav />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -13,10 +13,10 @@
       <div class="px-4 py-6 sm:px-0">
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <!-- Overall Visibility Score -->
-          <div class="card">
+          <div class="card-highlight">
             <div class="flex items-center">
               <div class="flex-shrink-0">
-                <div class="text-4xl font-bold text-primary-600">
+                <div class="text-4xl font-bold text-brand">
                   {{ visibilityScore?.overall || 0 }}
                 </div>
               </div>
@@ -43,7 +43,7 @@
           </div>
 
           <!-- ChatGPT Score -->
-          <div class="card">
+          <div class="card-highlight">
             <dt class="text-sm font-medium text-gray-500 mb-2">ChatGPT</dt>
             <dd class="text-3xl font-bold text-gray-900">
               {{ visibilityScore?.byModel?.chatgpt || 0 }}
@@ -51,7 +51,7 @@
           </div>
 
           <!-- Claude Score -->
-          <div class="card">
+          <div class="card-highlight">
             <dt class="text-sm font-medium text-gray-500 mb-2">Claude</dt>
             <dd class="text-3xl font-bold text-gray-900">
               {{ visibilityScore?.byModel?.claude || 0 }}
@@ -59,7 +59,7 @@
           </div>
 
           <!-- Gemini Score -->
-          <div class="card">
+          <div class="card-highlight">
             <dt class="text-sm font-medium text-gray-500 mb-2">Gemini</dt>
             <dd class="text-3xl font-bold text-gray-900">
               {{ visibilityScore?.byModel?.gemini || 0 }}
@@ -70,16 +70,16 @@
 
       <!-- Quick Actions -->
       <div class="px-4 py-6 sm:px-0">
-        <div class="card">
+        <div class="card-highlight">
           <h2 class="text-lg font-semibold mb-4">Quick Actions</h2>
           <div class="flex flex-wrap gap-3">
-            <button class="btn btn-primary" @click="runScan">
+            <button class="btn-primary" @click="runScan">
               Run New Visibility Scan
             </button>
-            <NuxtLink to="/dashboard/recommendations" class="btn btn-outline">
+            <NuxtLink to="/dashboard/recommendations" class="btn-outline">
               View Recommendations
             </NuxtLink>
-            <NuxtLink to="/dashboard/competitors" class="btn btn-outline">
+            <NuxtLink to="/dashboard/competitors" class="btn-outline">
               Manage Competitors
             </NuxtLink>
           </div>
@@ -88,10 +88,10 @@
 
       <!-- Recent Scans -->
       <div class="px-4 py-6 sm:px-0">
-        <div class="card">
+        <div class="card-highlight">
           <h2 class="text-lg font-semibold mb-4">Recent Scans</h2>
           <div v-if="loading" class="text-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto"></div>
           </div>
           <div v-else-if="!jobs.length" class="text-center py-8 text-gray-500">
             No scans yet. Run your first visibility scan to get started!
@@ -123,7 +123,7 @@
 
       <!-- Top Recommendations -->
       <div class="px-4 py-6 sm:px-0">
-        <div class="card">
+        <div class="card-highlight">
           <h2 class="text-lg font-semibold mb-4">Top Recommendations</h2>
           <div v-if="!recommendations.length" class="text-center py-8 text-gray-500">
             No recommendations yet. Run a visibility scan to get personalized recommendations.
@@ -154,14 +154,14 @@
               </div>
               <NuxtLink
                 :to="`/dashboard/recommendations/${rec.id}`"
-                class="btn btn-outline text-sm"
+                class="btn-outline text-sm"
               >
                 View Fix
               </NuxtLink>
             </div>
           </div>
           <div v-if="recommendations.length > 0" class="mt-6 text-center">
-            <NuxtLink to="/dashboard/recommendations" class="text-primary-600 hover:text-primary-700 font-medium">
+            <NuxtLink to="/dashboard/recommendations" class="text-brand hover:opacity-80 font-medium">
               View all recommendations →
             </NuxtLink>
           </div>
@@ -258,8 +258,39 @@ const loadDashboardData = async () => {
 }
 
 const runScan = async () => {
-  // TODO: Implement scan trigger
-  alert('Visibility scan feature coming soon!')
+  if (loading.value) return
+
+  loading.value = true
+  try {
+    // Get the current session token
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error('Not authenticated')
+    }
+
+    // Call the edge function to trigger the scan
+    const { data, error } = await supabase.functions.invoke('trigger-visibility-scan', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    })
+
+    if (error) {
+      throw error
+    }
+
+    // Show success message
+    alert(`Visibility scan started! Testing ${data.promptCount} prompts across 4 AI engines. This will take 5-10 minutes. Refresh the page to see results.`)
+
+    // Reload dashboard data to show the new job
+    await loadDashboardData()
+  } catch (error: any) {
+    console.error('Error starting scan:', error)
+    alert(`Failed to start scan: ${error.message}`)
+  } finally {
+    loading.value = false
+  }
 }
 
 const formatJobType = (type: string) => {

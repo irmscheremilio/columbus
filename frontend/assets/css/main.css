@@ -32,17 +32,17 @@
 
   /* Primary button - Brand orange */
   .btn-primary {
-    @apply bg-brand text-white hover:bg-primary-600;
+    @apply px-6 py-3 rounded-lg font-medium bg-brand text-white hover:bg-primary-600 transition-colors;
   }
 
   /* Secondary button - White with border */
   .btn-secondary {
-    @apply bg-background-highlight text-gray-900 border border-border hover:border-brand;
+    @apply px-6 py-3 rounded-lg font-medium bg-background-highlight text-gray-900 border border-border hover:border-brand transition-colors;
   }
 
   /* Outline button */
   .btn-outline {
-    @apply border border-brand text-brand hover:bg-brand hover:text-white;
+    @apply px-6 py-3 rounded-lg font-medium border border-brand text-brand hover:bg-brand hover:text-white transition-colors;
   }
 
   /* Card - No shadow, thin gray border, same background as page */

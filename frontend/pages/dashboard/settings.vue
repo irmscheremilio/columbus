@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-background">
     <DashboardNav />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -7,7 +7,7 @@
         <h1 class="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
 
         <!-- Organization Settings -->
-        <div class="card mb-6">
+        <div class="card-highlight mb-6">
           <h2 class="text-xl font-semibold mb-4">Organization Details</h2>
           <form @submit.prevent="updateOrganization" class="space-y-4">
             <div>
@@ -45,7 +45,7 @@
             </div>
             <button
               type="submit"
-              class="btn btn-primary"
+              class="btn-primary"
               :disabled="orgLoading"
             >
               {{ orgLoading ? 'Saving...' : 'Save Changes' }}
@@ -54,13 +54,13 @@
         </div>
 
         <!-- Subscription -->
-        <div class="card mb-6">
+        <div class="card-highlight mb-6">
           <h2 class="text-xl font-semibold mb-4">Subscription</h2>
           <div v-if="subscription" class="space-y-4">
             <div class="flex justify-between items-center">
               <div>
                 <div class="font-medium">Current Plan</div>
-                <div class="text-2xl font-bold text-primary-600 mt-1">
+                <div class="text-2xl font-bold text-brand mt-1">
                   {{ formatPlanName(subscription.plan_type) }}
                 </div>
               </div>
@@ -79,14 +79,14 @@
             <div class="pt-4 border-t">
               <button
                 v-if="subscription.plan_type === 'free'"
-                class="btn btn-primary"
+                class="btn-primary"
                 @click="upgradePlan"
               >
                 Upgrade Plan
               </button>
               <button
                 v-else
-                class="btn btn-outline"
+                class="btn-outline"
                 @click="manageBilling"
               >
                 Manage Billing
@@ -96,7 +96,7 @@
         </div>
 
         <!-- Danger Zone -->
-        <div class="card border-red-200">
+        <div class="card-highlight border-red-200">
           <h2 class="text-xl font-semibold text-red-900 mb-4">Danger Zone</h2>
           <div class="space-y-4">
             <div class="flex justify-between items-center">

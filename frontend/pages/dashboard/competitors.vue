@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-background">
     <DashboardNav />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -11,21 +11,21 @@
               Track and compare your visibility against competitors
             </p>
           </div>
-          <button class="btn btn-primary" @click="showAddModal = true">
+          <button class="btn-primary" @click="showAddModal = true">
             Add Competitor
           </button>
         </div>
 
         <!-- Competitors List -->
         <div v-if="loading" class="text-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
         </div>
 
-        <div v-else-if="!competitors.length" class="card text-center py-12">
+        <div v-else-if="!competitors.length" class="card-highlight text-center py-12">
           <p class="text-gray-500 mb-4">
             No competitors added yet. Start tracking your competitors to see where they appear in AI responses.
           </p>
-          <button class="btn btn-primary" @click="showAddModal = true">
+          <button class="btn-primary" @click="showAddModal = true">
             Add Your First Competitor
           </button>
         </div>
@@ -34,7 +34,7 @@
           <div
             v-for="competitor in competitors"
             :key="competitor.id"
-            class="card"
+            class="card-highlight"
           >
             <div class="flex justify-between items-start mb-4">
               <div>
@@ -60,7 +60,7 @@
             <div class="flex gap-2">
               <button
                 @click="removeCompetitor(competitor)"
-                class="btn btn-outline text-sm flex-1"
+                class="btn-outline text-sm flex-1"
               >
                 Remove
               </button>
@@ -102,13 +102,13 @@
             <button
               type="button"
               @click="showAddModal = false"
-              class="btn btn-secondary flex-1"
+              class="btn-secondary flex-1"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="btn btn-primary flex-1"
+              class="btn-primary flex-1"
               :disabled="isSubmitting"
             >
               {{ isSubmitting ? 'Adding...' : 'Add Competitor' }}

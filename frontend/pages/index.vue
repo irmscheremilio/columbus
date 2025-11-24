@@ -73,7 +73,14 @@
 
           <div class="grid md:grid-cols-3 gap-6">
             <div class="card-highlight">
-              <div class="text-3xl mb-4">🔍</div>
+              <!-- Layered icon container -->
+              <div class="w-[70px] h-[70px] rounded-[20px] p-2 mb-4 flex items-center justify-center" style="background: linear-gradient(rgba(242, 153, 1, 0.1) 0%, rgba(242, 153, 1, 0.2) 100%); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);">
+                <div class="w-[54px] h-[54px] rounded-[15px] bg-white flex items-center justify-center shadow-sm">
+                  <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                </div>
+              </div>
               <h3 class="text-xl font-bold mb-3">Invisible to AI</h3>
               <p class="text-gray-600">
                 Your brand doesn't appear in ChatGPT, Claude, or Perplexity responses—even when you should.
@@ -81,7 +88,13 @@
             </div>
 
             <div class="card-highlight">
-              <div class="text-3xl mb-4">🤷</div>
+              <div class="w-[70px] h-[70px] rounded-[20px] p-2 mb-4 flex items-center justify-center" style="background: linear-gradient(rgba(242, 153, 1, 0.1) 0%, rgba(242, 153, 1, 0.2) 100%); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);">
+                <div class="w-[54px] h-[54px] rounded-[15px] bg-white flex items-center justify-center shadow-sm">
+                  <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
               <h3 class="text-xl font-bold mb-3">No Clear Solution</h3>
               <p class="text-gray-600">
                 Other tools show problems but don't tell you how to fix them. You need actionable steps.
@@ -89,7 +102,13 @@
             </div>
 
             <div class="card-highlight">
-              <div class="text-3xl mb-4">💸</div>
+              <div class="w-[70px] h-[70px] rounded-[20px] p-2 mb-4 flex items-center justify-center" style="background: linear-gradient(rgba(242, 153, 1, 0.1) 0%, rgba(242, 153, 1, 0.2) 100%); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);">
+                <div class="w-[54px] h-[54px] rounded-[15px] bg-white flex items-center justify-center shadow-sm">
+                  <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
               <h3 class="text-xl font-bold mb-3">Expensive Tools</h3>
               <p class="text-gray-600">
                 Enterprise AEO tools cost $500+/month. Cheap tools are useless. There's no middle ground.

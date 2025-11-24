@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-background">
     <DashboardNav />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -11,13 +11,25 @@
               Platform-specific guides to improve your AEO visibility
             </p>
           </div>
-          <button class="btn btn-primary" @click="refreshRecommendations">
-            Refresh
-          </button>
+          <div class="flex gap-3">
+            <button class="btn-outline" @click="refreshRecommendations" :disabled="loading">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+            <button class="btn-primary" @click="runWebsiteAnalysis" :disabled="analyzing">
+              <svg v-if="!analyzing" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <div v-else class="w-5 h-5 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              {{ analyzing ? 'Analyzing...' : 'Run New Analysis' }}
+            </button>
+          </div>
         </div>
 
         <!-- Filters -->
-        <div class="card mb-6">
+        <div class="card-highlight mb-6">
           <div class="flex flex-wrap gap-4">
             <div>
               <label class="label">Status</label>
@@ -52,10 +64,10 @@
 
         <!-- Recommendations List -->
         <div v-if="loading" class="text-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
         </div>
 
-        <div v-else-if="!filteredRecommendations.length" class="card text-center py-12">
+        <div v-else-if="!filteredRecommendations.length" class="card-highlight text-center py-12">
           <p class="text-gray-500">
             {{ filterStatus === 'all' ? 'No recommendations found. Run a visibility scan to get started!' : 'No recommendations match your filters.' }}
           </p>
@@ -65,7 +77,7 @@
           <div
             v-for="rec in filteredRecommendations"
             :key="rec.id"
-            class="card hover:shadow-md transition-shadow cursor-pointer"
+            class="card-highlight hover:shadow-md transition-shadow cursor-pointer"
             @click="$router.push(`/dashboard/recommendations/${rec.id}`)"
           >
             <div class="flex items-start gap-4">
@@ -131,6 +143,7 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 
 const loading = ref(true)
+const analyzing = ref(false)
 const recommendations = ref<any[]>([])
 const filterStatus = ref('all')
 const filterCategory = ref('all')
@@ -177,6 +190,29 @@ const loadRecommendations = async () => {
 
 const refreshRecommendations = async () => {
   await loadRecommendations()
+}
+
+const runWebsiteAnalysis = async () => {
+  analyzing.value = true
+  try {
+    const { data, error } = await supabase.functions.invoke('trigger-website-analysis', {
+      body: { includeCompetitorGaps: true }
+    })
+
+    if (error) throw error
+
+    alert(`Website analysis started! We'll analyze your site and generate fresh recommendations. This typically takes 2-3 minutes. Refresh this page in a few minutes to see your new recommendations.`)
+
+    // Refresh after 3 minutes
+    setTimeout(async () => {
+      await loadRecommendations()
+    }, 180000)
+  } catch (error: any) {
+    console.error('Error running website analysis:', error)
+    alert(`Failed to start website analysis: ${error.message || 'Unknown error'}`)
+  } finally {
+    analyzing.value = false
+  }
 }
 
 const getPriorityColor = (priority: number) => {
