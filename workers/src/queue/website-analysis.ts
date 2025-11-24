@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
 import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
+import { sendScanCompletedEmail } from '../services/email.js'
 import Redis from 'ioredis'
 
 const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -187,8 +188,43 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 )
 
 // Event listeners
-websiteAnalysisWorker.on('completed', (job) => {
+websiteAnalysisWorker.on('completed', async (job, result) => {
   console.log(`[Website Analysis] Job ${job.id} completed successfully`)
+
+  try {
+    // Get organization and owner for email notification
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('id', job.data.organizationId)
+      .single()
+
+    if (!org) return
+
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('organization_id', org.id)
+      .eq('role', 'owner')
+      .single()
+
+    if (!owner?.email) return
+
+    // Send completion email
+    await sendScanCompletedEmail({
+      recipientEmail: owner.email,
+      recipientName: owner.full_name || 'there',
+      brandName: org.name,
+      scanType: 'website',
+      totalScans: result.recommendationsCount,
+      dashboardUrl: `${process.env.APP_URL || 'https://columbus-aeo.com'}/dashboard/recommendations`
+    })
+
+    console.log(`[Website Analysis] Notification email sent to ${owner.email}`)
+  } catch (error) {
+    console.error('[Website Analysis] Error sending completion email:', error)
+    // Don't throw - email failure shouldn't affect job completion
+  }
 })
 
 websiteAnalysisWorker.on('failed', (job, err) => {

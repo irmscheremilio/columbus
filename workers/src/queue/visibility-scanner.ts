@@ -5,6 +5,7 @@ import { ClaudeClient } from '../clients/claude.js'
 import { GeminiClient } from '../clients/gemini.js'
 import { PerplexityClient } from '../clients/perplexity.js'
 import { checkRateLimit, trackCost, waitForRateLimit } from '../utils/rate-limiter.js'
+import { sendScanCompletedEmail } from '../services/email.js'
 import type { ScanJobData, ScanJobResult, AIResponse } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -165,10 +166,74 @@ function calculateVisibilityScore(results: AIResponse[]): number {
 }
 
 // Handle worker events
-visibilityScanWorker.on('completed', (job) => {
+visibilityScanWorker.on('completed', async (job, result) => {
   console.log(`[Visibility Scanner] Job ${job.id} completed successfully`)
+
+  try {
+    // Mark job as completed in database if jobId is provided
+    if (job.data.jobId) {
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.data.jobId)
+    }
+
+    // Get organization owner's email for notification
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('id', job.data.organizationId)
+      .single()
+
+    if (!org) return
+
+    // Get owner's profile
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('organization_id', org.id)
+      .eq('role', 'owner')
+      .single()
+
+    if (!owner?.email) return
+
+    // Send completion email
+    await sendScanCompletedEmail({
+      recipientEmail: owner.email,
+      recipientName: owner.full_name || 'there',
+      brandName: job.data.brandName,
+      scanType: 'visibility',
+      totalScans: result.results.length,
+      visibilityScore: result.visibilityScore,
+      dashboardUrl: `${process.env.APP_URL || 'https://columbus-aeo.com'}/dashboard`
+    })
+
+    console.log(`[Visibility Scanner] Notification email sent to ${owner.email}`)
+  } catch (error) {
+    console.error('[Visibility Scanner] Error sending completion email:', error)
+    // Don't throw - email failure shouldn't affect job completion
+  }
 })
 
-visibilityScanWorker.on('failed', (job, err) => {
+visibilityScanWorker.on('failed', async (job, err) => {
   console.error(`[Visibility Scanner] Job ${job?.id} failed:`, err)
+
+  // Mark job as failed in database if jobId is provided
+  if (job?.data.jobId) {
+    try {
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_message: err.message
+        })
+        .eq('id', job.data.jobId)
+    } catch (updateError) {
+      console.error('[Visibility Scanner] Error updating job status:', updateError)
+    }
+  }
 })

@@ -5,6 +5,7 @@ import { ClaudeClient } from '../clients/claude.js'
 import { GeminiClient } from '../clients/gemini.js'
 import { PerplexityClient } from '../clients/perplexity.js'
 import { waitForRateLimit, trackCost } from '../utils/rate-limiter.js'
+import { sendScanCompletedEmail } from '../services/email.js'
 import type { AIResponse } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -151,10 +152,72 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
 )
 
 // Worker events
-competitorAnalysisWorker.on('completed', (job) => {
+competitorAnalysisWorker.on('completed', async (job, result) => {
   console.log(`[Competitor Analysis] Job ${job.id} completed`)
+
+  try {
+    // Mark job as completed in database if jobId is provided
+    if (job.data.jobId) {
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.data.jobId)
+    }
+
+    // Get organization and owner for email notification
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('id', job.data.organizationId)
+      .single()
+
+    if (!org) return
+
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('organization_id', org.id)
+      .eq('role', 'owner')
+      .single()
+
+    if (!owner?.email) return
+
+    // Send completion email
+    await sendScanCompletedEmail({
+      recipientEmail: owner.email,
+      recipientName: owner.full_name || 'there',
+      brandName: job.data.brandName,
+      scanType: 'competitor',
+      totalScans: result.gapsFound,
+      dashboardUrl: `${process.env.APP_URL || 'https://columbus-aeo.com'}/dashboard/gaps`
+    })
+
+    console.log(`[Competitor Analysis] Notification email sent to ${owner.email}`)
+  } catch (error) {
+    console.error('[Competitor Analysis] Error sending completion email:', error)
+    // Don't throw - email failure shouldn't affect job completion
+  }
 })
 
-competitorAnalysisWorker.on('failed', (job, err) => {
+competitorAnalysisWorker.on('failed', async (job, err) => {
   console.error(`[Competitor Analysis] Job ${job?.id} failed:`, err)
+
+  // Mark job as failed in database if jobId is provided
+  if (job?.data.jobId) {
+    try {
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_message: err.message
+        })
+        .eq('id', job.data.jobId)
+    } catch (updateError) {
+      console.error('[Competitor Analysis] Error updating job status:', updateError)
+    }
+  }
 })
