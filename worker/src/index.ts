@@ -1,60 +1,68 @@
-import dotenv from 'dotenv'
+import 'dotenv/config'
 import express from 'express'
-import { startVisibilityScanWorker } from './workers/visibility-scanner.js'
-import { startRecommendationWorker } from './workers/recommendation-generator.js'
-import { emailWorker } from './workers/email-notification-worker.js'
-import { queueVisibilityScan } from './queues/visibility-scan.js'
-
-dotenv.config()
+import { visibilityScanWorker } from './queue/visibility-scanner.js'
+import { competitorAnalysisWorker } from './queue/competitor-analysis.js'
+import { websiteAnalysisWorker } from './queue/website-analysis.js'
+import { scanSchedulerWorker } from './queue/scan-scheduler.js'
+import { jobProcessor } from './queue/job-processor.js'
 
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 8080
 
 app.use(express.json())
 
-// Health check
+// Health check endpoint for Railway
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    workers: {
+      jobProcessor: 'running',
+      visibilityScanner: 'running',
+      competitorAnalysis: 'running',
+      websiteAnalysis: 'running',
+      scanScheduler: 'running'
+    }
+  })
 })
 
-// API endpoint to queue a visibility scan
-app.post('/api/scan/queue', async (req, res) => {
-  const { apiSecret, organizationId, promptIds } = req.body
-
-  // Verify API secret
-  if (apiSecret !== process.env.API_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' })
-  }
-
-  if (!organizationId) {
-    return res.status(400).json({ error: 'organizationId is required' })
-  }
-
-  try {
-    const job = await queueVisibilityScan({
-      organizationId,
-      promptIds: promptIds || [],
-    })
-
-    res.json({
-      success: true,
-      jobId: job.id,
-      status: 'queued'
-    })
-  } catch (error: any) {
-    console.error('Error queueing scan:', error)
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// Start workers
-startVisibilityScanWorker()
-startRecommendationWorker()
-
+// Start HTTP server
 app.listen(PORT, () => {
+  console.log('Columbus Workers - Starting...')
   console.log(`Worker server running on port ${PORT}`)
-  console.log('Workers started:')
-  console.log('- Visibility Scanner')
-  console.log('- Recommendation Generator')
-  console.log('- Email Notification Worker')
+  console.log('Supabase URL:', process.env.SUPABASE_URL)
+  console.log('Redis URL:', process.env.REDIS_URL || 'redis://localhost:6379')
+  console.log('Redis connection: Ready')
+
+  console.log('Workers initialized:')
+  console.log('- Job Processor: Running (polls database every 5 seconds)')
+  console.log('- Visibility Scanner Worker: Running')
+  console.log('- Competitor Analysis Worker: Running')
+  console.log('- Website Analysis Worker: Running')
+  console.log('- Scan Scheduler Worker: Running (checks every 6 hours)')
+})
+
+// Keep process alive
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing workers...')
+  await jobProcessor.stop()
+  await Promise.all([
+    visibilityScanWorker.close(),
+    competitorAnalysisWorker.close(),
+    websiteAnalysisWorker.close(),
+    scanSchedulerWorker.close()
+  ])
+  process.exit(0)
+})
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, closing workers...')
+  await jobProcessor.stop()
+  await Promise.all([
+    visibilityScanWorker.close(),
+    competitorAnalysisWorker.close(),
+    websiteAnalysisWorker.close(),
+    scanSchedulerWorker.close()
+  ])
+  process.exit(0)
 })
