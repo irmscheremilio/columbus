@@ -103,24 +103,24 @@ serve(async (req) => {
     const defaultPrompts = [
       {
         organization_id: org.id,
-        title: 'General Product Recommendation',
-        prompt: `What are the best ${brandName} products for [use case]?`,
+        prompt_text: `What are the best ${brandName} products for different use cases?`,
         category: 'product',
-        is_active: true,
+        is_custom: false,
+        granularity_level: 1,
       },
       {
         organization_id: org.id,
-        title: 'Competitor Comparison',
-        prompt: `Compare ${brandName} with competitors for [specific need]`,
+        prompt_text: `Compare ${brandName} with competitors for specific business needs`,
         category: 'comparison',
-        is_active: true,
+        is_custom: false,
+        granularity_level: 1,
       },
       {
         organization_id: org.id,
-        title: 'Solution Finder',
-        prompt: `I need a solution for [problem]. Can ${brandName} help?`,
+        prompt_text: `I need a solution for my problem. Can ${brandName} help?`,
         category: 'solution',
-        is_active: true,
+        is_custom: false,
+        granularity_level: 1,
       },
     ]
 
