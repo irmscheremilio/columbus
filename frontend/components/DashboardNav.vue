@@ -24,6 +24,13 @@
               Visibility
             </NuxtLink>
             <NuxtLink
+              to="/dashboard/prompts"
+              class="inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2"
+              :class="route.path.startsWith('/dashboard/prompts') ? 'border-brand text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+            >
+              Prompts
+            </NuxtLink>
+            <NuxtLink
               to="/dashboard/recommendations"
               class="inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2"
               :class="route.path.startsWith('/dashboard/recommendations') ? 'border-brand text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"

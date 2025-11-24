@@ -58,6 +58,18 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Check if website has been analyzed
+    if (!org.website_analyzed || !org.domain) {
+      return new Response(
+        JSON.stringify({
+          error: 'Please complete onboarding first',
+          message: 'Your website needs to be analyzed before running scans. Please complete the onboarding process.',
+          redirectTo: '/onboarding'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Get active brand for this organization
     const { data: brand } = await supabaseClient
       .from('brands')
@@ -78,29 +90,19 @@ Deno.serve(async (req) => {
       .from('prompts')
       .select('id')
       .eq('organization_id', org.id)
-      .limit(10) // Start with 10 prompts for MVP
-
-    // If no custom prompts, we'll need to create default ones
-    let promptIds: string[] = []
 
     if (!prompts || prompts.length === 0) {
-      // Create default prompts based on industry
-      const defaultPrompts = getDefaultPrompts(org.industry || 'general', brand.name, org.domain)
-
-      const { data: createdPrompts } = await supabaseClient
-        .from('prompts')
-        .insert(defaultPrompts.map(p => ({
-          organization_id: org.id,
-          prompt_text: p,
-          category: 'product',
-          is_custom: false
-        })))
-        .select('id')
-
-      promptIds = createdPrompts?.map(p => p.id) || []
-    } else {
-      promptIds = prompts.map(p => p.id)
+      return new Response(
+        JSON.stringify({
+          error: 'No prompts found',
+          message: 'Please complete onboarding to generate prompts, or add custom prompts manually.',
+          redirectTo: '/onboarding'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+
+    const promptIds = prompts.map(p => p.id)
 
     // Get active competitors
     const { data: competitors } = await supabaseClient
@@ -153,30 +155,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-
-/**
- * Generate default prompts based on industry and brand
- */
-function getDefaultPrompts(industry: string, brandName: string, domain: string): string[] {
-  const prompts = [
-    // Generic product queries
-    `What are the best tools for ${industry}?`,
-    `Top ${industry} solutions in 2025`,
-    `${brandName} vs competitors`,
-    `Is ${brandName} worth it?`,
-    `${brandName} review`,
-
-    // Comparison queries
-    `Compare ${brandName} alternatives`,
-    `Best ${brandName} alternatives`,
-
-    // How-to queries
-    `How to choose the right ${industry} tool?`,
-    `What features to look for in ${industry} software?`,
-
-    // Commercial intent
-    `Best ${industry} tool for small business`
-  ]
-
-  return prompts
-}

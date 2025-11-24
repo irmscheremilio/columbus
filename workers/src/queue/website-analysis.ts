@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
+import { ProductAnalyzer } from '../analyzers/product-analyzer.js'
 import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import Redis from 'ioredis'
@@ -55,7 +56,93 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       const crawler = new WebsiteCrawler()
       const websiteAnalysis = await crawler.analyze(domain)
 
-      // 2. Store website analysis results
+      // 2. Analyze product using AI
+      console.log(`[Website Analysis] Analyzing product with AI...`)
+      const productAnalyzer = new ProductAnalyzer()
+      const productAnalysis = await productAnalyzer.analyzeProduct(domain, websiteAnalysis)
+
+      // 3. Store product analysis
+      console.log(`[Website Analysis] Storing product analysis...`)
+      const { error: productError } = await supabase
+        .from('product_analyses')
+        .upsert({
+          organization_id: organizationId,
+          domain,
+          product_name: productAnalysis.productName,
+          product_description: productAnalysis.productDescription,
+          key_features: productAnalysis.keyFeatures,
+          target_audience: productAnalysis.targetAudience,
+          use_cases: productAnalysis.useCases,
+          differentiators: productAnalysis.differentiators,
+          analyzed_at: new Date().toISOString()
+        }, {
+          onConflict: 'organization_id'
+        })
+
+      if (productError) {
+        console.error('[Website Analysis] Error storing product analysis:', productError)
+        // Don't throw - continue even if product analysis fails
+      }
+
+      // 4. Generate contextual prompts with granularity levels
+      console.log(`[Website Analysis] Generating contextual prompts...`)
+
+      // Delete existing prompts that aren't custom
+      await supabase
+        .from('prompts')
+        .delete()
+        .eq('organization_id', organizationId)
+        .eq('is_custom', false)
+
+      // Generate Level 1 prompts (broad)
+      const level1Prompts = productAnalysis.promptSuggestions.level1.map(text => ({
+        organization_id: organizationId,
+        prompt_text: text,
+        category: productAnalysis.industryCategory,
+        granularity_level: 1,
+        is_custom: false
+      }))
+
+      // Generate Level 2 prompts (specific use cases)
+      const level2Prompts = productAnalysis.promptSuggestions.level2.map(text => ({
+        organization_id: organizationId,
+        prompt_text: text,
+        category: productAnalysis.industryCategory,
+        granularity_level: 2,
+        is_custom: false
+      }))
+
+      // Generate Level 3 prompts (detailed technical)
+      const level3Prompts = productAnalysis.promptSuggestions.level3.map(text => ({
+        organization_id: organizationId,
+        prompt_text: text,
+        category: productAnalysis.industryCategory,
+        granularity_level: 3,
+        is_custom: false
+      }))
+
+      const allPrompts = [...level1Prompts, ...level2Prompts, ...level3Prompts]
+
+      const { error: promptsError } = await supabase
+        .from('prompts')
+        .insert(allPrompts)
+
+      if (promptsError) {
+        console.error('[Website Analysis] Error storing prompts:', promptsError)
+      }
+
+      console.log(`[Website Analysis] Generated ${allPrompts.length} contextual prompts (${level1Prompts.length} L1, ${level2Prompts.length} L2, ${level3Prompts.length} L3)`)
+
+      // 5. Mark organization as analyzed
+      await supabase
+        .from('organizations')
+        .update({
+          website_analyzed: true,
+          onboarding_completed: true
+        })
+        .eq('id', organizationId)
+
+      // 6. Store website analysis results
       console.log(`[Website Analysis] Storing website analysis...`)
       const { data: analysisRecord, error: analysisError } = await supabase
         .from('website_analyses')
@@ -77,7 +164,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         throw analysisError
       }
 
-      // 3. Get recent scan results for context
+      // 7. Get recent scan results for context
       console.log(`[Website Analysis] Fetching recent scan results...`)
       const { data: scanResults } = await supabase
         .from('prompt_results')
@@ -86,7 +173,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .order('tested_at', { ascending: false })
         .limit(50)
 
-      // 4. Get competitor gaps if requested
+      // 8. Get competitor gaps if requested
       let competitorGaps: any[] = []
       if (includeCompetitorGaps) {
         console.log(`[Website Analysis] Fetching competitor gaps...`)
@@ -100,7 +187,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         competitorGaps = gaps || []
       }
 
-      // 5. Generate recommendations
+      // 9. Generate recommendations
       console.log(`[Website Analysis] Generating recommendations...`)
       const recommendationEngine = new RecommendationEngine()
       const recommendations = recommendationEngine.generateRecommendations(
@@ -111,7 +198,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       console.log(`[Website Analysis] Generated ${recommendations.length} recommendations`)
 
-      // 6. Store recommendations
+      // 10. Store recommendations
       console.log(`[Website Analysis] Storing recommendations...`)
       const recommendationsToInsert = recommendations.map(rec => ({
         organization_id: organizationId,
