@@ -117,6 +117,7 @@ class JobProcessor {
       case 'visibility_scan':
         await visibilityScanQueue.add('scan', {
           organizationId: job.organization_id,
+          brandId: job.metadata.brandId,
           brandName: job.metadata.brandName,
           domain: job.metadata.domain,
           promptIds: job.metadata.promptIds,

@@ -2,7 +2,7 @@ import 'dotenv/config'
 import { visibilityScanWorker } from './queue/visibility-scanner.js'
 import { competitorAnalysisWorker } from './queue/competitor-analysis.js'
 import { websiteAnalysisWorker } from './queue/website-analysis.js'
-import { scanSchedulerWorker, scheduler } from './queue/scan-scheduler.js'
+import { scanSchedulerWorker } from './queue/scan-scheduler.js'
 import { jobProcessor } from './queue/job-processor.js'
 
 console.log('Columbus Workers - Starting...')
@@ -25,8 +25,7 @@ process.on('SIGTERM', async () => {
     visibilityScanWorker.close(),
     competitorAnalysisWorker.close(),
     websiteAnalysisWorker.close(),
-    scanSchedulerWorker.close(),
-    scheduler.close()
+    scanSchedulerWorker.close()
   ])
   process.exit(0)
 })
@@ -38,8 +37,7 @@ process.on('SIGINT', async () => {
     visibilityScanWorker.close(),
     competitorAnalysisWorker.close(),
     websiteAnalysisWorker.close(),
-    scanSchedulerWorker.close(),
-    scheduler.close()
+    scanSchedulerWorker.close()
   ])
   process.exit(0)
 })

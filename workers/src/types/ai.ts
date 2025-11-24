@@ -37,6 +37,8 @@ export interface ScanJobData {
   domain: string
   promptIds: string[]
   competitors: string[]
+  isScheduled?: boolean
+  jobId?: string
 }
 
 export interface ScanJobResult {

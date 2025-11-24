@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler } from 'bullmq'
+import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import Redis from 'ioredis'
 
@@ -26,13 +26,6 @@ export const scanSchedulerQueue = new Queue('scan-scheduler', {
     removeOnComplete: 100,
     removeOnFail: 100
   }
-})
-
-/**
- * Queue Scheduler for recurring jobs
- */
-export const scheduler = new QueueScheduler('scan-scheduler', {
-  connection: redisConnection
 })
 
 /**
@@ -76,7 +69,9 @@ export const scanSchedulerWorker = new Worker(
 
       for (const subscription of subscriptions) {
         try {
-          const org = subscription.organizations
+          const org = Array.isArray(subscription.organizations)
+            ? subscription.organizations[0]
+            : subscription.organizations
           if (!org || !org.domain) {
             console.log(`[Scan Scheduler] Skipping org ${subscription.organization_id} - no domain configured`)
             continue

@@ -23,6 +23,7 @@ interface CompetitorAnalysisJobData {
   competitorId: string
   competitorName: string
   promptIds: string[]
+  jobId?: string
 }
 
 /**
