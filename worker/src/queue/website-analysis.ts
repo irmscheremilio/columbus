@@ -3,11 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
 import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
 import { sendScanCompletedEmail } from '../services/email.js'
-import Redis from 'ioredis'
+import { createRedisConnection } from '../utils/redis.js'
 
-const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-})
+const redisConnection = createRedisConnection()
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,

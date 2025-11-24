@@ -1,4 +1,5 @@
 import { Worker, Queue } from 'bullmq'
+import { createRedisConnection } from '../utils/redis.js'
 import { createClient } from '@supabase/supabase-js'
 import { ChatGPTClient } from '../clients/chatgpt.js'
 import { ClaudeClient } from '../clients/claude.js'
@@ -13,10 +14,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABAS
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379')
-}
+const connection = createRedisConnection()
 
 interface CompetitorAnalysisJobData {
   organizationId: string

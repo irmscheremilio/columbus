@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createRedisConnection } from '../utils/redis.js'
 import { websiteAnalysisQueue } from './website-analysis.js'
 import { competitorAnalysisQueue } from './competitor-analysis.js'
 import { visibilityScanQueue } from './visibility-scanner.js'

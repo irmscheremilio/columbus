@@ -6,6 +6,7 @@ import { GeminiClient } from '../clients/gemini.js'
 import { PerplexityClient } from '../clients/perplexity.js'
 import { checkRateLimit, trackCost, waitForRateLimit } from '../utils/rate-limiter.js'
 import { sendScanCompletedEmail } from '../services/email.js'
+import { createRedisConnection } from '../utils/redis.js'
 import type { ScanJobData, ScanJobResult, AIResponse } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -13,10 +14,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABAS
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379')
-}
+const connection = createRedisConnection()
 
 /**
  * Queue for visibility scan jobs

@@ -1,10 +1,8 @@
 import { Queue, Worker } from 'bullmq'
+import { createRedisConnection } from '../utils/redis.js'
 import { createClient } from '@supabase/supabase-js'
-import Redis from 'ioredis'
 
-const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-})
+const redisConnection = createRedisConnection()
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
