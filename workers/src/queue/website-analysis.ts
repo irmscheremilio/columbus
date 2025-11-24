@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
-import { ProductAnalyzer } from '../analyzers/product-analyzer.js'
+import { ProductAnalyzerOpenAI } from '../analyzers/product-analyzer-openai.js'
 import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import Redis from 'ioredis'
@@ -47,6 +47,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
   'website-analysis',
   async (job) => {
     const { organizationId, domain, includeCompetitorGaps = false } = job.data
+    const businessDescription = (job.data as any).businessDescription || ''
 
     console.log(`[Website Analysis] Starting analysis for ${domain}`)
 
@@ -56,10 +57,10 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       const crawler = new WebsiteCrawler()
       const websiteAnalysis = await crawler.analyze(domain)
 
-      // 2. Analyze product using AI
-      console.log(`[Website Analysis] Analyzing product with AI...`)
-      const productAnalyzer = new ProductAnalyzer()
-      const productAnalysis = await productAnalyzer.analyzeProduct(domain, websiteAnalysis)
+      // 2. Analyze product using AI (OpenAI GPT-4o-mini)
+      console.log(`[Website Analysis] Analyzing product with OpenAI GPT-4o-mini...`)
+      const productAnalyzer = new ProductAnalyzerOpenAI()
+      const productAnalysis = await productAnalyzer.analyzeProduct(domain, websiteAnalysis, businessDescription)
 
       // 3. Store product analysis
       console.log(`[Website Analysis] Storing product analysis...`)

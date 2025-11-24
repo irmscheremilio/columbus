@@ -70,6 +70,7 @@ serve(async (req) => {
     // Get request body (optional parameters)
     const body = await req.json().catch(() => ({}))
     const includeCompetitorGaps = body.includeCompetitorGaps ?? true
+    const businessDescription = body.businessDescription || ''
 
     // Create job record in database for workers to process
     const { data: job, error: jobError } = await supabaseClient
@@ -80,7 +81,8 @@ serve(async (req) => {
         status: 'queued',
         metadata: {
           domain: org.domain,
-          includeCompetitorGaps
+          includeCompetitorGaps,
+          businessDescription
         }
       })
       .select()

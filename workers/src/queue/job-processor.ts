@@ -99,6 +99,7 @@ class JobProcessor {
           organizationId: job.organization_id,
           domain: job.metadata.domain,
           includeCompetitorGaps: job.metadata.includeCompetitorGaps ?? true,
+          businessDescription: job.metadata.businessDescription || '',
           jobId: job.id
         })
         break

@@ -44,13 +44,28 @@
           </div>
         </div>
 
-        <!-- Step 1: Website URL -->
+        <!-- Step 1: Company Details -->
         <div v-if="step === 1" class="space-y-6">
           <div>
-            <h2 class="text-2xl font-bold mb-2">What's your website URL?</h2>
+            <h2 class="text-2xl font-bold mb-2">Tell us about your business</h2>
             <p class="text-gray-600">
-              We'll analyze your website to understand your product and generate personalized search prompts.
+              We'll analyze your website and use your description to generate personalized search prompts.
             </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Company Name
+            </label>
+            <input
+              v-model="companyName"
+              type="text"
+              placeholder="Your Company Name"
+              class="input-field"
+              :class="{ 'border-red-500': nameError }"
+              @input="nameError = ''"
+            />
+            <p v-if="nameError" class="mt-2 text-sm text-red-600">{{ nameError }}</p>
           </div>
 
           <div>
@@ -68,9 +83,25 @@
             <p v-if="urlError" class="mt-2 text-sm text-red-600">{{ urlError }}</p>
           </div>
 
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              What does your business do?
+            </label>
+            <textarea
+              v-model="businessDescription"
+              rows="3"
+              placeholder="E.g., We provide AI-powered marketing analytics for e-commerce brands..."
+              class="input-field"
+              :class="{ 'border-red-500': descriptionError }"
+              @input="descriptionError = ''"
+            ></textarea>
+            <p v-if="descriptionError" class="mt-2 text-sm text-red-600">{{ descriptionError }}</p>
+            <p class="mt-1 text-xs text-gray-500">This helps us generate more relevant search prompts</p>
+          </div>
+
           <button
-            @click="submitWebsite"
-            :disabled="loading || !websiteUrl"
+            @click="submitCompanyDetails"
+            :disabled="loading || !websiteUrl || !companyName || !businessDescription"
             class="btn-primary w-full"
           >
             <span v-if="loading" class="flex items-center justify-center">
@@ -78,9 +109,9 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Analyzing website...
+              Analyzing...
             </span>
-            <span v-else>Continue →</span>
+            <span v-else>Analyze & Generate Prompts →</span>
           </button>
         </div>
 
@@ -176,8 +207,12 @@ const user = useSupabaseUser()
 
 const step = ref(1)
 const loading = ref(false)
+const companyName = ref('')
 const websiteUrl = ref('')
+const businessDescription = ref('')
+const nameError = ref('')
 const urlError = ref('')
+const descriptionError = ref('')
 const analysisStep = ref(0)
 const jobId = ref<string | null>(null)
 const generatedPromptsCount = ref(0)
@@ -207,9 +242,18 @@ onMounted(async () => {
   }
 })
 
-const submitWebsite = async () => {
+const submitCompanyDetails = async () => {
+  // Validate inputs
+  if (!companyName.value) {
+    nameError.value = 'Please enter your company name'
+    return
+  }
   if (!websiteUrl.value) {
     urlError.value = 'Please enter your website URL'
+    return
+  }
+  if (!businessDescription.value) {
+    descriptionError.value = 'Please describe what your business does'
     return
   }
 
@@ -223,7 +267,9 @@ const submitWebsite = async () => {
   }
 
   loading.value = true
+  nameError.value = ''
   urlError.value = ''
+  descriptionError.value = ''
 
   try {
     // Get organization
@@ -237,13 +283,16 @@ const submitWebsite = async () => {
       throw new Error('Organization not found')
     }
 
-    // Update organization domain
+    // Update organization with all details
     await supabase
       .from('organizations')
-      .update({ domain: websiteUrl.value })
+      .update({
+        name: companyName.value,
+        domain: websiteUrl.value
+      })
       .eq('id', userData.organization_id)
 
-    // Trigger website analysis
+    // Trigger website analysis with business description
     const { data: { session } } = await supabase.auth.getSession()
 
     const { data, error } = await supabase.functions.invoke('trigger-website-analysis', {
@@ -251,7 +300,8 @@ const submitWebsite = async () => {
         Authorization: `Bearer ${session?.access_token}`
       },
       body: {
-        domain: websiteUrl.value
+        domain: websiteUrl.value,
+        businessDescription: businessDescription.value
       }
     })
 
@@ -266,7 +316,7 @@ const submitWebsite = async () => {
     // Start polling for job completion
     pollJobStatus()
   } catch (error: any) {
-    console.error('Error submitting website:', error)
+    console.error('Error submitting company details:', error)
     urlError.value = error.message || 'Failed to start analysis'
     loading.value = false
   }
