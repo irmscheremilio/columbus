@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -17,22 +17,53 @@ COPY src ./src
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
+
+# Install Playwright system dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
+# Install production dependencies
 RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Install Playwright browsers (as root for system dependencies)
+RUN npx playwright install --with-deps chromium
+
+# Create non-root user and set permissions
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs nodejs && \
+    chown -R nodejs:nodejs /app && \
+    mkdir -p /home/nodejs/.cache && \
+    chown -R nodejs:nodejs /home/nodejs
 
 USER nodejs
 
