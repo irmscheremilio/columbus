@@ -68,6 +68,53 @@
         </div>
       </div>
 
+      <!-- Granularity Level Performance -->
+      <div class="px-4 py-6 sm:px-0">
+        <div class="card-highlight">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Visibility by Prompt Granularity</h2>
+            <NuxtLink to="/dashboard/prompts" class="text-sm text-brand hover:opacity-80">
+              Manage prompts →
+            </NuxtLink>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-green-800">Level 1 - Broad</span>
+                <span class="px-2 py-0.5 bg-green-500 text-white text-xs rounded font-bold">L1</span>
+              </div>
+              <div class="text-2xl font-bold text-green-900">{{ granularityStats.level1.citationRate }}%</div>
+              <div class="text-xs text-green-600 mt-1">
+                {{ granularityStats.level1.prompts }} prompts · {{ granularityStats.level1.citations }} citations
+              </div>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-yellow-800">Level 2 - Specific</span>
+                <span class="px-2 py-0.5 bg-yellow-500 text-white text-xs rounded font-bold">L2</span>
+              </div>
+              <div class="text-2xl font-bold text-yellow-900">{{ granularityStats.level2.citationRate }}%</div>
+              <div class="text-xs text-yellow-600 mt-1">
+                {{ granularityStats.level2.prompts }} prompts · {{ granularityStats.level2.citations }} citations
+              </div>
+            </div>
+            <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-orange-800">Level 3 - Detailed</span>
+                <span class="px-2 py-0.5 bg-orange-500 text-white text-xs rounded font-bold">L3</span>
+              </div>
+              <div class="text-2xl font-bold text-orange-900">{{ granularityStats.level3.citationRate }}%</div>
+              <div class="text-xs text-orange-600 mt-1">
+                {{ granularityStats.level3.prompts }} prompts · {{ granularityStats.level3.citations }} citations
+              </div>
+            </div>
+          </div>
+          <div v-if="!granularityStats.hasData" class="text-center py-4 text-sm text-gray-500 mt-4">
+            No scan data yet. Run a visibility scan to see performance by granularity level.
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Actions -->
       <div class="px-4 py-6 sm:px-0">
         <div class="card-highlight">
@@ -185,6 +232,12 @@ const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
 const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
+const granularityStats = ref({
+  hasData: false,
+  level1: { prompts: 0, citations: 0, citationRate: 0 },
+  level2: { prompts: 0, citations: 0, citationRate: 0 },
+  level3: { prompts: 0, citations: 0, citationRate: 0 }
+})
 
 onMounted(async () => {
   await loadDashboardData()
@@ -250,10 +303,95 @@ const loadDashboardData = async () => {
       .limit(3)
 
     recommendations.value = recsData || []
+
+    // Load granularity stats
+    await loadGranularityStats(userData.organization_id)
   } catch (error) {
     console.error('Error loading dashboard:', error)
   } finally {
     loading.value = false
+  }
+}
+
+const loadGranularityStats = async (organizationId: string) => {
+  try {
+    // Get prompts by granularity level
+    const { data: prompts } = await supabase
+      .from('prompts')
+      .select('id, granularity_level')
+      .eq('organization_id', organizationId)
+
+    if (!prompts || prompts.length === 0) {
+      return
+    }
+
+    // Count prompts by level
+    const promptsByLevel = prompts.reduce((acc, p) => {
+      const level = p.granularity_level || 1
+      acc[level] = (acc[level] || 0) + 1
+      return acc
+    }, {} as Record<number, number>)
+
+    // Get prompt results to calculate citation rates
+    const promptIds = prompts.map(p => p.id)
+    const { data: results } = await supabase
+      .from('prompt_results')
+      .select('prompt_id, was_mentioned, prompts!inner(granularity_level)')
+      .in('prompt_id', promptIds)
+
+    if (results && results.length > 0) {
+      // Calculate stats by level
+      const statsByLevel: Record<number, { total: number; cited: number }> = {
+        1: { total: 0, cited: 0 },
+        2: { total: 0, cited: 0 },
+        3: { total: 0, cited: 0 }
+      }
+
+      results.forEach((r: any) => {
+        const level = r.prompts?.granularity_level || 1
+        if (statsByLevel[level]) {
+          statsByLevel[level].total++
+          if (r.was_mentioned) {
+            statsByLevel[level].cited++
+          }
+        }
+      })
+
+      granularityStats.value = {
+        hasData: true,
+        level1: {
+          prompts: promptsByLevel[1] || 0,
+          citations: statsByLevel[1].cited,
+          citationRate: statsByLevel[1].total > 0
+            ? Math.round((statsByLevel[1].cited / statsByLevel[1].total) * 100)
+            : 0
+        },
+        level2: {
+          prompts: promptsByLevel[2] || 0,
+          citations: statsByLevel[2].cited,
+          citationRate: statsByLevel[2].total > 0
+            ? Math.round((statsByLevel[2].cited / statsByLevel[2].total) * 100)
+            : 0
+        },
+        level3: {
+          prompts: promptsByLevel[3] || 0,
+          citations: statsByLevel[3].cited,
+          citationRate: statsByLevel[3].total > 0
+            ? Math.round((statsByLevel[3].cited / statsByLevel[3].total) * 100)
+            : 0
+        }
+      }
+    } else {
+      // No results yet, just show prompt counts
+      granularityStats.value = {
+        hasData: false,
+        level1: { prompts: promptsByLevel[1] || 0, citations: 0, citationRate: 0 },
+        level2: { prompts: promptsByLevel[2] || 0, citations: 0, citationRate: 0 },
+        level3: { prompts: promptsByLevel[3] || 0, citations: 0, citationRate: 0 }
+      }
+    }
+  } catch (error) {
+    console.error('Error loading granularity stats:', error)
   }
 }
 
