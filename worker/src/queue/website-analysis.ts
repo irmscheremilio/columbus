@@ -11,7 +11,7 @@ const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:63
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
 )
 
 export interface WebsiteAnalysisJobData {
