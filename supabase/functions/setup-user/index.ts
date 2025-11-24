@@ -99,39 +99,9 @@ serve(async (req) => {
       throw updateError
     }
 
-    // 4. Create default prompts for the organization
-    const defaultPrompts = [
-      {
-        organization_id: org.id,
-        prompt_text: `What are the best ${brandName} products for different use cases?`,
-        category: 'product',
-        is_custom: false,
-        granularity_level: 1,
-      },
-      {
-        organization_id: org.id,
-        prompt_text: `Compare ${brandName} with competitors for specific business needs`,
-        category: 'comparison',
-        is_custom: false,
-        granularity_level: 1,
-      },
-      {
-        organization_id: org.id,
-        prompt_text: `I need a solution for my problem. Can ${brandName} help?`,
-        category: 'solution',
-        is_custom: false,
-        granularity_level: 1,
-      },
-    ]
-
-    const { error: promptsError } = await supabaseAdmin
-      .from('prompts')
-      .insert(defaultPrompts)
-
-    if (promptsError) {
-      console.error('Failed to create default prompts:', promptsError)
-      // Don't fail the request if prompts fail
-    }
+    // Note: Prompts are NOT created here
+    // The website-analysis worker generates contextual prompts after analyzing the website
+    // This is triggered via the trigger-website-analysis edge function
 
     return new Response(
       JSON.stringify({

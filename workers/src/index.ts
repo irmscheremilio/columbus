@@ -4,11 +4,20 @@ import { competitorAnalysisWorker } from './queue/competitor-analysis.js'
 import { websiteAnalysisWorker } from './queue/website-analysis.js'
 import { scanSchedulerWorker } from './queue/scan-scheduler.js'
 import { jobProcessor } from './queue/job-processor.js'
+import { validateAIConfig } from './config/ai.js'
 
 console.log('Columbus Workers - Starting...')
 console.log('Supabase URL:', process.env.SUPABASE_URL)
 console.log('Redis URL:', process.env.REDIS_URL || 'redis://localhost:6379')
 console.log('Redis connection: Ready')
+
+// Validate AI configuration on startup
+try {
+  validateAIConfig()
+} catch (error) {
+  console.error('AI configuration error:', error)
+  console.error('Workers will continue but AI features may fail')
+}
 
 console.log('Workers initialized:')
 console.log('- Job Processor: Running (polls database every 5 seconds)')

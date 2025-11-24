@@ -28,11 +28,20 @@ export class ProductAnalyzer {
   /**
    * Analyze a website and understand the product/service
    */
-  async analyzeProduct(domain: string, websiteAnalysis: WebsiteAnalysis): Promise<ProductAnalysis> {
+  async analyzeProduct(
+    domain: string,
+    websiteAnalysis: WebsiteAnalysis,
+    businessDescription?: string
+  ): Promise<ProductAnalysis> {
     console.log(`[Product Analyzer] Analyzing product for ${domain}`)
 
     // Build context from website analysis
-    const context = this.buildWebsiteContext(domain, websiteAnalysis)
+    let context = this.buildWebsiteContext(domain, websiteAnalysis)
+
+    // Add user-provided description if available
+    if (businessDescription) {
+      context = `User-provided description: "${businessDescription}"\n\n${context}`
+    }
 
     // Use Claude to understand the product
     const prompt = `You are analyzing a website to understand what product or service it offers. Your goal is to deeply understand the business so we can generate relevant search prompts that potential customers might use.

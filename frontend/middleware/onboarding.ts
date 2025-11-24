@@ -2,8 +2,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
 
-  // Skip check for onboarding page itself
-  if (to.path === '/onboarding') {
+  // Skip check for auth routes
+  if (to.path.startsWith('/auth')) {
     return
   }
 
@@ -21,21 +21,15 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       .single()
 
     if (!userData?.organization_id) {
-      return navigateTo('/onboarding')
+      // User hasn't completed setup - redirect to callback which handles onboarding
+      return navigateTo('/auth/callback')
     }
 
-    // Check if onboarding is completed
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('onboarding_completed, website_analyzed')
-      .eq('id', userData.organization_id)
-      .single()
-
-    if (!org?.onboarding_completed) {
-      return navigateTo('/onboarding')
-    }
+    // Organization exists - user can access dashboard
+    // Note: We no longer require onboarding_completed since the worker runs async
+    // The dashboard will show a "generating prompts" state if prompts aren't ready yet
   } catch (error) {
-    console.error('Error checking onboarding status:', error)
-    return navigateTo('/onboarding')
+    console.error('Error checking organization status:', error)
+    return navigateTo('/auth/callback')
   }
 })
