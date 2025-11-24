@@ -120,6 +120,7 @@ class JobProcessor {
           brandName: job.metadata.brandName,
           domain: job.metadata.domain,
           promptIds: job.metadata.promptIds,
+          competitors: job.metadata.competitors || [],
           isScheduled: job.metadata.isScheduled ?? false,
           jobId: job.id
         })

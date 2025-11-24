@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Queue } from 'https://esm.sh/bullmq@5'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,7 +111,7 @@ Deno.serve(async (req) => {
 
     const competitorNames = competitors?.map(c => c.name) || []
 
-    // Create job record
+    // Create job record (worker will pick it up via job processor)
     const { data: job } = await supabaseClient
       .from('jobs')
       .insert({
@@ -120,35 +119,22 @@ Deno.serve(async (req) => {
         job_type: 'visibility_scan',
         status: 'queued',
         metadata: {
+          brandId: brand.id,
+          brandName: brand.name,
+          domain: org.domain,
+          promptIds,
+          competitors: competitorNames,
           promptCount: promptIds.length,
-          competitorCount: competitorNames.length
+          competitorCount: competitorNames.length,
+          isScheduled: false
         }
       })
       .select()
       .single()
 
-    // Queue the job to Redis (worker will pick it up)
-    const redisConnection = {
-      host: Deno.env.get('REDIS_HOST') || 'localhost',
-      port: parseInt(Deno.env.get('REDIS_PORT') || '6379')
+    if (!job) {
+      throw new Error('Failed to create job')
     }
-
-    const queue = new Queue('visibility-scans', { connection: redisConnection })
-
-    await queue.add('scan', {
-      organizationId: org.id,
-      brandId: brand.id,
-      brandName: brand.name,
-      domain: org.domain,
-      promptIds,
-      competitors: competitorNames
-    })
-
-    // Update job status
-    await supabaseClient
-      .from('jobs')
-      .update({ status: 'processing', started_at: new Date().toISOString() })
-      .eq('id', job.id)
 
     return new Response(
       JSON.stringify({
