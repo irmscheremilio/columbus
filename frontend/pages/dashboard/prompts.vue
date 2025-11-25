@@ -156,65 +156,107 @@
     </main>
 
     <!-- Add/Edit Prompt Modal -->
-    <div
-      v-if="showAddPrompt || editingPrompt"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      @click.self="closeModal"
-    >
-      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-        <h2 class="text-2xl font-bold mb-4">
-          {{ editingPrompt ? 'Edit Prompt' : 'Add Custom Prompt' }}
-        </h2>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Prompt Text
-            </label>
-            <textarea
-              v-model="promptForm.text"
-              rows="3"
-              class="input-field"
-              placeholder="What tool can I use for..."
-            ></textarea>
+    <Teleport to="body">
+      <div
+        v-if="showAddPrompt || editingPrompt"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+        @click.self="closeModal"
+      >
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between p-6 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900">
+                  {{ editingPrompt ? 'Edit Prompt' : 'Add Custom Prompt' }}
+                </h2>
+                <p class="text-sm text-gray-500">Create a custom search prompt to test</p>
+              </div>
+            </div>
+            <button
+              @click="closeModal"
+              class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <!-- Modal Body -->
+          <div class="p-6 space-y-5">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Granularity Level
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Prompt Text
               </label>
-              <select v-model.number="promptForm.level" class="input-field">
-                <option :value="1">Level 1 - Broad</option>
-                <option :value="2">Level 2 - Specific</option>
-                <option :value="3">Level 3 - Detailed</option>
-              </select>
+              <textarea
+                v-model="promptForm.text"
+                rows="3"
+                class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none"
+                placeholder="e.g., What tools can help agencies create quick demos?"
+              ></textarea>
+              <p class="text-xs text-gray-400 mt-1.5">Write a natural question that users might ask AI assistants</p>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Category (optional)
-              </label>
-              <input
-                v-model="promptForm.category"
-                type="text"
-                class="input-field"
-                placeholder="e.g., Marketing SaaS"
-              />
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                  Granularity Level
+                </label>
+                <select
+                  v-model.number="promptForm.level"
+                  class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer"
+                >
+                  <option :value="1">Level 1 - Broad</option>
+                  <option :value="2">Level 2 - Specific</option>
+                  <option :value="3">Level 3 - Detailed</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                  Category
+                  <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  v-model="promptForm.category"
+                  type="text"
+                  class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                  placeholder="e.g., discovery"
+                />
+              </div>
             </div>
           </div>
 
-          <div class="flex gap-3 justify-end">
-            <button @click="closeModal" class="btn-outline">
+          <!-- Modal Footer -->
+          <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <button
+              @click="closeModal"
+              class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
               Cancel
             </button>
-            <button @click="savePrompt" class="btn-primary">
+            <button
+              @click="savePrompt"
+              class="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 transition-colors"
+            >
+              <svg v-if="!editingPrompt" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
               {{ editingPrompt ? 'Save Changes' : 'Add Prompt' }}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

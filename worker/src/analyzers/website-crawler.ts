@@ -87,7 +87,24 @@ export class WebsiteCrawler {
     const html = await response.text()
     const loadTime = Date.now() - startTime
 
+    return this.analyzeHtmlWithLoadTime(html, url, loadTime)
+  }
+
+  /**
+   * Analyze pre-fetched HTML content
+   * Useful for analyzing pages that have already been fetched
+   */
+  async analyzeHtml(html: string, url: string): Promise<WebsiteAnalysis> {
+    // Use a default load time since we don't have the actual measurement
+    return this.analyzeHtmlWithLoadTime(html, url, 1000)
+  }
+
+  /**
+   * Internal method to analyze HTML with load time
+   */
+  private async analyzeHtmlWithLoadTime(html: string, url: string, loadTime: number): Promise<WebsiteAnalysis> {
     const $ = cheerio.load(html)
+    const domain = new URL(url).hostname
 
     // Run all analyses
     const techStack = this.detectTechStack($, html)

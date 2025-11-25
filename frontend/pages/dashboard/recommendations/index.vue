@@ -43,7 +43,7 @@
         </div>
 
         <!-- Summary Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
           <div class="bg-white rounded-xl border border-gray-200 p-4">
             <div class="text-2xl font-bold text-gray-900">{{ pendingCount }}</div>
             <div class="text-sm text-gray-500">Pending</div>
@@ -60,39 +60,112 @@
             <div class="text-2xl font-bold text-gray-900">{{ highImpactCount }}</div>
             <div class="text-sm text-gray-500">High Impact</div>
           </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-gray-900">{{ uniquePages.length }}</div>
+            <div class="text-sm text-gray-500">Pages Analyzed</div>
+          </div>
         </div>
 
         <!-- Filters -->
         <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <div class="flex flex-wrap gap-4">
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
-              <select v-model="filterStatus" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
+          <div class="flex flex-wrap items-end gap-3">
+            <!-- Status Filter -->
+            <div class="min-w-[140px]">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+              <div class="relative">
+                <select
+                  v-model="filterStatus"
+                  class="w-full pl-3 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">Category</label>
-              <select v-model="filterCategory" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
-                <option value="all">All Categories</option>
-                <option value="schema">Schema</option>
-                <option value="content">Content</option>
-                <option value="technical">Technical</option>
-                <option value="authority">Authority</option>
-              </select>
+
+            <!-- Category Filter -->
+            <div class="min-w-[160px]">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">Category</label>
+              <div class="relative">
+                <select
+                  v-model="filterCategory"
+                  class="w-full pl-3 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="schema">Schema</option>
+                  <option value="content">Content</option>
+                  <option value="technical">Technical</option>
+                  <option value="authority">Authority</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">Impact</label>
-              <select v-model="filterImpact" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
-                <option value="all">All Impact</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
+
+            <!-- Impact Filter -->
+            <div class="min-w-[140px]">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">Impact</label>
+              <div class="relative">
+                <select
+                  v-model="filterImpact"
+                  class="w-full pl-3 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                  <option value="all">All Impact</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
+
+            <!-- Page Filter -->
+            <div class="min-w-[200px]">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">Page</label>
+              <div class="relative">
+                <select
+                  v-model="filterPage"
+                  class="w-full pl-3 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                  <option value="all">All Pages</option>
+                  <option value="general">General / Homepage</option>
+                  <option v-for="page in uniquePages" :key="page.url" :value="page.url">
+                    {{ page.title || page.path }}
+                  </option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Clear Filters Button -->
+            <button
+              v-if="filterStatus !== 'all' || filterCategory !== 'all' || filterImpact !== 'all' || filterPage !== 'all'"
+              @click="filterStatus = 'all'; filterCategory = 'all'; filterImpact = 'all'; filterPage = 'all'"
+              class="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear
+            </button>
           </div>
         </div>
 
@@ -103,10 +176,10 @@
 
         <div v-else-if="!filteredRecommendations.length" class="bg-white rounded-xl border border-gray-200 text-center py-12">
           <p class="text-gray-500 mb-1">
-            {{ filterStatus === 'all' ? 'No recommendations found' : 'No recommendations match your filters' }}
+            {{ filterStatus === 'all' && filterPage === 'all' ? 'No recommendations found' : 'No recommendations match your filters' }}
           </p>
           <p class="text-sm text-gray-400">
-            {{ filterStatus === 'all' ? 'Run a visibility scan to get personalized recommendations' : 'Try adjusting your filters' }}
+            {{ filterStatus === 'all' && filterPage === 'all' ? 'Run a visibility scan to get personalized recommendations' : 'Try adjusting your filters' }}
           </p>
         </div>
 
@@ -146,6 +219,17 @@
                   >
                     {{ rec.estimated_impact }} impact
                   </span>
+                  <!-- Page indicator -->
+                  <span
+                    v-if="rec.page_url || rec.page_title"
+                    class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded flex items-center gap-1"
+                    :title="rec.page_url || 'General'"
+                  >
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {{ getPageLabel(rec) }}
+                  </span>
                   <span class="text-xs text-gray-400">
                     {{ formatDate(rec.created_at) }}
                   </span>
@@ -180,12 +264,46 @@ const recommendations = ref<any[]>([])
 const filterStatus = ref('all')
 const filterCategory = ref('all')
 const filterImpact = ref('all')
+const filterPage = ref('all')
+
+// Extract unique pages from recommendations
+const uniquePages = computed(() => {
+  const pages = new Map<string, { url: string; title: string; path: string }>()
+
+  for (const rec of recommendations.value) {
+    if (rec.page_url) {
+      try {
+        const url = new URL(rec.page_url)
+        pages.set(rec.page_url, {
+          url: rec.page_url,
+          title: rec.page_title || url.pathname,
+          path: url.pathname
+        })
+      } catch {
+        pages.set(rec.page_url, {
+          url: rec.page_url,
+          title: rec.page_title || rec.page_url,
+          path: rec.page_url
+        })
+      }
+    }
+  }
+
+  return Array.from(pages.values()).sort((a, b) => a.path.localeCompare(b.path))
+})
 
 const filteredRecommendations = computed(() => {
   return recommendations.value.filter(rec => {
     if (filterStatus.value !== 'all' && rec.status !== filterStatus.value) return false
     if (filterCategory.value !== 'all' && rec.category !== filterCategory.value) return false
     if (filterImpact.value !== 'all' && rec.estimated_impact !== filterImpact.value) return false
+    if (filterPage.value !== 'all') {
+      if (filterPage.value === 'general') {
+        if (rec.page_url) return false
+      } else {
+        if (rec.page_url !== filterPage.value) return false
+      }
+    }
     return true
   })
 })
@@ -233,12 +351,12 @@ const runWebsiteAnalysis = async () => {
   analyzing.value = true
   try {
     const { data, error } = await supabase.functions.invoke('trigger-website-analysis', {
-      body: { includeCompetitorGaps: true }
+      body: { includeCompetitorGaps: true, multiPageAnalysis: true }
     })
 
     if (error) throw error
 
-    alert(`Website analysis started! We'll analyze your site and generate fresh recommendations.`)
+    alert(`Website analysis started! We'll analyze your site (including multiple pages) and generate fresh recommendations.`)
 
     setTimeout(async () => {
       await loadRecommendations()
@@ -266,5 +384,20 @@ const formatStatus = (status: string) => {
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const getPageLabel = (rec: any) => {
+  if (!rec.page_url && rec.page_title) {
+    return rec.page_title
+  }
+  if (rec.page_url) {
+    try {
+      const url = new URL(rec.page_url)
+      return rec.page_title || url.pathname
+    } catch {
+      return rec.page_title || rec.page_url
+    }
+  }
+  return 'General'
 }
 </script>

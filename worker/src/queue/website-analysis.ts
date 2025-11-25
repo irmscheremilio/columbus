@@ -1,8 +1,9 @@
 import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
-import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
+import { RecommendationEngine, Recommendation } from '../analyzers/recommendation-engine.js'
 import { PromptGenerator } from '../analyzers/prompt-generator.js'
+import { PageDiscovery, DiscoveredPage, PageContent } from '../analyzers/page-discovery.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import { createRedisConnection } from '../utils/redis.js'
 
@@ -17,6 +18,7 @@ export interface WebsiteAnalysisJobData {
   organizationId: string
   domain: string
   includeCompetitorGaps?: boolean
+  multiPageAnalysis?: boolean // New option for multi-page crawling
   jobId?: string
 }
 
@@ -44,13 +46,13 @@ export const websiteAnalysisQueue = new Queue<WebsiteAnalysisJobData>('website-a
 export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
   'website-analysis',
   async (job) => {
-    const { organizationId, domain, includeCompetitorGaps = false } = job.data
+    const { organizationId, domain, includeCompetitorGaps = false, multiPageAnalysis = true } = job.data
 
-    console.log(`[Website Analysis] Starting analysis for ${domain}`)
+    console.log(`[Website Analysis] Starting analysis for ${domain} (multiPage: ${multiPageAnalysis})`)
 
     try {
-      // 1. Crawl and analyze website
-      console.log(`[Website Analysis] Crawling website...`)
+      // 1. Crawl and analyze main website page
+      console.log(`[Website Analysis] Crawling main website...`)
       const crawler = new WebsiteCrawler()
       const websiteAnalysis = await crawler.analyze(domain)
 
@@ -76,7 +78,72 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         throw analysisError
       }
 
-      // 3. Generate prompts using AI
+      // 3. Multi-page discovery and analysis
+      let discoveredPages: DiscoveredPage[] = []
+      let pageContents: PageContent[] = []
+      let pageRecommendations: Map<string, Recommendation[]> = new Map()
+
+      if (multiPageAnalysis) {
+        console.log(`[Website Analysis] Discovering pages...`)
+        const pageDiscovery = new PageDiscovery()
+        discoveredPages = await pageDiscovery.discoverPages(domain)
+
+        // Store discovered pages
+        const pagesToStore = discoveredPages.map(page => ({
+          organization_id: organizationId,
+          url: page.url,
+          path: page.path,
+          title: page.title,
+          is_relevant: page.isRelevant,
+          relevance_reason: page.relevanceReason,
+          content_type: page.contentType,
+          last_crawled_at: new Date().toISOString()
+        }))
+
+        if (pagesToStore.length > 0) {
+          // Upsert crawled pages (update if exists)
+          await supabase
+            .from('crawled_pages')
+            .upsert(pagesToStore, {
+              onConflict: 'organization_id,url',
+              ignoreDuplicates: false
+            })
+        }
+
+        // Fetch content from relevant pages
+        const relevantPages = discoveredPages.filter(p => p.isRelevant).slice(0, 20) // Limit to 20 pages
+        console.log(`[Website Analysis] Fetching content from ${relevantPages.length} relevant pages...`)
+
+        pageContents = await pageDiscovery.fetchPageContents(relevantPages)
+
+        // Generate recommendations for each page
+        console.log(`[Website Analysis] Generating page-specific recommendations...`)
+        const recommendationEngine = new RecommendationEngine()
+
+        for (const pageContent of pageContents) {
+          const pageAnalysis = await crawler.analyzeHtml(pageContent.html, pageContent.url)
+          const recs = recommendationEngine.generateRecommendations(
+            pageAnalysis,
+            [], // No scan results for individual pages
+            []  // No competitor gaps for individual pages
+          )
+          pageRecommendations.set(pageContent.url, recs)
+
+          // Update crawled_pages with analysis data
+          await supabase
+            .from('crawled_pages')
+            .update({
+              aeo_score: pageAnalysis.aeoReadiness.score,
+              word_count: pageAnalysis.contentStructure.wordCount,
+              has_schema: pageAnalysis.schemaMarkup.length > 0,
+              title: pageContent.title
+            })
+            .eq('organization_id', organizationId)
+            .eq('url', pageContent.url)
+        }
+      }
+
+      // 4. Generate prompts using AI
       console.log(`[Website Analysis] Generating prompts...`)
       const promptGenerator = new PromptGenerator()
 
@@ -140,7 +207,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         console.log(`[Website Analysis] Stored ${promptsToInsert.length} prompts`)
       }
 
-      // 4. Get recent scan results for context
+      // 5. Get recent scan results for context
       console.log(`[Website Analysis] Fetching recent scan results...`)
       const { data: scanResults } = await supabase
         .from('prompt_results')
@@ -149,7 +216,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .order('tested_at', { ascending: false })
         .limit(50)
 
-      // 5. Get competitor gaps if requested
+      // 6. Get competitor gaps if requested
       let competitorGaps: any[] = []
       if (includeCompetitorGaps) {
         console.log(`[Website Analysis] Fetching competitor gaps...`)
@@ -163,10 +230,10 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         competitorGaps = gaps || []
       }
 
-      // 6. Generate AI-enhanced recommendations
-      console.log(`[Website Analysis] Generating recommendations...`)
+      // 7. Generate AI-enhanced recommendations for homepage
+      console.log(`[Website Analysis] Generating homepage recommendations...`)
       const recommendationEngine = new RecommendationEngine()
-      const recommendations = recommendationEngine.generateRecommendations(
+      const homepageRecommendations = recommendationEngine.generateRecommendations(
         websiteAnalysis,
         scanResults || [],
         competitorGaps
@@ -182,42 +249,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         console.log(`[Website Analysis] Adding ${personalizedRecs.length} personalized recommendations`)
       }
 
-      console.log(`[Website Analysis] Generated ${recommendations.length} recommendations`)
-
-      // 7. Store recommendations
+      // 8. Prepare all recommendations for storage
       console.log(`[Website Analysis] Storing recommendations...`)
-
-      // Convert standard recommendations
-      const recommendationsToInsert = recommendations.map(rec => ({
-        organization_id: organizationId,
-        title: rec.title,
-        description: rec.description,
-        category: rec.category,
-        priority: rec.priority,
-        estimated_impact: rec.estimatedImpact,
-        implementation_guide: rec.implementationGuide,
-        code_snippets: rec.codeSnippets || [],
-        estimated_time: rec.estimatedTime,
-        difficulty: rec.difficulty,
-        status: 'pending'
-      }))
-
-      // Add AI-personalized recommendations as high-priority items
-      const personalizedRecsToInsert = personalizedRecs.map((rec, index) => ({
-        organization_id: organizationId,
-        title: `AI Insight: Personalized for ${productAnalysis.productName}`,
-        description: rec,
-        category: 'content' as const,
-        priority: 5, // High priority
-        estimated_impact: 'high' as const,
-        implementation_guide: [],
-        code_snippets: [],
-        estimated_time: 'Varies',
-        difficulty: 'medium' as const,
-        status: 'pending'
-      }))
-
-      const allRecommendations = [...personalizedRecsToInsert, ...recommendationsToInsert]
 
       // Delete existing pending recommendations to avoid duplicates
       await supabase
@@ -226,16 +259,92 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .eq('organization_id', organizationId)
         .eq('status', 'pending')
 
+      const allRecommendationsToInsert: any[] = []
+
+      // Add homepage recommendations (no page_url)
+      for (const rec of homepageRecommendations) {
+        allRecommendationsToInsert.push({
+          organization_id: organizationId,
+          title: rec.title,
+          description: rec.description,
+          category: rec.category,
+          priority: rec.priority,
+          estimated_impact: rec.estimatedImpact,
+          implementation_guide: rec.implementationGuide,
+          code_snippets: rec.codeSnippets || [],
+          estimated_time: rec.estimatedTime,
+          difficulty: rec.difficulty,
+          status: 'pending',
+          page_url: null, // Homepage/general recommendation
+          page_title: 'Homepage'
+        })
+      }
+
+      // Add AI-personalized recommendations
+      for (const rec of personalizedRecs) {
+        allRecommendationsToInsert.push({
+          organization_id: organizationId,
+          title: `AI Insight: Personalized for ${productAnalysis.productName}`,
+          description: rec,
+          category: 'content',
+          priority: 5,
+          estimated_impact: 'high',
+          implementation_guide: [],
+          code_snippets: [],
+          estimated_time: 'Varies',
+          difficulty: 'medium',
+          status: 'pending',
+          page_url: null,
+          page_title: 'General'
+        })
+      }
+
+      // Add page-specific recommendations
+      for (const [pageUrl, recs] of pageRecommendations) {
+        const pageContent = pageContents.find(p => p.url === pageUrl)
+        const pageTitle = pageContent?.title || new URL(pageUrl).pathname
+
+        for (const rec of recs) {
+          // Avoid duplicate recommendations - check if similar recommendation already exists
+          const isDuplicate = allRecommendationsToInsert.some(
+            existing => existing.title === rec.title && existing.page_url === null
+          )
+
+          if (!isDuplicate) {
+            allRecommendationsToInsert.push({
+              organization_id: organizationId,
+              title: rec.title,
+              description: rec.description,
+              category: rec.category,
+              priority: rec.priority,
+              estimated_impact: rec.estimatedImpact,
+              implementation_guide: rec.implementationGuide,
+              code_snippets: rec.codeSnippets || [],
+              estimated_time: rec.estimatedTime,
+              difficulty: rec.difficulty,
+              status: 'pending',
+              page_url: pageUrl,
+              page_title: pageTitle
+            })
+          }
+        }
+      }
+
       const { error: recsError } = await supabase
         .from('fix_recommendations')
-        .insert(allRecommendations)
+        .insert(allRecommendationsToInsert)
 
       if (recsError) {
         console.error('[Website Analysis] Error storing recommendations:', recsError)
         throw recsError
       }
 
+      const totalRecommendations = allRecommendationsToInsert.length
+      const pagesAnalyzed = pageContents.length + 1 // +1 for homepage
+
       console.log(`[Website Analysis] Successfully completed analysis for ${domain}`)
+      console.log(`[Website Analysis] - Pages analyzed: ${pagesAnalyzed}`)
+      console.log(`[Website Analysis] - Recommendations generated: ${totalRecommendations}`)
 
       // Mark job as completed if jobId provided
       if (job.data.jobId) {
@@ -252,7 +361,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         success: true,
         domain,
         aeoReadiness: websiteAnalysis.aeoReadiness.score,
-        recommendationsCount: recommendations.length,
+        recommendationsCount: totalRecommendations,
+        pagesAnalyzed,
         analysisId: analysisRecord.id
       }
     } catch (error) {

@@ -25,6 +25,9 @@ Thumbs.db
 # Testing
 coverage
 *.lcov
+playwright-report
+test-results
+tests/e2e/.auth/user.json
 
 # Temporary files
 *.tmp

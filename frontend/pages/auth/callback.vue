@@ -96,6 +96,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const router = useRouter()
+const route = useRoute()
 
 const statusMessage = ref('Completing sign in...')
 const showSetup = ref(false)
@@ -121,30 +122,152 @@ onMounted(async () => {
 
     statusMessage.value = 'Checking your account...'
 
+    // Check if user already has an organization
     const { data: userData } = await supabase
       .from('profiles')
       .select('organization_id')
       .eq('id', user.id)
       .maybeSingle()
 
-    if (!userData || !userData.organization_id) {
-      statusMessage.value = 'Almost there!'
-      showSetup.value = true
-
-      // Pre-fill email domain as company name hint
-      const emailDomain = user.email?.split('@')[1]?.split('.')[0]
-      if (emailDomain) {
-        setupForm.value.companyName = emailDomain.charAt(0).toUpperCase() + emailDomain.slice(1)
-      }
-    } else {
+    if (userData?.organization_id) {
+      // User already has organization - redirect to dashboard
       statusMessage.value = 'Redirecting to dashboard...'
       await router.push('/dashboard')
+      return
+    }
+
+    // Determine the callback type
+    const callbackType = route.query.type as string
+
+    if (callbackType === 'email_confirmation') {
+      // Email confirmation flow - user metadata should have company info
+      const userMeta = user.user_metadata
+
+      if (userMeta?.signup_pending && userMeta?.company_name && userMeta?.website) {
+        // Auto-complete setup using stored metadata
+        statusMessage.value = 'Setting up your account...'
+        await completeSetupFromMetadata(user.id, userMeta)
+      } else {
+        // Fallback: show setup form if metadata is missing
+        showSetup.value = true
+        prefillFromUser(user)
+      }
+    } else {
+      // OAuth flow - show setup form
+      statusMessage.value = 'Almost there!'
+      showSetup.value = true
+      prefillFromUser(user)
     }
   } catch (err) {
     console.error('Auth callback error:', err)
     await router.push('/auth/login')
   }
 })
+
+const prefillFromUser = (user: any) => {
+  // Pre-fill email domain as company name hint
+  const emailDomain = user.email?.split('@')[1]?.split('.')[0]
+  if (emailDomain) {
+    setupForm.value.companyName = emailDomain.charAt(0).toUpperCase() + emailDomain.slice(1)
+  }
+}
+
+const completeSetupFromMetadata = async (userId: string, metadata: any) => {
+  try {
+    const companyName = metadata.company_name
+    const websiteUrl = metadata.website
+    const businessDescription = metadata.business_description || ''
+
+    // Extract domain from URL
+    const domain = new URL(websiteUrl).hostname
+
+    // 1. Create organization
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .insert([{
+        name: companyName,
+        domain: domain,
+      }])
+      .select()
+      .single()
+
+    if (orgError) throw orgError
+
+    // 2. Create brand
+    const { error: brandError } = await supabase
+      .from('brands')
+      .insert([{
+        organization_id: org.id,
+        name: companyName,
+        website: websiteUrl,
+        is_active: true,
+      }])
+
+    if (brandError) throw brandError
+
+    // 3. Update user profile with organization_id
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ organization_id: org.id })
+      .eq('id', userId)
+
+    if (updateError) {
+      // Try inserting if update failed (profile might not exist yet)
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: user?.email || '',
+          organization_id: org.id,
+        })
+      if (insertError) throw insertError
+    }
+
+    // 4. Clear the signup_pending flag from user metadata
+    await supabase.auth.updateUser({
+      data: { signup_pending: false }
+    })
+
+    // 5. Switch to analyzing state and trigger website analysis
+    analyzing.value = true
+    analysisStatus.value = 'Crawling your website...'
+
+    const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
+      'trigger-website-analysis',
+      {
+        body: {
+          domain: domain,
+          businessDescription: businessDescription
+        }
+      }
+    )
+
+    if (analysisError) {
+      console.error('Analysis trigger error:', analysisError)
+      // Don't fail - just redirect to dashboard
+    }
+
+    // 6. Poll for job completion
+    if (analysisResult?.jobId) {
+      analysisStatus.value = 'Analyzing your product...'
+      await pollJobStatus(analysisResult.jobId)
+    }
+
+    // 7. Redirect to dashboard
+    analysisStatus.value = 'Setup complete! Redirecting...'
+    setTimeout(() => {
+      router.push('/dashboard')
+    }, 1000)
+
+  } catch (e: any) {
+    console.error('Setup from metadata error:', e)
+    // Fallback: show setup form
+    error.value = e.message || 'Failed to complete setup'
+    showSetup.value = true
+    analyzing.value = false
+  }
+}
 
 const completeSetup = async () => {
   error.value = ''
@@ -193,13 +316,20 @@ const completeSetup = async () => {
     // 3. Update user profile with organization_id
     const { error: updateError } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
-        email: user.email!,
-        organization_id: org.id,
-      })
+      .update({ organization_id: org.id })
+      .eq('id', user.id)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      // Try inserting if update failed
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email!,
+          organization_id: org.id,
+        })
+      if (insertError) throw insertError
+    }
 
     // 4. Switch to analyzing state
     showSetup.value = false

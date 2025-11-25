@@ -1,18 +1,32 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
-      <!-- Analyzing state -->
-      <div v-if="analyzing" class="bg-white rounded-lg shadow-md p-8 text-center">
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">Analyzing Your Website</h2>
-        <div class="space-y-4">
-          <div class="flex items-center justify-center gap-3">
-            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
-            <span class="text-gray-600">{{ analysisStatus }}</span>
-          </div>
-          <div class="bg-gray-100 rounded-lg p-4 text-sm text-gray-600">
-            We're crawling your website and using AI to understand your product.
-            This usually takes 30-60 seconds.
-          </div>
+      <!-- Email confirmation sent state -->
+      <div v-if="emailSent" class="bg-white rounded-lg shadow-md p-8 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+          <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
+        <p class="text-gray-600 mb-4">
+          We've sent a confirmation link to <strong>{{ email }}</strong>
+        </p>
+        <p class="text-sm text-gray-500">
+          Click the link in your email to confirm your account and complete setup.
+          After confirming, we'll analyze your website and set up your dashboard.
+        </p>
+        <div class="mt-6 pt-6 border-t border-gray-200">
+          <p class="text-sm text-gray-500">
+            Didn't receive the email?
+            <button
+              @click="resendConfirmation"
+              :disabled="resendCooldown > 0"
+              class="text-primary-600 hover:text-primary-500 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend' }}
+            </button>
+          </p>
         </div>
       </div>
 
@@ -32,10 +46,6 @@
         <form class="mt-8 space-y-6" @submit.prevent="handleSignup">
           <div v-if="error" class="rounded-md bg-red-50 p-4">
             <div class="text-sm text-red-700">{{ error }}</div>
-          </div>
-
-          <div v-if="success" class="rounded-md bg-green-50 p-4">
-            <div class="text-sm text-green-700">{{ success }}</div>
           </div>
 
           <div class="rounded-md shadow-sm space-y-4">
@@ -161,7 +171,6 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
-const router = useRouter()
 
 const email = ref('')
 const password = ref('')
@@ -170,13 +179,11 @@ const website = ref('')
 const description = ref('')
 const loading = ref(false)
 const error = ref('')
-const success = ref('')
-const analyzing = ref(false)
-const analysisStatus = ref('Starting analysis...')
+const emailSent = ref(false)
+const resendCooldown = ref(0)
 
 const handleSignup = async () => {
   error.value = ''
-  success.value = ''
   loading.value = true
 
   try {
@@ -186,135 +193,67 @@ const handleSignup = async () => {
       websiteUrl = 'https://' + websiteUrl
     }
 
-    // Extract domain from URL
-    const domain = new URL(websiteUrl).hostname
+    // Validate URL format
+    try {
+      new URL(websiteUrl)
+    } catch {
+      throw new Error('Please enter a valid website URL')
+    }
 
-    // Sign up the user
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    // Sign up the user - store company data in user metadata
+    // The actual org/brand creation and website crawl will happen after email confirmation
+    const { error: signUpError } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=email_confirmation`,
         data: {
           company_name: companyName.value,
           website: websiteUrl,
+          business_description: description.value,
+          signup_pending: true  // Flag to indicate setup needs completion
         }
       }
     })
 
     if (signUpError) throw signUpError
 
-    if (authData.user) {
-      try {
-        // 1. Create organization
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .insert([{
-            name: companyName.value,
-            domain: domain,
-          }])
-          .select()
-          .single()
+    // Show email confirmation message
+    emailSent.value = true
+    loading.value = false
 
-        if (orgError) throw orgError
-
-        // 2. Create brand
-        const { error: brandError } = await supabase
-          .from('brands')
-          .insert([{
-            organization_id: org.id,
-            name: companyName.value,
-            website: websiteUrl,
-            is_active: true,
-          }])
-
-        if (brandError) throw brandError
-
-        // 3. Update user with organization_id
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: authData.user.id,
-            email: email.value,
-            organization_id: org.id,
-          })
-
-        if (updateError) throw updateError
-
-        // 4. Switch to analyzing state
-        analyzing.value = true
-        analysisStatus.value = 'Crawling your website...'
-
-        // 5. Trigger website analysis job (worker will generate prompts)
-        const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
-          'trigger-website-analysis',
-          {
-            body: {
-              domain: domain,
-              businessDescription: description.value
-            }
-          }
-        )
-
-        if (analysisError) {
-          console.error('Analysis trigger error:', analysisError)
-          // Don't fail - just redirect to dashboard
-        }
-
-        // 6. Poll for job completion
-        if (analysisResult?.jobId) {
-          analysisStatus.value = 'Analyzing your product...'
-          await pollJobStatus(analysisResult.jobId)
-        }
-
-        // 7. Redirect to dashboard
-        analysisStatus.value = 'Setup complete! Redirecting...'
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1000)
-
-      } catch (setupErr: any) {
-        console.error('Failed to setup user:', setupErr)
-        error.value = setupErr.message || 'Failed to complete setup. Please try again.'
-        loading.value = false
-        analyzing.value = false
-      }
-    }
   } catch (e: any) {
     error.value = e.message || 'An error occurred during sign up'
     loading.value = false
   }
 }
 
-const pollJobStatus = async (jobId: string) => {
-  const maxAttempts = 60
-  let attempts = 0
+const resendConfirmation = async () => {
+  if (resendCooldown.value > 0) return
 
-  while (attempts < maxAttempts) {
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('status')
-      .eq('id', jobId)
-      .single()
+  try {
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.value,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=email_confirmation`
+      }
+    })
 
-    if (job?.status === 'completed') {
-      analysisStatus.value = 'Analysis complete!'
-      return
-    }
+    if (resendError) throw resendError
 
-    if (job?.status === 'failed') {
-      analysisStatus.value = 'Analysis encountered an issue, but you can continue'
-      return
-    }
+    // Start cooldown
+    resendCooldown.value = 60
+    const interval = setInterval(() => {
+      resendCooldown.value--
+      if (resendCooldown.value <= 0) {
+        clearInterval(interval)
+      }
+    }, 1000)
 
-    if (attempts > 10) analysisStatus.value = 'Understanding your product...'
-    if (attempts > 20) analysisStatus.value = 'Generating search prompts...'
-    if (attempts > 30) analysisStatus.value = 'Almost done...'
-
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    attempts++
+  } catch (e: any) {
+    error.value = e.message || 'Failed to resend confirmation email'
   }
-
-  analysisStatus.value = 'Analysis taking longer than expected, redirecting...'
 }
 
 const handleGoogleSignup = async () => {
@@ -325,7 +264,7 @@ const handleGoogleSignup = async () => {
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?setup=true`,
+        redirectTo: `${window.location.origin}/auth/callback?type=oauth`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
