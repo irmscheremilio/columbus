@@ -8,6 +8,8 @@ export interface WebsiteAnalysis {
   technicalSEO: TechnicalSEO
   aeoReadiness: AEOReadiness
   analyzedAt: Date
+  rawHtml: string // For AI analysis
+  textContent: string // Extracted text for prompt generation
 }
 
 export interface TechStack {
@@ -101,6 +103,9 @@ export class WebsiteCrawler {
       technicalSEO,
     })
 
+    // Extract text content for AI analysis
+    const textContent = this.extractTextContent($)
+
     return {
       domain,
       techStack,
@@ -109,7 +114,34 @@ export class WebsiteCrawler {
       technicalSEO,
       aeoReadiness,
       analyzedAt: new Date(),
+      rawHtml: html,
+      textContent,
     }
+  }
+
+  /**
+   * Extract clean text content from HTML for AI analysis
+   */
+  private extractTextContent($: cheerio.CheerioAPI): string {
+    // Remove script, style, and navigation elements
+    $('script, style, nav, header, footer, aside, .nav, .menu, .sidebar').remove()
+
+    // Get text from main content areas
+    const mainContent = $('main, article, .content, #content, [role="main"]').first()
+    let text = ''
+
+    if (mainContent.length > 0) {
+      text = mainContent.text()
+    } else {
+      text = $('body').text()
+    }
+
+    // Clean up whitespace
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/\n+/g, '\n')
+      .trim()
+      .substring(0, 15000) // Limit for AI processing
   }
 
   /**

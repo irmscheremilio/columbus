@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
 import { RecommendationEngine } from '../analyzers/recommendation-engine.js'
+import { PromptGenerator } from '../analyzers/prompt-generator.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import { createRedisConnection } from '../utils/redis.js'
 
@@ -75,7 +76,71 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         throw analysisError
       }
 
-      // 3. Get recent scan results for context
+      // 3. Generate prompts using AI
+      console.log(`[Website Analysis] Generating prompts...`)
+      const promptGenerator = new PromptGenerator()
+
+      // First, analyze the product/service
+      const productAnalysis = await promptGenerator.analyzeProduct(
+        websiteAnalysis,
+        websiteAnalysis.textContent
+      )
+
+      console.log(`[Website Analysis] Product identified: ${productAnalysis.productName}`)
+
+      // Store product analysis
+      await supabase
+        .from('product_analyses')
+        .upsert({
+          organization_id: organizationId,
+          domain,
+          product_name: productAnalysis.productName,
+          product_description: productAnalysis.productDescription,
+          key_features: productAnalysis.keyFeatures,
+          target_audience: productAnalysis.targetAudience,
+          use_cases: productAnalysis.useCases,
+          differentiators: productAnalysis.differentiators,
+          analyzed_at: new Date().toISOString()
+        }, {
+          onConflict: 'organization_id'
+        })
+
+      // Generate prompts (5 topics × 3 granularity levels = 15 prompts)
+      const generatedPrompts = await promptGenerator.generatePrompts(
+        productAnalysis,
+        websiteAnalysis
+      )
+
+      console.log(`[Website Analysis] Generated ${generatedPrompts.length} prompts`)
+
+      // Delete existing prompts for this organization (to avoid duplicates)
+      await supabase
+        .from('prompts')
+        .delete()
+        .eq('organization_id', organizationId)
+        .eq('is_custom', false)
+
+      // Store generated prompts
+      const promptsToInsert = generatedPrompts.map(p => ({
+        organization_id: organizationId,
+        prompt_text: p.promptText,
+        category: p.category,
+        granularity_level: p.granularityLevel,
+        is_custom: false
+      }))
+
+      const { error: promptsError } = await supabase
+        .from('prompts')
+        .insert(promptsToInsert)
+
+      if (promptsError) {
+        console.error('[Website Analysis] Error storing prompts:', promptsError)
+        // Don't throw - prompts are not critical for completion
+      } else {
+        console.log(`[Website Analysis] Stored ${promptsToInsert.length} prompts`)
+      }
+
+      // 4. Get recent scan results for context
       console.log(`[Website Analysis] Fetching recent scan results...`)
       const { data: scanResults } = await supabase
         .from('prompt_results')
@@ -84,7 +149,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .order('tested_at', { ascending: false })
         .limit(50)
 
-      // 4. Get competitor gaps if requested
+      // 5. Get competitor gaps if requested
       let competitorGaps: any[] = []
       if (includeCompetitorGaps) {
         console.log(`[Website Analysis] Fetching competitor gaps...`)
@@ -98,7 +163,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         competitorGaps = gaps || []
       }
 
-      // 5. Generate recommendations
+      // 6. Generate AI-enhanced recommendations
       console.log(`[Website Analysis] Generating recommendations...`)
       const recommendationEngine = new RecommendationEngine()
       const recommendations = recommendationEngine.generateRecommendations(
@@ -107,10 +172,22 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         competitorGaps
       )
 
+      // Get personalized recommendations from AI
+      const personalizedRecs = await promptGenerator.generatePersonalizedRecommendations(
+        productAnalysis,
+        websiteAnalysis
+      )
+
+      if (personalizedRecs.length > 0) {
+        console.log(`[Website Analysis] Adding ${personalizedRecs.length} personalized recommendations`)
+      }
+
       console.log(`[Website Analysis] Generated ${recommendations.length} recommendations`)
 
-      // 6. Store recommendations
+      // 7. Store recommendations
       console.log(`[Website Analysis] Storing recommendations...`)
+
+      // Convert standard recommendations
       const recommendationsToInsert = recommendations.map(rec => ({
         organization_id: organizationId,
         title: rec.title,
@@ -125,6 +202,23 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         status: 'pending'
       }))
 
+      // Add AI-personalized recommendations as high-priority items
+      const personalizedRecsToInsert = personalizedRecs.map((rec, index) => ({
+        organization_id: organizationId,
+        title: `AI Insight: Personalized for ${productAnalysis.productName}`,
+        description: rec,
+        category: 'content' as const,
+        priority: 5, // High priority
+        estimated_impact: 'high' as const,
+        implementation_guide: [],
+        code_snippets: [],
+        estimated_time: 'Varies',
+        difficulty: 'medium' as const,
+        status: 'pending'
+      }))
+
+      const allRecommendations = [...personalizedRecsToInsert, ...recommendationsToInsert]
+
       // Delete existing pending recommendations to avoid duplicates
       await supabase
         .from('fix_recommendations')
@@ -134,7 +228,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       const { error: recsError } = await supabase
         .from('fix_recommendations')
-        .insert(recommendationsToInsert)
+        .insert(allRecommendations)
 
       if (recsError) {
         console.error('[Website Analysis] Error storing recommendations:', recsError)
