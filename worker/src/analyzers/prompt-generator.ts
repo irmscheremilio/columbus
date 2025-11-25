@@ -84,65 +84,70 @@ Return ONLY valid JSON, no markdown or explanation.`
     productAnalysis: ProductAnalysis,
     websiteAnalysis: WebsiteAnalysis
   ): Promise<GeneratedPrompt[]> {
-    const prompt = `You are generating search prompts that users would type into AI assistants (ChatGPT, Claude, Perplexity) when looking for a SOLUTION to their problem.
+    const prompt = `You are an expert at understanding how real users search for solutions using AI assistants like ChatGPT, Claude, and Perplexity.
 
-IMPORTANT: These prompts must NOT contain the product name "${productAnalysis.productName}".
-The goal is to see if AI recommends this product when users search for solutions - not when they search for the product directly.
+Your task: Generate 15 realistic search prompts that a user might type when looking for a solution that this product provides.
 
-Product being analyzed (DO NOT include this name in prompts):
-- Name: ${productAnalysis.productName}
-- What it does: ${productAnalysis.productDescription}
-- Key Features: ${productAnalysis.keyFeatures.join(', ')}
-- Target Audience: ${productAnalysis.targetAudience}
-- Problems it solves: ${productAnalysis.useCases.join(', ')}
+CRITICAL RULES:
+1. NEVER include the product name "${productAnalysis.productName}" in any prompt
+2. Each prompt must be completely unique - no templates, no patterns, no repeated structures
+3. Prompts should sound like real humans typing into ChatGPT - casual, varied, sometimes with typos or informal language
+4. Cover DIFFERENT angles, use cases, and user intents - not variations of the same question
 
-Generate exactly 5 different problem/solution TOPICS that this product addresses. For each topic, create 3 prompts at different granularity levels:
+Product context (use this to understand what problems to target, but NEVER mention the product):
+${productAnalysis.productDescription}
 
-- Level 1 (Broad): General problem question without specifics
-  Example: "What can I use for mock data?"
+Key capabilities: ${productAnalysis.keyFeatures.join(', ')}
+Target users: ${productAnalysis.targetAudience}
+Problems it solves: ${productAnalysis.useCases.join(', ')}
 
-- Level 2 (Medium): More specific, adding one key qualifier
-  Example: "What can I use for AI generated mock data?"
+Generate 15 prompts across 3 granularity levels (5 prompts per level):
 
-- Level 3 (Specific): Highly specific with multiple details matching the product's features
-  Example: "What can I use for AI generated mock data that I can integrate into my frontend code?"
+LEVEL 1 - Broad (5 prompts):
+User is early in research, asking general questions about a problem space.
+Examples of variety: "tools for X", "how do people handle Y", "what's the best way to Z", "I need help with...", "recommendations for..."
 
-The prompts should sound like real questions people ask AI assistants:
-- Start with "What", "How", "Best", "Is there", "What's a good", etc.
-- Focus on the PROBLEM the user is trying to solve
-- NEVER mention the product name "${productAnalysis.productName}"
-- Each level should add more specificity that matches the product's actual features
+LEVEL 2 - Medium (5 prompts):
+User knows what they want but exploring options. More specific context.
+Examples of variety: asking about specific features, mentioning their tech stack, comparing approaches, asking about workflows
 
-Return a JSON array with exactly 15 objects:
-[
-  {"promptText": "...", "category": "discovery", "granularityLevel": 1},
-  {"promptText": "...", "category": "discovery", "granularityLevel": 2},
-  {"promptText": "...", "category": "discovery", "granularityLevel": 3},
-  // ... repeat for 5 topics
-]
+LEVEL 3 - Specific (5 prompts):
+User has clear requirements, asking detailed questions that match exactly what this product does.
+Examples of variety: mentioning specific integrations, asking about edge cases, technical implementation details, specific use case scenarios
 
-Categories to use:
-- discovery: Finding solutions to a problem
-- comparison: Comparing approaches or tools
-- howto: How to accomplish something
-- recommendation: Asking for recommendations
-- technical: Technical implementation questions
+IMPORTANT:
+- Make each prompt COMPLETELY DIFFERENT in structure and wording
+- Include variety: questions, statements, requests for recommendations, comparisons
+- Some can be short and casual, others more detailed
+- Think about different personas who might need this solution
 
-Return ONLY valid JSON array, no explanation.`
+Return ONLY a valid JSON array with exactly 15 objects:
+[{"promptText": "...", "granularityLevel": 1}, ...]
+
+No markdown, no explanation, just the JSON array.`
 
     try {
       const response = await this.callAI(prompt)
-      const prompts = JSON.parse(response)
+
+      // Clean up response - remove markdown code blocks if present
+      let cleanResponse = response.trim()
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+      }
+
+      const prompts = JSON.parse(cleanResponse)
 
       // Validate and normalize
       return prompts.map((p: any) => ({
         promptText: p.promptText,
-        category: this.normalizeCategory(p.category),
+        category: 'discovery', // Category determined by granularity for now
         granularityLevel: this.normalizeGranularity(p.granularityLevel)
       }))
     } catch (error) {
       console.error('[Prompt Generator] Error generating prompts:', error)
-      return this.getFallbackPrompts(productAnalysis)
+      // Return empty array - don't use hardcoded fallbacks
+      console.error('[Prompt Generator] Falling back to empty prompts - AI generation failed')
+      return []
     }
   }
 
@@ -207,12 +212,6 @@ Return a JSON array of 3 strings, each being a specific recommendation. Return O
     throw new Error('No AI client available')
   }
 
-  private normalizeCategory(category: string): string {
-    const validCategories = ['discovery', 'comparison', 'howto', 'recommendation', 'technical']
-    const lower = category?.toLowerCase() || 'discovery'
-    return validCategories.includes(lower) ? lower : 'discovery'
-  }
-
   private normalizeGranularity(level: any): 1 | 2 | 3 {
     const num = parseInt(level)
     if (num >= 1 && num <= 3) return num as 1 | 2 | 3
@@ -230,36 +229,4 @@ Return a JSON array of 3 strings, each being a specific recommendation. Return O
     }
   }
 
-  private getFallbackPrompts(productAnalysis: ProductAnalysis): GeneratedPrompt[] {
-    // Extract key terms from product description for generic fallback
-    const description = productAnalysis.productDescription.toLowerCase()
-    const useCases = productAnalysis.useCases
-
-    // Try to identify the core problem/solution from the product
-    const primaryUseCase = useCases[0] || 'this problem'
-    const secondaryUseCase = useCases[1] || 'similar tasks'
-
-    return [
-      // Topic 1: General solution discovery
-      { promptText: `What tools can help with ${primaryUseCase}`, category: 'discovery', granularityLevel: 1 },
-      { promptText: `Best solutions for ${primaryUseCase} in 2025`, category: 'discovery', granularityLevel: 2 },
-      { promptText: `What's the best way to handle ${primaryUseCase} for ${productAnalysis.targetAudience}`, category: 'discovery', granularityLevel: 3 },
-      // Topic 2: How-to questions
-      { promptText: `How do I ${primaryUseCase}`, category: 'howto', granularityLevel: 1 },
-      { promptText: `How to automate ${primaryUseCase}`, category: 'howto', granularityLevel: 2 },
-      { promptText: `Step by step guide to ${primaryUseCase} efficiently`, category: 'howto', granularityLevel: 3 },
-      // Topic 3: Recommendations
-      { promptText: `What do you recommend for ${secondaryUseCase}`, category: 'recommendation', granularityLevel: 1 },
-      { promptText: `Best tools for ${secondaryUseCase}`, category: 'recommendation', granularityLevel: 2 },
-      { promptText: `What's a good solution for ${secondaryUseCase} that's easy to use`, category: 'recommendation', granularityLevel: 3 },
-      // Topic 4: Comparison
-      { promptText: `What are my options for ${primaryUseCase}`, category: 'comparison', granularityLevel: 1 },
-      { promptText: `Compare different approaches to ${primaryUseCase}`, category: 'comparison', granularityLevel: 2 },
-      { promptText: `What's better for ${primaryUseCase}: manual approach or using a tool`, category: 'comparison', granularityLevel: 3 },
-      // Topic 5: Technical
-      { promptText: `Is there a tool for ${primaryUseCase}`, category: 'technical', granularityLevel: 1 },
-      { promptText: `Software that helps with ${primaryUseCase}`, category: 'technical', granularityLevel: 2 },
-      { promptText: `What tool integrates well for ${primaryUseCase} in my workflow`, category: 'technical', granularityLevel: 3 }
-    ]
-  }
 }
