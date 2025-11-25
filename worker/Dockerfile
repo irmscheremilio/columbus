@@ -46,6 +46,13 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Set Playwright browser path to a shared location accessible by any user
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+
+# Create the directory with proper permissions BEFORE npm install
+RUN mkdir -p /ms-playwright && chmod 777 /ms-playwright
+
 # Copy package files
 COPY package*.json ./
 
@@ -55,9 +62,12 @@ RUN npm ci --omit=dev || npm install --omit=dev
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Install Playwright browsers (running as root, browsers go to /root/.cache)
-RUN npx playwright install chromium
+# Install Playwright browsers to the shared location
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install chromium
 RUN npx playwright install-deps chromium || true
+
+# Set proper permissions on the browser directory
+RUN chmod -R 755 /ms-playwright
 
 # Expose port
 EXPOSE 8080
