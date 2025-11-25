@@ -46,34 +46,18 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user FIRST
-RUN groupadd -g 1001 nodejs && \
-    useradd -r -u 1001 -g nodejs nodejs && \
-    mkdir -p /home/nodejs/.cache && \
-    chown -R nodejs:nodejs /home/nodejs
-
 # Copy package files
 COPY package*.json ./
 
-# Set Playwright browsers path to a location accessible by nodejs user
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
-RUN mkdir -p /app/.playwright-browsers
-
 # Install production dependencies
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Install Playwright browsers to the shared location
-RUN npx playwright install chromium && \
-    npx playwright install-deps chromium || true
-
-# Fix permissions for the app and playwright browsers
-RUN chown -R nodejs:nodejs /app
-
-USER nodejs
+# Install Playwright browsers (running as root, browsers go to /root/.cache)
+RUN npx playwright install chromium
+RUN npx playwright install-deps chromium || true
 
 # Expose port
 EXPOSE 8080
