@@ -1,13 +1,10 @@
 import { Worker, Queue } from 'bullmq'
 import { createRedisConnection } from '../utils/redis.js'
 import { createClient } from '@supabase/supabase-js'
-import { ChatGPTClient } from '../clients/chatgpt.js'
-import { ClaudeClient } from '../clients/claude.js'
-import { GeminiClient } from '../clients/gemini.js'
-import { PerplexityClient } from '../clients/perplexity.js'
+import { createAIClient } from '../lib/ai-clients/index.js'
+import type { AIModel } from '../lib/ai-clients/base.js'
 import { waitForRateLimit, trackCost } from '../utils/rate-limiter.js'
 import { sendScanCompletedEmail } from '../services/email.js'
-import type { AIResponse } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
@@ -51,13 +48,8 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
       throw new Error('No prompts found')
     }
 
-    // Initialize AI clients
-    const clients = [
-      new ChatGPTClient(),
-      new ClaudeClient(),
-      new GeminiClient(),
-      new PerplexityClient()
-    ]
+    // AI models to test with
+    const models: AIModel[] = ['chatgpt', 'claude', 'gemini', 'perplexity']
 
     const gapsFound: Array<{
       prompt: string
@@ -72,20 +64,22 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
     for (const prompt of prompts) {
       console.log(`[Competitor Analysis] Testing: "${prompt.prompt_text}"`)
 
-      for (const client of clients) {
+      for (const model of models) {
         try {
           // Rate limiting
-          await waitForRateLimit(organizationId, client.model)
+          await waitForRateLimit(organizationId, model)
 
-          // Test prompt
-          const result = await client.testPrompt(
-            prompt.prompt_text,
-            brandName,
-            [competitorName]
-          )
+          // Get AI client
+          const client = createAIClient(model)
+
+          // Get response from AI
+          const responseText = await client.testPrompt(prompt.prompt_text)
+
+          // Format into full response with brand analysis
+          const result = client.formatResponse(responseText, brandName, [competitorName])
 
           // Track cost
-          await trackCost(organizationId, client.model)
+          await trackCost(organizationId, model)
 
           // Check if competitor mentioned but brand not
           const competitorMentioned = result.competitorMentions.includes(competitorName)
@@ -93,14 +87,14 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
 
           if (competitorMentioned && !brandMentioned) {
             // Found a gap!
-            console.log(`[Competitor Analysis] GAP FOUND: ${competitorName} mentioned on ${client.model}, but not ${brandName}`)
+            console.log(`[Competitor Analysis] GAP FOUND: ${competitorName} mentioned on ${model}, but not ${brandName}`)
 
             gapsFound.push({
               prompt: prompt.prompt_text,
-              platform: client.model,
+              platform: model,
               competitorMentioned: true,
               brandMentioned: false,
-              competitorPosition: null, // Would need to extract from response
+              competitorPosition: null,
               brandPosition: null
             })
 
@@ -109,7 +103,7 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
               organization_id: organizationId,
               competitor_id: competitorId,
               prompt_id: prompt.id,
-              ai_model: client.model,
+              ai_model: model,
               competitor_mentioned: true,
               brand_mentioned: false,
               gap_type: 'competitor_only',
@@ -122,14 +116,14 @@ export const competitorAnalysisWorker = new Worker<CompetitorAnalysisJobData>(
             organization_id: organizationId,
             competitor_id: competitorId,
             prompt_id: prompt.id,
-            ai_model: client.model,
+            ai_model: model,
             competitor_mentioned: competitorMentioned,
             brand_mentioned: brandMentioned,
             response_text: result.responseText,
-            tested_at: result.testedAt
+            tested_at: new Date()
           })
         } catch (error) {
-          console.error(`[Competitor Analysis] Error testing ${client.model}:`, error)
+          console.error(`[Competitor Analysis] Error testing ${model}:`, error)
         }
       }
 

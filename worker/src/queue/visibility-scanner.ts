@@ -1,13 +1,10 @@
 import { Worker, Queue } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
-import { ChatGPTClient } from '../clients/chatgpt.js'
-import { ClaudeClient } from '../clients/claude.js'
-import { GeminiClient } from '../clients/gemini.js'
-import { PerplexityClient } from '../clients/perplexity.js'
+import { createAIClient } from '../lib/ai-clients/index.js'
 import { checkRateLimit, trackCost, waitForRateLimit } from '../utils/rate-limiter.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import { createRedisConnection } from '../utils/redis.js'
-import type { ScanJobData, ScanJobResult, AIResponse } from '../types/ai.js'
+import type { AIModel, AIResponse, ScanJobData, ScanJobResult } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
@@ -41,13 +38,8 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       throw new Error(`Failed to fetch prompts: ${promptError?.message}`)
     }
 
-    // Initialize all AI clients
-    const clients = [
-      new ChatGPTClient(),
-      new ClaudeClient(),
-      new GeminiClient(),
-      new PerplexityClient()
-    ]
+    // AI models to test with
+    const models: AIModel[] = ['chatgpt', 'claude', 'gemini', 'perplexity']
 
     const allResults: AIResponse[] = []
 
@@ -56,16 +48,38 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       console.log(`[Visibility Scanner] Testing prompt: "${prompt.prompt_text}"`)
 
       // Test with each AI model
-      for (const client of clients) {
+      for (const model of models) {
         try {
           // Check rate limit
-          await waitForRateLimit(organizationId, client.model)
+          await waitForRateLimit(organizationId, model)
 
-          const result = await client.testPrompt(prompt.prompt_text, brandName, competitors)
+          // Get AI client for this model
+          const client = createAIClient(model)
+
+          // Get response from AI
+          const responseText = await client.testPrompt(prompt.prompt_text)
+
+          // Format into full response with brand analysis
+          const clientResult = client.formatResponse(responseText, brandName, competitors)
+
+          // Construct compatible AIResponse
+          const result: AIResponse = {
+            model,
+            prompt: prompt.prompt_text,
+            responseText: clientResult.responseText,
+            brandMentioned: clientResult.brandMentioned,
+            citationPresent: clientResult.citationPresent,
+            position: clientResult.position,
+            sentiment: clientResult.sentiment || 'neutral',
+            competitorMentions: clientResult.competitorMentions,
+            citedSources: [],
+            metadata: clientResult.metadata || {},
+            testedAt: new Date()
+          }
           allResults.push(result)
 
           // Track cost
-          await trackCost(organizationId, client.model)
+          await trackCost(organizationId, model)
 
           // Store result in database
           await supabase.from('prompt_results').insert({
@@ -82,9 +96,9 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
             tested_at: result.testedAt
           })
 
-          console.log(`[Visibility Scanner] ${client.model} - Brand mentioned: ${result.brandMentioned}`)
+          console.log(`[Visibility Scanner] ${model} - Brand mentioned: ${result.brandMentioned}`)
         } catch (error) {
-          console.error(`[Visibility Scanner] Error testing with ${client.model}:`, error)
+          console.error(`[Visibility Scanner] Error testing with ${model}:`, error)
           // Continue with next model
         }
       }

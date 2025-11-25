@@ -16,16 +16,15 @@ COPY src ./src
 # Build TypeScript
 RUN npm run build
 
-# Stage 2: Production - Use official Playwright image with browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+# Stage 2: Production
+FROM node:20-slim
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies (skip browser download - already in image)
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Install production dependencies only
 RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy built files from builder
@@ -35,7 +34,7 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
   CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start the application

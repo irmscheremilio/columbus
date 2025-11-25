@@ -1,5 +1,4 @@
-import { chromium } from 'playwright'
-import type { Page } from 'playwright'
+import * as cheerio from 'cheerio'
 
 export interface WebsiteAnalysis {
   domain: string
@@ -61,67 +60,62 @@ export interface AEOReadiness {
 
 /**
  * Crawl and analyze a website for AEO optimization opportunities
+ * Uses simple HTTP fetch + cheerio instead of browser automation
  */
 export class WebsiteCrawler {
   async analyze(domain: string): Promise<WebsiteAnalysis> {
     const url = domain.startsWith('http') ? domain : `https://${domain}`
 
-    const browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
+    console.log(`[Website Crawler] Analyzing ${url}...`)
 
-    try {
-      console.log(`[Website Crawler] Analyzing ${url}...`)
+    // Fetch the page and measure load time
+    const startTime = Date.now()
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ColumbusAEO/1.0; +https://columbus.app)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      redirect: 'follow',
+    })
 
-      // Navigate and measure load time
-      const startTime = Date.now()
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-      const loadTime = Date.now() - startTime
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
+    }
 
-      // Run all analyses in parallel
-      const [
-        techStack,
-        schemaMarkup,
-        contentStructure,
-        technicalSEO
-      ] = await Promise.all([
-        this.detectTechStack(page),
-        this.extractSchemaMarkup(page),
-        this.analyzeContentStructure(page),
-        this.analyzeTechnicalSEO(page, url, loadTime)
-      ])
+    const html = await response.text()
+    const loadTime = Date.now() - startTime
 
-      // Calculate AEO readiness score
-      const aeoReadiness = this.calculateAEOReadiness({
-        techStack,
-        schemaMarkup,
-        contentStructure,
-        technicalSEO
-      })
+    const $ = cheerio.load(html)
 
-      await browser.close()
+    // Run all analyses
+    const techStack = this.detectTechStack($, html)
+    const schemaMarkup = this.extractSchemaMarkup($)
+    const contentStructure = this.analyzeContentStructure($)
+    const technicalSEO = await this.analyzeTechnicalSEO($, url, loadTime)
 
-      return {
-        domain,
-        techStack,
-        schemaMarkup,
-        contentStructure,
-        technicalSEO,
-        aeoReadiness,
-        analyzedAt: new Date()
-      }
-    } catch (error) {
-      await browser.close()
-      throw new Error(`Failed to analyze website: ${error}`)
+    // Calculate AEO readiness score
+    const aeoReadiness = this.calculateAEOReadiness({
+      techStack,
+      schemaMarkup,
+      contentStructure,
+      technicalSEO,
+    })
+
+    return {
+      domain,
+      techStack,
+      schemaMarkup,
+      contentStructure,
+      technicalSEO,
+      aeoReadiness,
+      analyzedAt: new Date(),
     }
   }
 
   /**
    * Detect tech stack (WordPress, Shopify, Next.js, etc.)
    */
-  private async detectTechStack(page: Page): Promise<TechStack> {
-    const html = await page.content()
-    const metaTags = await page.locator('meta').all()
-
+  private detectTechStack($: cheerio.CheerioAPI, html: string): TechStack {
     let platform = 'custom'
     let framework: string | undefined
     let cms: string | undefined
@@ -153,6 +147,12 @@ export class WebsiteCrawler {
       cms = 'Wix'
     }
 
+    // Check for Squarespace
+    if (html.includes('squarespace') || html.includes('static1.squarespace.com')) {
+      platform = 'squarespace'
+      cms = 'Squarespace'
+    }
+
     // Check for Next.js
     if (html.includes('__NEXT_DATA__') || html.includes('_next/')) {
       framework = 'Next.js'
@@ -167,8 +167,15 @@ export class WebsiteCrawler {
       hasSSR = true
     }
 
+    // Check for Gatsby
+    if (html.includes('___gatsby') || html.includes('gatsby-')) {
+      framework = 'Gatsby'
+      jsFramework = 'React'
+      hasSSR = true // Static generation
+    }
+
     // Check for React (CSR)
-    if (html.includes('react') && !hasSSR) {
+    if ((html.includes('react') || html.includes('React')) && !hasSSR) {
       jsFramework = 'React'
       hasCSR = true
     }
@@ -180,24 +187,23 @@ export class WebsiteCrawler {
     }
 
     // Check for Angular
-    if (html.includes('ng-version')) {
+    if (html.includes('ng-version') || html.includes('ng-app')) {
       jsFramework = 'Angular'
       hasCSR = true
     }
 
     // Check generator meta tag
-    for (const meta of metaTags) {
-      const name = await meta.getAttribute('name')
-      const content = await meta.getAttribute('content')
-
-      if (name === 'generator' && content) {
-        if (content.includes('WordPress')) {
-          platform = 'wordpress'
-          cms = 'WordPress'
-        } else if (content.includes('Shopify')) {
-          platform = 'shopify'
-          cms = 'Shopify'
-        }
+    const generator = $('meta[name="generator"]').attr('content')
+    if (generator) {
+      if (generator.includes('WordPress')) {
+        platform = 'wordpress'
+        cms = 'WordPress'
+      } else if (generator.includes('Shopify')) {
+        platform = 'shopify'
+        cms = 'Shopify'
+      } else if (generator.includes('Drupal')) {
+        platform = 'drupal'
+        cms = 'Drupal'
       }
     }
 
@@ -207,43 +213,48 @@ export class WebsiteCrawler {
       cms,
       jsFramework,
       hasSSR,
-      hasCSR
+      hasCSR,
     }
   }
 
   /**
    * Extract and validate schema markup
    */
-  private async extractSchemaMarkup(page: Page): Promise<SchemaMarkup[]> {
+  private extractSchemaMarkup($: cheerio.CheerioAPI): SchemaMarkup[] {
     const schemas: SchemaMarkup[] = []
 
     // Find all script tags with type="application/ld+json"
-    const schemaScripts = await page.locator('script[type="application/ld+json"]').all()
-
-    for (const script of schemaScripts) {
+    $('script[type="application/ld+json"]').each((_, element) => {
       try {
-        const content = await script.innerText()
+        const content = $(element).html()
+        if (!content) return
+
         const data = JSON.parse(content)
 
-        const type = data['@type'] || 'Unknown'
-        const location = await this.getElementLocation(script)
+        // Handle arrays of schemas
+        const items = Array.isArray(data) ? data : [data]
 
-        schemas.push({
-          type,
-          isValid: true, // Basic validation - could be more thorough
-          location,
-          data
-        })
-      } catch (error) {
+        for (const item of items) {
+          const type = item['@type'] || 'Unknown'
+          const isInHead = $(element).parent('head').length > 0
+
+          schemas.push({
+            type: Array.isArray(type) ? type.join(', ') : type,
+            isValid: true,
+            location: isInHead ? 'head' : 'body',
+            data: item,
+          })
+        }
+      } catch {
         // Invalid JSON
         schemas.push({
           type: 'Unknown',
           isValid: false,
           location: 'unknown',
-          data: null
+          data: null,
         })
       }
-    }
+    })
 
     return schemas
   }
@@ -251,60 +262,64 @@ export class WebsiteCrawler {
   /**
    * Analyze content structure for AEO optimization
    */
-  private async analyzeContentStructure(page: Page): Promise<ContentStructure> {
+  private analyzeContentStructure($: cheerio.CheerioAPI): ContentStructure {
     // H1 analysis
-    const h1Elements = await page.locator('h1').all()
+    const h1Elements = $('h1')
     const hasH1 = h1Elements.length > 0
     const h1Count = h1Elements.length
-    const h1Text = hasH1 ? await h1Elements[0].innerText() : undefined
+    const h1Text = hasH1 ? h1Elements.first().text().trim() : undefined
 
     // Semantic HTML check
-    const hasArticle = (await page.locator('article').count()) > 0
-    const hasSection = (await page.locator('section').count()) > 0
-    const hasHeader = (await page.locator('header').count()) > 0
-    const hasSemanticHTML = hasArticle && hasSection && hasHeader
+    const hasArticle = $('article').length > 0
+    const hasSection = $('section').length > 0
+    const hasHeader = $('header').length > 0
+    const hasMain = $('main').length > 0
+    const hasSemanticHTML = (hasArticle || hasMain) && (hasSection || hasHeader)
 
     // Check for Q&A format
-    const headings = await page.locator('h2, h3').all()
+    const headings = $('h2, h3')
     let questionHeadings = 0
-    for (const heading of headings) {
-      const text = await heading.innerText()
-      if (text.includes('?') || text.toLowerCase().startsWith('what') ||
-          text.toLowerCase().startsWith('how') || text.toLowerCase().startsWith('why')) {
+    headings.each((_, el) => {
+      const text = $(el).text().toLowerCase()
+      if (
+        text.includes('?') ||
+        text.startsWith('what') ||
+        text.startsWith('how') ||
+        text.startsWith('why') ||
+        text.startsWith('when') ||
+        text.startsWith('where') ||
+        text.startsWith('who')
+      ) {
         questionHeadings++
       }
-    }
+    })
     const hasQAFormat = questionHeadings >= 2
 
     // Word count and paragraph analysis
-    const bodyText = await page.locator('main, article, body').first().innerText()
-    const wordCount = bodyText.split(/\s+/).length
+    const mainContent = $('main, article, .content, #content, body').first()
+    const bodyText = mainContent.text().replace(/\s+/g, ' ').trim()
+    const wordCount = bodyText.split(/\s+/).filter(w => w.length > 0).length
 
-    const paragraphs = await page.locator('p').all()
+    const paragraphs = $('p')
     let totalWords = 0
-    for (const p of paragraphs) {
-      const text = await p.innerText()
-      totalWords += text.split(/\s+/).length
-    }
+    paragraphs.each((_, el) => {
+      const text = $(el).text().trim()
+      totalWords += text.split(/\s+/).filter(w => w.length > 0).length
+    })
     const avgParagraphLength = paragraphs.length > 0 ? Math.round(totalWords / paragraphs.length) : 0
 
     // Check for direct answers (40-60 word summaries after headings)
     let hasDirectAnswers = false
-    for (const heading of headings.slice(0, 5)) { // Check first 5 headings
-      try {
-        const nextElement = await heading.evaluateHandle(el => el.nextElementSibling)
-        const nextText = await nextElement.asElement()?.innerText()
-        if (nextText) {
-          const words = nextText.split(/\s+/).length
-          if (words >= 40 && words <= 80) {
-            hasDirectAnswers = true
-            break
-          }
+    $('h2, h3').slice(0, 5).each((_, heading) => {
+      const nextP = $(heading).next('p')
+      if (nextP.length > 0) {
+        const words = nextP.text().split(/\s+/).filter(w => w.length > 0).length
+        if (words >= 40 && words <= 80) {
+          hasDirectAnswers = true
+          return false // break
         }
-      } catch (e) {
-        // Skip if can't find next element
       }
-    }
+    })
 
     return {
       hasH1,
@@ -314,19 +329,23 @@ export class WebsiteCrawler {
       hasQAFormat,
       avgParagraphLength,
       wordCount,
-      hasDirectAnswers
+      hasDirectAnswers,
     }
   }
 
   /**
    * Analyze technical SEO factors
    */
-  private async analyzeTechnicalSEO(page: Page, url: string, loadTime: number): Promise<TechnicalSEO> {
+  private async analyzeTechnicalSEO(
+    $: cheerio.CheerioAPI,
+    url: string,
+    loadTime: number
+  ): Promise<TechnicalSEO> {
     const hasHTTPS = url.startsWith('https://')
 
-    // Check mobile responsiveness
-    const viewport = page.viewportSize()
-    const mobileResponsive = viewport ? viewport.width >= 320 : false
+    // Check viewport meta tag for mobile responsiveness
+    const viewport = $('meta[name="viewport"]').attr('content')
+    const mobileResponsive = viewport?.includes('width=device-width') ?? false
 
     // Check for sitemap and robots.txt
     const domain = new URL(url).origin
@@ -334,28 +353,18 @@ export class WebsiteCrawler {
     let hasRobotsTxt = false
 
     try {
-      const sitemapResponse = await page.context().request.get(`${domain}/sitemap.xml`)
-      hasSitemap = sitemapResponse.ok()
-    } catch (e) {
+      const sitemapResponse = await fetch(`${domain}/sitemap.xml`, { method: 'HEAD' })
+      hasSitemap = sitemapResponse.ok
+    } catch {
       hasSitemap = false
     }
 
     try {
-      const robotsResponse = await page.context().request.get(`${domain}/robots.txt`)
-      hasRobotsTxt = robotsResponse.ok()
-    } catch (e) {
+      const robotsResponse = await fetch(`${domain}/robots.txt`, { method: 'HEAD' })
+      hasRobotsTxt = robotsResponse.ok
+    } catch {
       hasRobotsTxt = false
     }
-
-    // Core Web Vitals (basic approximation)
-    const metrics = await page.evaluate(() => {
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-      return {
-        lcp: navigation.domContentLoadedEventEnd - navigation.fetchStart,
-        fid: 0, // Would need real user interaction to measure
-        cls: 0  // Would need layout shift observation
-      }
-    })
 
     return {
       hasHTTPS,
@@ -363,7 +372,12 @@ export class WebsiteCrawler {
       mobileResponsive,
       hasSitemap,
       hasRobotsTxt,
-      coreWebVitals: metrics
+      coreWebVitals: {
+        // Cannot measure real CWV without a browser - leave undefined
+        lcp: undefined,
+        fid: undefined,
+        cls: undefined,
+      },
     }
   }
 
@@ -387,20 +401,27 @@ export class WebsiteCrawler {
       score += 20
       strengths.push('Server-side rendering detected - excellent for AI crawlers')
     } else if (analysis.techStack.hasCSR) {
-      criticalIssues.push('Client-side rendering only - AI crawlers cannot execute JavaScript')
+      score += 5
+      criticalIssues.push('Client-side rendering only - AI crawlers may not execute JavaScript')
       recommendations.push('Implement Server-Side Rendering (SSR) or Static Site Generation (SSG)')
     } else {
       score += 15
+      strengths.push('Traditional server-rendered HTML')
     }
 
     // Schema Markup scoring (25 points)
-    const hasFAQSchema = analysis.schemaMarkup.some(s => s.type === 'FAQPage')
-    const hasArticleSchema = analysis.schemaMarkup.some(s => s.type === 'Article' || s.type === 'BlogPosting')
-    const hasOrgSchema = analysis.schemaMarkup.some(s => s.type === 'Organization')
+    const hasFAQSchema = analysis.schemaMarkup.some(s =>
+      s.type.includes('FAQPage') || s.type.includes('Question'))
+    const hasArticleSchema = analysis.schemaMarkup.some(s =>
+      s.type.includes('Article') || s.type.includes('BlogPosting') || s.type.includes('NewsArticle'))
+    const hasOrgSchema = analysis.schemaMarkup.some(s =>
+      s.type.includes('Organization') || s.type.includes('LocalBusiness'))
+    const hasProductSchema = analysis.schemaMarkup.some(s => s.type.includes('Product'))
+    const hasHowToSchema = analysis.schemaMarkup.some(s => s.type.includes('HowTo'))
 
     if (hasFAQSchema) {
       score += 10
-      strengths.push('FAQ schema implemented')
+      strengths.push('FAQ schema implemented - great for AI answer extraction')
     } else {
       weaknesses.push('Missing FAQ schema')
       recommendations.push('Add FAQPage schema for Q&A content')
@@ -420,12 +441,23 @@ export class WebsiteCrawler {
       recommendations.push('Add Organization schema to establish brand identity')
     }
 
+    if (hasHowToSchema) {
+      score += 5
+      strengths.push('HowTo schema implemented')
+    }
+
+    if (hasProductSchema) {
+      score += 5
+      strengths.push('Product schema implemented')
+    }
+
     // Content Structure scoring (30 points)
     if (analysis.contentStructure.hasH1 && analysis.contentStructure.h1Count === 1) {
       score += 8
       strengths.push('Proper H1 structure (single H1 per page)')
     } else if (analysis.contentStructure.h1Count > 1) {
-      weaknesses.push('Multiple H1 tags found')
+      score += 4
+      weaknesses.push(`Multiple H1 tags found (${analysis.contentStructure.h1Count})`)
       recommendations.push('Use only one H1 per page')
     } else {
       criticalIssues.push('No H1 tag found')
@@ -436,7 +468,8 @@ export class WebsiteCrawler {
       score += 7
       strengths.push('Semantic HTML5 elements used')
     } else {
-      recommendations.push('Use semantic HTML (<article>, <section>, <header>)')
+      weaknesses.push('Limited semantic HTML structure')
+      recommendations.push('Use semantic HTML (<article>, <section>, <main>)')
     }
 
     if (analysis.contentStructure.hasQAFormat) {
@@ -468,11 +501,19 @@ export class WebsiteCrawler {
       strengths.push(`Fast load time (${analysis.technicalSEO.loadTime}ms)`)
     } else if (analysis.technicalSEO.loadTime < 5000) {
       score += 4
-      weaknesses.push('Moderate load time')
+      weaknesses.push(`Moderate load time (${analysis.technicalSEO.loadTime}ms)`)
       recommendations.push('Optimize page speed to under 2 seconds')
     } else {
-      weaknesses.push('Slow load time')
+      weaknesses.push(`Slow load time (${analysis.technicalSEO.loadTime}ms)`)
       recommendations.push('Critical: Improve page speed (currently >5s)')
+    }
+
+    if (analysis.technicalSEO.mobileResponsive) {
+      score += 5
+      strengths.push('Mobile viewport meta tag present')
+    } else {
+      weaknesses.push('Missing mobile viewport configuration')
+      recommendations.push('Add viewport meta tag for mobile responsiveness')
     }
 
     if (analysis.technicalSEO.hasSitemap) {
@@ -494,17 +535,7 @@ export class WebsiteCrawler {
       strengths,
       weaknesses,
       criticalIssues,
-      recommendations
-    }
-  }
-
-  private async getElementLocation(element: any): Promise<string> {
-    try {
-      const parent = await element.evaluateHandle((el: Element) => el.parentElement?.tagName)
-      const parentTag = await parent.jsonValue()
-      return parentTag === 'HEAD' ? 'head' : 'body'
-    } catch {
-      return 'unknown'
+      recommendations,
     }
   }
 }
