@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "/worker/Dockerfile"
+dockerfilePath = "/worker/Dockerfile" # Weird but necessary for Railway
 
 [deploy]
 startCommand = "node dist/index.js"
