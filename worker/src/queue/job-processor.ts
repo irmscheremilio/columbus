@@ -3,6 +3,8 @@ import { createRedisConnection } from '../utils/redis.js'
 import { websiteAnalysisQueue } from './website-analysis.js'
 import { competitorAnalysisQueue } from './competitor-analysis.js'
 import { visibilityScanQueue } from './visibility-scanner.js'
+import { freshnessCheckQueue } from './freshness-checker.js'
+import { reportGenerationQueue } from './report-generator.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -124,6 +126,32 @@ class JobProcessor {
           promptIds: job.metadata.promptIds,
           competitors: job.metadata.competitors || [],
           isScheduled: job.metadata.isScheduled ?? false,
+          jobId: job.id
+        })
+        break
+
+      case 'freshness_check':
+        await freshnessCheckQueue.add('check', {
+          pageId: job.metadata.pageId,
+          organizationId: job.metadata.organizationId || job.organization_id,
+          scheduledCheck: job.metadata.scheduledCheck ?? false
+        })
+        // Mark as completed immediately since the queue handles the work
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', job.id)
+        break
+
+      case 'report_generation':
+        await reportGenerationQueue.add('generate', {
+          organizationId: job.organization_id,
+          reportType: job.metadata.reportType || 'executive_summary',
+          periodDays: job.metadata.periodDays || 30,
+          email: job.metadata.email,
           jobId: job.id
         })
         break

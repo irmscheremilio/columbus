@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1",
+    "@sentry/node": "^8.0.0",
     "@supabase/supabase-js": "^2.45.6",
     "bullmq": "^5.15.0",
     "cheerio": "^1.1.2",
@@ -20,12 +21,14 @@
     "express": "^4.21.1",
     "ioredis": "^5.4.1",
     "openai": "^4.71.0",
+    "pdfkit": "^0.15.0",
     "resend": "^4.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.9.0",
+    "@types/pdfkit": "^0.13.5",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   },

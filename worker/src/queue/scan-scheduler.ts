@@ -117,9 +117,10 @@ export const scanSchedulerWorker = new Worker(
           if (['pro', 'agency', 'enterprise'].includes(subscription.plan_type)) {
             const now = new Date()
             const dayOfWeek = now.getDay()
+            const hourOfDay = now.getHours()
 
-            // Run website analysis on Sundays
-            if (dayOfWeek === 0) {
+            // Run website analysis on Sundays at 2 AM
+            if (dayOfWeek === 0 && hourOfDay >= 2 && hourOfDay < 8) {
               const websiteAnalysisQueue = new Queue('website-analysis', {
                 connection: redisConnection
               })
@@ -131,6 +132,91 @@ export const scanSchedulerWorker = new Worker(
               })
 
               console.log(`[Scan Scheduler] Queued website analysis for ${org.name}`)
+            }
+
+            // Generate weekly report on Mondays at 6 AM
+            if (dayOfWeek === 1 && hourOfDay >= 6 && hourOfDay < 12) {
+              const reportQueue = new Queue('report-generation', {
+                connection: redisConnection
+              })
+
+              // Check if we already generated a report this week
+              const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+              const { count: recentReports } = await supabase
+                .from('reports')
+                .select('*', { count: 'exact', head: true })
+                .eq('organization_id', subscription.organization_id)
+                .eq('report_type', 'executive_summary')
+                .gte('created_at', weekAgo.toISOString())
+
+              if (!recentReports || recentReports === 0) {
+                await reportQueue.add('generate', {
+                  organizationId: subscription.organization_id,
+                  reportType: 'executive_summary',
+                  periodDays: 7
+                })
+                console.log(`[Scan Scheduler] Queued weekly report for ${org.name}`)
+              }
+            }
+
+            // Run competitor analysis twice weekly (Wednesday and Saturday)
+            if ((dayOfWeek === 3 || dayOfWeek === 6) && hourOfDay >= 3 && hourOfDay < 9) {
+              // Get competitors for this organization
+              const { data: competitors } = await supabase
+                .from('competitors')
+                .select('id, name')
+                .eq('organization_id', subscription.organization_id)
+                .eq('status', 'active')
+                .limit(10)
+
+              if (competitors && competitors.length > 0) {
+                const competitorQueue = new Queue('competitor-analysis', {
+                  connection: redisConnection
+                })
+
+                for (const competitor of competitors) {
+                  await competitorQueue.add('analyze', {
+                    organizationId: subscription.organization_id,
+                    brandName: org.name,
+                    competitorId: competitor.id,
+                    competitorName: competitor.name,
+                    promptIds: prompts.map(p => p.id).slice(0, 5) // Use subset of prompts
+                  })
+                }
+                console.log(`[Scan Scheduler] Queued competitor analysis for ${org.name} (${competitors.length} competitors)`)
+              }
+            }
+          }
+
+          // Queue freshness checks for all active plans (daily at 4 AM)
+          const now = new Date()
+          const hourOfDay = now.getHours()
+          if (hourOfDay >= 4 && hourOfDay < 10) {
+            const freshnessQueue = new Queue('freshness-checks', {
+              connection: redisConnection
+            })
+
+            // Check if we already ran freshness check today
+            const today = now.toISOString().split('T')[0]
+            const { count: todayChecks } = await supabase
+              .from('monitored_pages')
+              .select('*', { count: 'exact', head: true })
+              .eq('organization_id', subscription.organization_id)
+              .gte('last_crawled_at', today)
+
+            // Get monitored pages count
+            const { count: totalPages } = await supabase
+              .from('monitored_pages')
+              .select('*', { count: 'exact', head: true })
+              .eq('organization_id', subscription.organization_id)
+              .eq('status', 'active')
+
+            // Only queue if we have pages and haven't checked most of them today
+            if (totalPages && totalPages > 0 && (!todayChecks || todayChecks < totalPages / 2)) {
+              await freshnessQueue.add('check', {
+                organizationId: subscription.organization_id
+              })
+              console.log(`[Scan Scheduler] Queued freshness check for ${org.name}`)
             }
           }
 

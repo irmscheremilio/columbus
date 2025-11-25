@@ -1,49 +1,83 @@
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-gray-50">
     <DashboardNav />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div class="px-4 py-6 sm:px-0">
-        <div class="flex justify-between items-center mb-6">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">Fix Recommendations</h1>
-            <p class="mt-2 text-gray-600">
-              Platform-specific guides to improve your AEO visibility
-            </p>
+        <!-- Page Header -->
+        <div class="flex justify-between items-start mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center">
+              <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-gray-900">Fix Recommendations</h1>
+              <p class="text-gray-500">Platform-specific guides to improve your AEO visibility</p>
+            </div>
           </div>
-          <div class="flex gap-3">
-            <button class="btn-outline" @click="refreshRecommendations" :disabled="loading">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex gap-2">
+            <button
+              class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              @click="refreshRecommendations"
+              :disabled="loading"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
             </button>
-            <button class="btn-primary" @click="runWebsiteAnalysis" :disabled="analyzing">
-              <svg v-if="!analyzing" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button
+              class="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 transition-colors disabled:opacity-50"
+              @click="runWebsiteAnalysis"
+              :disabled="analyzing"
+            >
+              <svg v-if="!analyzing" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
-              <div v-else class="w-5 h-5 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div v-else class="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
               {{ analyzing ? 'Analyzing...' : 'Run New Analysis' }}
             </button>
           </div>
         </div>
 
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-gray-900">{{ pendingCount }}</div>
+            <div class="text-sm text-gray-500">Pending</div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-gray-900">{{ inProgressCount }}</div>
+            <div class="text-sm text-gray-500">In Progress</div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-gray-900">{{ completedCount }}</div>
+            <div class="text-sm text-gray-500">Completed</div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-2xl font-bold text-gray-900">{{ highImpactCount }}</div>
+            <div class="text-sm text-gray-500">High Impact</div>
+          </div>
+        </div>
+
         <!-- Filters -->
-        <div class="card-highlight mb-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <div class="flex flex-wrap gap-4">
             <div>
-              <label class="label">Status</label>
-              <select v-model="filterStatus" class="input w-40">
-                <option value="all">All</option>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+              <select v-model="filterStatus" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
+                <option value="all">All Status</option>
                 <option value="pending">Pending</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
               </select>
             </div>
             <div>
-              <label class="label">Category</label>
-              <select v-model="filterCategory" class="input w-40">
-                <option value="all">All</option>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Category</label>
+              <select v-model="filterCategory" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
+                <option value="all">All Categories</option>
                 <option value="schema">Schema</option>
                 <option value="content">Content</option>
                 <option value="technical">Technical</option>
@@ -51,9 +85,9 @@
               </select>
             </div>
             <div>
-              <label class="label">Impact</label>
-              <select v-model="filterImpact" class="input w-40">
-                <option value="all">All</option>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Impact</label>
+              <select v-model="filterImpact" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
+                <option value="all">All Impact</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
@@ -63,66 +97,64 @@
         </div>
 
         <!-- Recommendations List -->
-        <div v-if="loading" class="text-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
+        <div v-if="loading" class="flex items-center justify-center py-16">
+          <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
         </div>
 
-        <div v-else-if="!filteredRecommendations.length" class="card-highlight text-center py-12">
-          <p class="text-gray-500">
-            {{ filterStatus === 'all' ? 'No recommendations found. Run a visibility scan to get started!' : 'No recommendations match your filters.' }}
+        <div v-else-if="!filteredRecommendations.length" class="bg-white rounded-xl border border-gray-200 text-center py-12">
+          <p class="text-gray-500 mb-1">
+            {{ filterStatus === 'all' ? 'No recommendations found' : 'No recommendations match your filters' }}
+          </p>
+          <p class="text-sm text-gray-400">
+            {{ filterStatus === 'all' ? 'Run a visibility scan to get personalized recommendations' : 'Try adjusting your filters' }}
           </p>
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-2">
           <div
             v-for="rec in filteredRecommendations"
             :key="rec.id"
-            class="card-highlight hover:shadow-md transition-shadow cursor-pointer"
+            class="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
             @click="$router.push(`/dashboard/recommendations/${rec.id}`)"
           >
             <div class="flex items-start gap-4">
               <!-- Priority Badge -->
-              <div
-                class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                :class="getPriorityColor(rec.priority)"
-              >
-                {{ rec.priority }}
+              <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-brand text-white flex items-center justify-center font-bold text-sm">
+                P{{ rec.priority }}
               </div>
 
               <!-- Content -->
-              <div class="flex-1">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <h3 class="text-lg font-semibold text-gray-900">{{ rec.title }}</h3>
-                    <p class="text-gray-600 mt-1">{{ rec.description }}</p>
-                  </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-4">
+                  <h3 class="font-semibold text-gray-900">{{ rec.title }}</h3>
                   <span
-                    class="ml-4 px-3 py-1 rounded-full text-sm font-medium"
+                    class="flex-shrink-0 px-2 py-1 rounded text-xs font-medium"
                     :class="getStatusClass(rec.status)"
                   >
                     {{ formatStatus(rec.status) }}
                   </span>
                 </div>
+                <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ rec.description }}</p>
 
-                <div class="flex items-center gap-4 mt-4">
-                  <span class="text-sm px-3 py-1 bg-gray-100 rounded-full">
+                <div class="flex items-center flex-wrap gap-2 mt-3">
+                  <span class="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs font-medium rounded">
                     {{ rec.category }}
                   </span>
                   <span
-                    class="text-sm px-3 py-1 rounded-full"
-                    :class="getImpactClass(rec.estimated_impact)"
+                    class="px-2 py-0.5 text-xs font-medium rounded"
+                    :class="rec.estimated_impact === 'high' ? 'bg-brand/10 text-brand' : 'bg-gray-200 text-gray-600'"
                   >
-                    Impact: {{ rec.estimated_impact }}
+                    {{ rec.estimated_impact }} impact
                   </span>
-                  <span class="text-sm text-gray-500">
+                  <span class="text-xs text-gray-400">
                     {{ formatDate(rec.created_at) }}
                   </span>
                 </div>
               </div>
 
               <!-- Arrow -->
-              <div class="flex-shrink-0">
-                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
               </div>
@@ -157,6 +189,11 @@ const filteredRecommendations = computed(() => {
     return true
   })
 })
+
+const pendingCount = computed(() => recommendations.value.filter(r => r.status === 'pending').length)
+const inProgressCount = computed(() => recommendations.value.filter(r => r.status === 'in_progress').length)
+const completedCount = computed(() => recommendations.value.filter(r => r.status === 'completed').length)
+const highImpactCount = computed(() => recommendations.value.filter(r => r.estimated_impact === 'high').length)
 
 onMounted(async () => {
   await loadRecommendations()
@@ -201,9 +238,8 @@ const runWebsiteAnalysis = async () => {
 
     if (error) throw error
 
-    alert(`Website analysis started! We'll analyze your site and generate fresh recommendations. This typically takes 2-3 minutes. Refresh this page in a few minutes to see your new recommendations.`)
+    alert(`Website analysis started! We'll analyze your site and generate fresh recommendations.`)
 
-    // Refresh after 3 minutes
     setTimeout(async () => {
       await loadRecommendations()
     }, 180000)
@@ -215,33 +251,12 @@ const runWebsiteAnalysis = async () => {
   }
 }
 
-const getPriorityColor = (priority: number) => {
-  if (priority >= 4) return 'bg-red-500'
-  if (priority >= 3) return 'bg-orange-500'
-  return 'bg-yellow-500'
-}
-
 const getStatusClass = (status: string) => {
   switch (status) {
-    case 'completed':
-      return 'bg-green-100 text-green-800'
-    case 'in_progress':
-      return 'bg-blue-100 text-blue-800'
-    case 'dismissed':
-      return 'bg-gray-100 text-gray-800'
-    default:
-      return 'bg-yellow-100 text-yellow-800'
-  }
-}
-
-const getImpactClass = (impact: string) => {
-  switch (impact) {
-    case 'high':
-      return 'bg-red-100 text-red-800'
-    case 'medium':
-      return 'bg-orange-100 text-orange-800'
-    default:
-      return 'bg-blue-100 text-blue-800'
+    case 'completed': return 'bg-green-100 text-green-700'
+    case 'in_progress': return 'bg-blue-100 text-blue-700'
+    case 'dismissed': return 'bg-gray-100 text-gray-600'
+    default: return 'bg-gray-100 text-gray-600'
   }
 }
 
@@ -250,9 +265,6 @@ const formatStatus = (status: string) => {
 }
 
 const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
-  })
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 </script>

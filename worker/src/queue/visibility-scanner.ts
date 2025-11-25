@@ -4,6 +4,7 @@ import { createAIClient } from '../lib/ai-clients/index.js'
 import { checkRateLimit, trackCost, waitForRateLimit } from '../utils/rate-limiter.js'
 import { sendScanCompletedEmail } from '../services/email.js'
 import { createRedisConnection } from '../utils/redis.js'
+import { competitorDetector } from '../services/competitor-detector.js'
 import type { AIModel, AIResponse, ScanJobData, ScanJobResult } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -82,7 +83,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
           await trackCost(organizationId, model)
 
           // Store result in database
-          await supabase.from('prompt_results').insert({
+          const { data: promptResult } = await supabase.from('prompt_results').insert({
             prompt_id: prompt.id,
             organization_id: organizationId,
             ai_model: result.model,
@@ -94,7 +95,28 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
             competitor_mentions: result.competitorMentions,
             metadata: result.metadata,
             tested_at: result.testedAt
-          })
+          }).select('id').single()
+
+          // Auto-detect competitors from response
+          try {
+            const detection = await competitorDetector.detectCompetitors(
+              result.responseText,
+              brandName,
+              competitors
+            )
+
+            if (detection.competitors.length > 0) {
+              console.log(`[Visibility Scanner] Detected ${detection.competitors.length} potential competitors in ${model} response`)
+              await competitorDetector.saveDetectedCompetitors(
+                organizationId,
+                brandName,
+                detection.competitors
+              )
+            }
+          } catch (detectionError) {
+            console.error(`[Visibility Scanner] Competitor detection error:`, detectionError)
+            // Don't fail the scan for detection errors
+          }
 
           console.log(`[Visibility Scanner] ${model} - Brand mentioned: ${result.brandMentioned}`)
         } catch (error) {

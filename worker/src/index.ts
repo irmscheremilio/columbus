@@ -1,5 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
+import { initSentry, captureError, flushEvents } from './utils/sentry.js'
+
+// Initialize Sentry as early as possible
+initSentry()
 
 const app = express()
 const PORT = process.env.PORT || 8080
@@ -19,7 +23,9 @@ app.get('/health', (req, res) => {
       visibilityScanner: workersInitialized ? 'running' : 'initializing',
       competitorAnalysis: workersInitialized ? 'running' : 'initializing',
       websiteAnalysis: workersInitialized ? 'running' : 'initializing',
-      scanScheduler: workersInitialized ? 'running' : 'initializing'
+      scanScheduler: workersInitialized ? 'running' : 'initializing',
+      freshnessChecker: workersInitialized ? 'running' : 'initializing',
+      reportGenerator: workersInitialized ? 'running' : 'initializing'
     }
   })
 })
@@ -38,7 +44,12 @@ app.listen(PORT, async () => {
     const { competitorAnalysisWorker } = await import('./queue/competitor-analysis.js')
     const { websiteAnalysisWorker } = await import('./queue/website-analysis.js')
     const { scanSchedulerWorker } = await import('./queue/scan-scheduler.js')
+    const { freshnessCheckWorker, scheduleRecurringCheck } = await import('./queue/freshness-checker.js')
+    const { reportGenerationWorker } = await import('./queue/report-generator.js')
     const { jobProcessor } = await import('./queue/job-processor.js')
+
+    // Schedule recurring freshness checks
+    await scheduleRecurringCheck()
 
     workersInitialized = true
     console.log('Workers initialized:')
@@ -47,6 +58,8 @@ app.listen(PORT, async () => {
     console.log('- Competitor Analysis Worker: Running')
     console.log('- Website Analysis Worker: Running')
     console.log('- Scan Scheduler Worker: Running (checks every 6 hours)')
+    console.log('- Freshness Checker Worker: Running (checks every 6 hours)')
+    console.log('- Report Generator Worker: Running')
 
     // Handle graceful shutdown
     const shutdown = async () => {
@@ -56,8 +69,12 @@ app.listen(PORT, async () => {
         visibilityScanWorker.close(),
         competitorAnalysisWorker.close(),
         websiteAnalysisWorker.close(),
-        scanSchedulerWorker.close()
+        scanSchedulerWorker.close(),
+        freshnessCheckWorker.close(),
+        reportGenerationWorker.close()
       ])
+      // Flush Sentry events before exit
+      await flushEvents()
       process.exit(0)
     }
 
@@ -65,6 +82,10 @@ app.listen(PORT, async () => {
     process.on('SIGINT', shutdown)
   } catch (error) {
     console.error('Error initializing workers:', error)
+    captureError(error as Error, {
+      tags: { context: 'worker-initialization' },
+      level: 'fatal'
+    })
     console.error('Server will continue running for health checks, but workers are not operational')
   }
 })
