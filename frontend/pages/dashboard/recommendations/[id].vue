@@ -189,7 +189,7 @@
         </div>
 
         <!-- Research Insight -->
-        <div v-if="researchData[recommendation.category]" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-6">
+        <div v-if="recommendation.research_insight" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-6">
           <div class="flex items-start gap-4">
             <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
               <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -198,7 +198,7 @@
             </div>
             <div class="flex-1">
               <h3 class="font-semibold text-amber-900 mb-1">Research-Backed Insight</h3>
-              <p class="text-amber-800 leading-relaxed">{{ researchData[recommendation.category] }}</p>
+              <p class="text-amber-800 leading-relaxed">{{ recommendation.research_insight }}</p>
             </div>
           </div>
         </div>
@@ -379,13 +379,6 @@ const recommendation = ref<any>(null)
 const selectedPlatform = ref<string>('')
 const copiedStates = ref<Record<number, boolean>>({})
 const totalScans = ref(0)
-
-const researchData: Record<string, string> = {
-  schema: 'Research shows FAQ schema is the #1 most effective AEO optimization with 40-60% improvement in visibility. AI models explicitly look for structured Q&A content in JSON-LD format.',
-  content: 'Studies show content with 40-60 word direct answers has a 3.2x higher citation rate. AI models prioritize concise, factual responses that directly answer user queries.',
-  technical: 'Pages loading under 2.5 seconds have 47% higher AI citation rates. 3 out of 4 AI platforms cannot execute JavaScript, making SSR critical for visibility.',
-  authority: 'Wikipedia accounts for 7.8% of total ChatGPT citations. Getting mentioned on high-authority platforms like G2, Reddit, and industry publications significantly increases AI visibility.'
-}
 
 const implementationGuide = computed(() => {
   if (!recommendation.value?.implementation_guide) return []

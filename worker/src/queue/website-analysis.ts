@@ -353,7 +353,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           page_title: rec.aiPlatformSpecific?.length
             ? `Optimized for: ${rec.aiPlatformSpecific.join(', ')}`
             : 'General',
-          ai_generated: true
+          ai_generated: true,
+          research_insight: rec.researchInsight || null
         })
       }
 
@@ -377,7 +378,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
             status: 'pending',
             page_url: pageUrl,
             page_title: pageTitle,
-            ai_generated: true
+            ai_generated: true,
+            research_insight: rec.researchInsight || null
           })
         }
       }

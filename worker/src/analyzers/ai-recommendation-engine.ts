@@ -19,6 +19,7 @@ export interface AIRecommendation {
   estimatedTime: string
   difficulty: 'easy' | 'medium' | 'hard'
   aiPlatformSpecific?: string[] // Which AI platforms this recommendation targets
+  researchInsight?: string // Research-backed insight specific to this recommendation
 }
 
 export interface PlatformGuide {
@@ -138,6 +139,7 @@ Return a JSON array of recommendations with this structure:
       "category": "schema|content|technical|authority",
       "priority": 5, // 1-5, where 5 is highest
       "estimatedImpact": "low|medium|high",
+      "researchInsight": "A specific research-backed fact or statistic from the AEO Knowledge Base above that directly supports WHY this recommendation matters. Must be relevant to THIS specific recommendation, not generic.",
       "implementationGuide": [
         {
           "platform": "wordpress|shopify|nextjs|nuxt|custom",
@@ -435,6 +437,7 @@ Return a JSON object where keys are page URLs and values are arrays of recommend
       "category": "schema|content|technical|authority",
       "priority": 1-5,
       "estimatedImpact": "low|medium|high",
+      "researchInsight": "A specific research-backed fact from the knowledge base above that supports this recommendation",
       "implementationGuide": [{"platform": "wordpress|react|custom", "steps": ["Step 1", "Step 2"]}],
       "estimatedTime": "30 mins",
       "difficulty": "easy|medium|hard"
