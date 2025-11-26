@@ -1,8 +1,6 @@
 <template>
-  <div class="min-h-screen bg-background">
-    <DashboardNav />
-
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+  <div>
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div class="px-4 py-6 sm:px-0">
         <h1 class="text-3xl font-bold text-gray-900">Platform Strategy</h1>
         <p class="mt-2 text-gray-600">
@@ -280,7 +278,8 @@
 
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  layout: 'dashboard'
 })
 
 const supabase = useSupabaseClient()

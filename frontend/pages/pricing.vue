@@ -1,0 +1,579 @@
+<template>
+  <div class="min-h-screen bg-background">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200">
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+          <NuxtLink to="/">
+            <img src="/brand/logo_text.png" alt="Columbus" class="h-8" />
+          </NuxtLink>
+          <div class="flex items-center gap-4">
+            <NuxtLink v-if="!user" to="/auth/login" class="text-gray-600 hover:text-gray-900 transition-colors">
+              Sign In
+            </NuxtLink>
+            <NuxtLink v-if="!user" to="/auth/signup" class="btn-primary">
+              Start Free
+            </NuxtLink>
+            <NuxtLink v-else to="/dashboard" class="btn-primary">
+              Go to Dashboard
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="py-16 bg-gradient-to-b from-white to-gray-50">
+      <div class="container mx-auto px-4 text-center">
+        <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">Pricing</span>
+        <h1 class="text-4xl md:text-5xl font-bold mb-4">
+          Simple, Transparent <span class="brand-text">Pricing</span>
+        </h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+          Start free and upgrade as your needs grow. No hidden fees, cancel anytime.
+        </p>
+      </div>
+    </section>
+
+    <!-- Pricing Cards -->
+    <section class="py-16 -mt-8">
+      <div class="container mx-auto px-4">
+        <div class="max-w-6xl mx-auto grid md:grid-cols-3 gap-8 items-start">
+          <!-- Free Plan -->
+          <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-gray-900">Free</h3>
+                <p class="text-sm text-gray-500">Get started</p>
+              </div>
+            </div>
+            <div class="mb-6">
+              <span class="text-5xl font-bold text-gray-900">$0</span>
+              <span class="text-gray-500 ml-1">/month</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-8">Perfect for exploring AI visibility optimization</p>
+
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>5</strong> prompt checks/month</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>2</strong> visibility scans/month</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>1</strong> website analysis</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>1</strong> competitor tracking</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">Basic recommendations</span>
+              </li>
+            </ul>
+
+            <NuxtLink
+              v-if="!user"
+              to="/auth/signup"
+              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+            >
+              Get Started Free
+            </NuxtLink>
+            <div v-else-if="currentPlan === 'free'" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
+              Current Plan
+            </div>
+            <button
+              v-else
+              disabled
+              class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-400 cursor-not-allowed"
+            >
+              Downgrade Not Available
+            </button>
+          </div>
+
+          <!-- Pro Plan - Featured -->
+          <div class="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-8 text-white shadow-2xl md:scale-105 md:-my-4">
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand to-yellow-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
+              MOST POPULAR
+            </div>
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
+                <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold">Pro</h3>
+                <p class="text-sm text-gray-400">Most popular</p>
+              </div>
+            </div>
+            <div class="mb-6">
+              <span class="text-5xl font-bold">$49</span>
+              <span class="text-gray-400 ml-1">/month</span>
+            </div>
+            <p class="text-gray-400 text-sm mb-8">For businesses serious about AI visibility</p>
+
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200"><strong>Unlimited</strong> prompt checks</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200"><strong>Unlimited</strong> visibility scans</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200"><strong>Unlimited</strong> website analyses</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200"><strong>10</strong> competitor tracking</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200">AI-powered recommendations</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200">Platform-specific guides</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200">Email support</span>
+              </li>
+            </ul>
+
+            <NuxtLink
+              v-if="!user"
+              to="/auth/signup?plan=pro"
+              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all"
+            >
+              Get Started
+            </NuxtLink>
+            <div v-else-if="currentPlan === 'pro'" class="w-full py-3 px-6 rounded-xl font-medium bg-brand/20 text-brand text-center">
+              Current Plan
+            </div>
+            <button
+              v-else
+              @click="handleUpgrade('pro')"
+              :disabled="upgrading"
+              class="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50"
+            >
+              <span v-if="upgrading">Processing...</span>
+              <span v-else>{{ currentPlan === 'agency' || currentPlan === 'enterprise' ? 'Manage Plan' : 'Upgrade to Pro' }}</span>
+            </button>
+          </div>
+
+          <!-- Agency Plan -->
+          <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-gray-900">Agency</h3>
+                <p class="text-sm text-gray-500">For teams</p>
+              </div>
+            </div>
+            <div class="mb-6">
+              <span class="text-5xl font-bold text-gray-900">$149</span>
+              <span class="text-gray-500 ml-1">/month</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-8">For agencies managing multiple clients</p>
+
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">Everything in Pro</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>50</strong> competitor tracking</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">Team collaboration</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">White-label reports</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">Priority support</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700">API access</span>
+              </li>
+            </ul>
+
+            <NuxtLink
+              v-if="!user"
+              to="/auth/signup?plan=agency"
+              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+            >
+              Get Started
+            </NuxtLink>
+            <div v-else-if="currentPlan === 'agency'" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
+              Current Plan
+            </div>
+            <button
+              v-else
+              @click="handleUpgrade('agency')"
+              :disabled="upgrading"
+              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all disabled:opacity-50"
+            >
+              <span v-if="upgrading">Processing...</span>
+              <span v-else>{{ currentPlan === 'enterprise' ? 'Manage Plan' : 'Upgrade to Agency' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature Comparison -->
+    <section class="py-16 bg-white">
+      <div class="container mx-auto px-4">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-bold mb-4">Compare Plans</h2>
+          <p class="text-gray-600">See what's included in each plan</p>
+        </div>
+
+        <div class="max-w-4xl mx-auto overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="py-4 px-4 text-left font-medium text-gray-500">Feature</th>
+                <th class="py-4 px-4 text-center font-medium text-gray-900">Free</th>
+                <th class="py-4 px-4 text-center font-medium text-brand">Pro</th>
+                <th class="py-4 px-4 text-center font-medium text-purple-600">Agency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Prompt checks/month</td>
+                <td class="py-4 px-4 text-center text-gray-600">5</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Visibility scans/month</td>
+                <td class="py-4 px-4 text-center text-gray-600">2</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Website analyses/month</td>
+                <td class="py-4 px-4 text-center text-gray-600">1</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Competitor tracking</td>
+                <td class="py-4 px-4 text-center text-gray-600">1</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">10</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">50</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">AI-powered recommendations</td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Platform-specific guides</td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Team collaboration</td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">White-label reports</td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">API access</td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </td>
+                <td class="py-4 px-4 text-center">
+                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </td>
+              </tr>
+              <tr>
+                <td class="py-4 px-4 text-gray-700">Support</td>
+                <td class="py-4 px-4 text-center text-gray-600">Community</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Email</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">Priority</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="py-16 bg-gray-50">
+      <div class="container mx-auto px-4">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
+          <p class="text-gray-600">Everything you need to know about our pricing</p>
+        </div>
+
+        <div class="max-w-3xl mx-auto space-y-4">
+          <div class="bg-white rounded-xl p-6 border border-gray-200">
+            <h3 class="font-semibold text-gray-900 mb-2">Can I change plans anytime?</h3>
+            <p class="text-gray-600">Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any charges.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-200">
+            <h3 class="font-semibold text-gray-900 mb-2">What happens when I hit my limit on the free plan?</h3>
+            <p class="text-gray-600">You'll see a prompt to upgrade. Your existing data is always safe, and you can upgrade instantly to continue using the platform.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-200">
+            <h3 class="font-semibold text-gray-900 mb-2">Do you offer annual billing?</h3>
+            <p class="text-gray-600">Yes! Annual billing saves you 20%. Contact us for annual pricing options.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-200">
+            <h3 class="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
+            <p class="text-gray-600">We accept all major credit cards through our secure payment provider Stripe. Enterprise customers can also pay by invoice.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-200">
+            <h3 class="font-semibold text-gray-900 mb-2">Is there a money-back guarantee?</h3>
+            <p class="text-gray-600">Yes! If you're not satisfied within the first 14 days, contact us for a full refund. No questions asked.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-16 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
+          Ready to improve your AI visibility?
+        </h2>
+        <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+          Start free today and see how Columbus can help you get discovered by AI.
+        </p>
+        <NuxtLink
+          v-if="!user"
+          to="/auth/signup"
+          class="inline-flex items-center gap-2 bg-gradient-to-r from-brand to-yellow-500 text-white px-8 py-4 rounded-xl font-medium shadow-xl hover:shadow-brand/30 hover:scale-105 transition-all"
+        >
+          Get Started Free
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </NuxtLink>
+        <NuxtLink
+          v-else
+          to="/dashboard"
+          class="inline-flex items-center gap-2 bg-gradient-to-r from-brand to-yellow-500 text-white px-8 py-4 rounded-xl font-medium shadow-xl hover:shadow-brand/30 hover:scale-105 transition-all"
+        >
+          Go to Dashboard
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </NuxtLink>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-8">
+      <div class="container mx-auto px-4">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+          <img src="/brand/logo_text_bright.png" alt="Columbus" class="h-8" />
+          <div class="flex items-center gap-6 text-sm">
+            <NuxtLink to="/privacy" class="hover:text-white transition-colors">Privacy</NuxtLink>
+            <NuxtLink to="/terms" class="hover:text-white transition-colors">Terms</NuxtLink>
+            <span>&copy; {{ new Date().getFullYear() }} Columbus</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+</template>
+
+<script setup lang="ts">
+const user = useSupabaseUser()
+const supabase = useSupabaseClient()
+const { createCheckout, createPortal } = useEdgeFunctions()
+
+const upgrading = ref(false)
+const currentPlan = ref<string>('free')
+
+// Load current plan if user is logged in
+onMounted(async () => {
+  if (user.value) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id, active_organization_id')
+      .eq('id', user.value.id)
+      .single()
+
+    const orgId = profile?.active_organization_id || profile?.organization_id
+
+    if (orgId) {
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('plan')
+        .eq('id', orgId)
+        .single()
+
+      currentPlan.value = org?.plan || 'free'
+    }
+  }
+})
+
+const handleUpgrade = async (planId: string) => {
+  if (!user.value) {
+    navigateTo(`/auth/signup?plan=${planId}`)
+    return
+  }
+
+  upgrading.value = true
+
+  try {
+    // If already on a paid plan, open billing portal
+    if (currentPlan.value !== 'free') {
+      const result = await createPortal()
+      if (result.url) {
+        window.location.href = result.url
+      }
+    } else {
+      // Create checkout session for new subscription
+      const result = await createCheckout(planId)
+      if (result.url) {
+        window.location.href = result.url
+      }
+    }
+  } catch (e: any) {
+    console.error('Upgrade error:', e)
+    alert(e.message || 'Failed to process upgrade. Please try again.')
+  } finally {
+    upgrading.value = false
+  }
+}
+
+useHead({
+  title: 'Pricing - Columbus | AI Engine Optimization Platform',
+  meta: [
+    {
+      name: 'description',
+      content: 'Simple, transparent pricing for Columbus. Start free and upgrade as your needs grow. No hidden fees, cancel anytime.'
+    }
+  ]
+})
+</script>

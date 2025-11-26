@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { checkUsageLimit, incrementUsage } from '../_shared/plan-limits.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,11 +34,13 @@ Deno.serve(async (req) => {
     // Get user's organization
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_organization_id')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.organization_id) {
+    const organizationId = profile?.active_organization_id || profile?.organization_id
+
+    if (!organizationId) {
       return new Response(
         JSON.stringify({ error: 'No organization found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -48,13 +51,28 @@ Deno.serve(async (req) => {
     const { data: org } = await supabaseClient
       .from('organizations')
       .select('*')
-      .eq('id', profile.organization_id)
+      .eq('id', organizationId)
       .single()
 
     if (!org) {
       return new Response(
         JSON.stringify({ error: 'Organization not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check plan limits
+    const usageCheck = await checkUsageLimit(supabaseClient, organizationId, 'scansPerMonth')
+    if (!usageCheck.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Plan limit reached',
+          message: usageCheck.message,
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          upgradeRequired: true
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -74,7 +92,7 @@ Deno.serve(async (req) => {
     const { data: brand } = await supabaseClient
       .from('brands')
       .select('*')
-      .eq('organization_id', org.id)
+      .eq('organization_id', organizationId)
       .limit(1)
       .single()
 
@@ -89,7 +107,7 @@ Deno.serve(async (req) => {
     const { data: prompts } = await supabaseClient
       .from('prompts')
       .select('id')
-      .eq('organization_id', org.id)
+      .eq('organization_id', organizationId)
 
     if (!prompts || prompts.length === 0) {
       return new Response(
@@ -108,7 +126,7 @@ Deno.serve(async (req) => {
     const { data: competitors } = await supabaseClient
       .from('competitors')
       .select('name')
-      .eq('organization_id', org.id)
+      .eq('organization_id', organizationId)
       .eq('is_active', true)
 
     const competitorNames = competitors?.map(c => c.name) || []
@@ -117,7 +135,7 @@ Deno.serve(async (req) => {
     const { data: job } = await supabaseClient
       .from('jobs')
       .insert({
-        organization_id: org.id,
+        organization_id: organizationId,
         job_type: 'visibility_scan',
         status: 'queued',
         metadata: {
@@ -137,6 +155,9 @@ Deno.serve(async (req) => {
     if (!job) {
       throw new Error('Failed to create job')
     }
+
+    // Increment usage counter
+    await incrementUsage(supabaseClient, organizationId, 'scans')
 
     return new Response(
       JSON.stringify({

@@ -1,7 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <DashboardNav />
-
+  <div>
     <main class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-24">
@@ -367,7 +365,8 @@
 
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  layout: 'dashboard'
 })
 
 const route = useRoute()
