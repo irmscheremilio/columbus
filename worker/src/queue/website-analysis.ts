@@ -52,6 +52,18 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
     console.log(`[Website Analysis] Starting analysis for ${domain} (multiPage: ${multiPageAnalysis})`)
 
     try {
+      // 0. Validate organization exists before doing any work
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('id', organizationId)
+        .single()
+
+      if (orgError || !org) {
+        console.error(`[Website Analysis] Organization ${organizationId} not found, skipping job`)
+        return { skipped: true, reason: 'Organization not found' }
+      }
+
       // 1. Crawl and analyze main website page
       console.log(`[Website Analysis] Crawling main website...`)
       const crawler = new WebsiteCrawler()
