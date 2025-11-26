@@ -266,6 +266,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const prompts = ref<any[]>([])
 const productAnalysis = ref<any>(null)
@@ -294,42 +295,51 @@ const filteredPrompts = computed(() => {
   return prompts.value.filter(p => p.granularity_level === filter.value)
 })
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadPrompts()
+    await loadProductAnalysis()
+  }
+})
+
 onMounted(async () => {
-  await loadPrompts()
-  await loadProductAnalysis()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadPrompts()
+    await loadProductAnalysis()
+  } else {
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadPrompts()
+        await loadProductAnalysis()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadPrompts = async () => {
-  const { data: userData } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.value?.id)
-    .single()
-
-  if (!userData?.organization_id) return
+  const productId = activeProductId.value
+  if (!productId) return
 
   const { data } = await supabase
     .from('prompts')
     .select('*')
-    .eq('organization_id', userData.organization_id)
+    .eq('product_id', productId)
     .order('granularity_level', { ascending: true })
 
   prompts.value = data || []
 }
 
 const loadProductAnalysis = async () => {
-  const { data: userData } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.value?.id)
-    .single()
-
-  if (!userData?.organization_id) return
+  const productId = activeProductId.value
+  if (!productId) return
 
   const { data } = await supabase
     .from('product_analyses')
     .select('*')
-    .eq('organization_id', userData.organization_id)
+    .eq('product_id', productId)
     .single()
 
   productAnalysis.value = data
@@ -375,13 +385,8 @@ const closeModal = () => {
 const savePrompt = async () => {
   if (!promptForm.value.text) return
 
-  const { data: userData } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.value?.id)
-    .single()
-
-  if (!userData?.organization_id) return
+  const productId = activeProductId.value
+  if (!productId) return
 
   try {
     if (editingPrompt.value) {
@@ -399,7 +404,7 @@ const savePrompt = async () => {
       await supabase
         .from('prompts')
         .insert({
-          organization_id: userData.organization_id,
+          product_id: productId,
           prompt_text: promptForm.value.text,
           granularity_level: promptForm.value.level,
           category: promptForm.value.category || null,

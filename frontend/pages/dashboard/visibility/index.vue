@@ -275,6 +275,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const chartLoading = ref(true)
@@ -307,26 +308,44 @@ const chartPlatforms = [
   { name: 'perplexity', label: 'Perplexity', color: '#20b8cd' }
 ]
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadVisibilityData()
+    await loadVisibilityHistory()
+  }
+})
+
 onMounted(async () => {
-  await loadVisibilityData()
-  await loadVisibilityHistory()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadVisibilityData()
+    await loadVisibilityHistory()
+  } else {
+    // Watch for initialization
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadVisibilityData()
+        await loadVisibilityHistory()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadVisibilityData = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const { data: promptResults } = await supabase
       .from('prompt_results')
       .select('*, prompts(prompt_text)')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('tested_at', { ascending: false })
       .limit(50)
 
@@ -409,16 +428,14 @@ const formatDate = (date: string) => {
 
 // Load visibility history for the chart
 const loadVisibilityHistory = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    chartLoading.value = false
+    return
+  }
+
   chartLoading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const daysAgo = parseInt(chartTimeRange.value)
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - daysAgo)
@@ -426,7 +443,7 @@ const loadVisibilityHistory = async () => {
     const { data: historyData } = await supabase
       .from('visibility_history')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .gte('recorded_at', startDate.toISOString())
       .order('recorded_at', { ascending: true })
 

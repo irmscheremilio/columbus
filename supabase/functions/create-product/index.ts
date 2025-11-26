@@ -105,16 +105,38 @@ serve(async (req) => {
 
     const organizationId = profile.active_organization_id || profile.organization_id
 
-    // Check product limit using database function
+    // Check product limit - first try using database function, fallback to direct query
+    let current_count = 0
+    let max_limit = 1
+    let remaining = 0
+
     const { data: slots, error: slotsError } = await supabaseAdmin
       .rpc('get_product_slots', { p_org_id: organizationId })
 
-    if (slotsError) {
-      console.error('Error checking product slots:', slotsError)
-      throw new Error('Failed to check product limits')
-    }
+    if (slotsError || !slots || slots.length === 0) {
+      // Fallback: directly query products and organization
+      console.warn('get_product_slots RPC failed or returned empty, using fallback:', slotsError?.message)
 
-    const { current_count, max_limit, remaining } = slots[0] || { current_count: 0, max_limit: 1, remaining: 1 }
+      const { count: productCount } = await supabaseAdmin
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+
+      const { data: orgData } = await supabaseAdmin
+        .from('organizations')
+        .select('product_limit, plan')
+        .eq('id', organizationId)
+        .single()
+
+      current_count = productCount || 0
+      max_limit = orgData?.product_limit || 1
+      remaining = max_limit - current_count
+    } else {
+      current_count = slots[0].current_count
+      max_limit = slots[0].max_limit
+      remaining = slots[0].remaining
+    }
 
     if (remaining <= 0) {
       // Get plan for error message

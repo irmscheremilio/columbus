@@ -204,6 +204,8 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const generating = ref(false)
@@ -211,20 +213,42 @@ const reports = ref<any[]>([])
 const selectedReportType = ref('executive_summary')
 const selectedPeriod = ref(30)
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadReports()
+  }
+})
+
 onMounted(async () => {
-  await loadReports()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadReports()
+  } else {
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadReports()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadReports = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    const { data, error } = await supabase.functions.invoke('generate-report', {
+    const { data, error } = await supabase.functions.invoke(`generate-report?action=list&productId=${productId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
-      method: 'GET',
-      query: { action: 'list' }
+      method: 'GET'
     })
 
     if (error) throw error
@@ -237,6 +261,9 @@ const loadReports = async () => {
 }
 
 const generateReport = async () => {
+  const productId = activeProductId.value
+  if (!productId) return
+
   generating.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -245,6 +272,7 @@ const generateReport = async () => {
     const { data, error } = await supabase.functions.invoke('generate-report', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
+        productId,
         reportType: selectedReportType.value,
         periodDays: selectedPeriod.value
       }

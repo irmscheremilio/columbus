@@ -339,6 +339,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
@@ -351,25 +352,42 @@ const granularityStats = ref({
   level3: { prompts: 0, citations: 0, citationRate: 0 }
 })
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadDashboardData()
+  }
+})
+
 onMounted(async () => {
-  await loadDashboardData()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadDashboardData()
+  } else {
+    // Watch for initialization
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadDashboardData()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadDashboardData = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
+    // Get visibility scores for the active product
     const { data: scores } = await supabase
       .from('visibility_scores')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('created_at', { ascending: false })
       .limit(4)
 
@@ -390,28 +408,32 @@ const loadDashboardData = async () => {
         trend: 'stable',
         percentChange: 0,
       }
+    } else {
+      visibilityScore.value = null
     }
 
+    // Get jobs for the active product
     const { data: jobsData } = await supabase
       .from('jobs')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('created_at', { ascending: false })
       .limit(5)
 
     jobs.value = jobsData || []
 
+    // Get recommendations for the active product
     const { data: recsData } = await supabase
       .from('fix_recommendations')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .eq('status', 'pending')
       .order('priority', { ascending: false })
       .limit(3)
 
     recommendations.value = recsData || []
 
-    await loadGranularityStats(userData.organization_id)
+    await loadGranularityStats(productId)
   } catch (error) {
     console.error('Error loading dashboard:', error)
   } finally {
@@ -419,14 +441,22 @@ const loadDashboardData = async () => {
   }
 }
 
-const loadGranularityStats = async (organizationId: string) => {
+const loadGranularityStats = async (productId: string) => {
   try {
     const { data: prompts } = await supabase
       .from('prompts')
       .select('id, granularity_level')
-      .eq('organization_id', organizationId)
+      .eq('product_id', productId)
 
-    if (!prompts || prompts.length === 0) return
+    if (!prompts || prompts.length === 0) {
+      granularityStats.value = {
+        hasData: false,
+        level1: { prompts: 0, citations: 0, citationRate: 0 },
+        level2: { prompts: 0, citations: 0, citationRate: 0 },
+        level3: { prompts: 0, citations: 0, citationRate: 0 }
+      }
+      return
+    }
 
     // Create a map of prompt_id to granularity_level for quick lookup
     const promptGranularityMap = prompts.reduce((acc, p) => {
@@ -493,14 +523,15 @@ const loadGranularityStats = async (organizationId: string) => {
 }
 
 const runScan = async () => {
-  if (loading.value) return
+  if (loading.value || !activeProductId.value) return
   loading.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
     const { data, error } = await supabase.functions.invoke('trigger-visibility-scan', {
-      headers: { Authorization: `Bearer ${session.access_token}` }
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: { productId: activeProductId.value }
     })
 
     if (error) throw error

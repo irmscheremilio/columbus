@@ -126,6 +126,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const competitors = ref<any[]>([])
@@ -133,25 +134,40 @@ const showAddModal = ref(false)
 const isSubmitting = ref(false)
 const newCompetitor = ref({ name: '', domain: '' })
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadCompetitors()
+  }
+})
+
 onMounted(async () => {
-  await loadCompetitors()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadCompetitors()
+  } else {
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadCompetitors()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadCompetitors = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const { data } = await supabase
       .from('competitors')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('created_at', { ascending: false })
 
     competitors.value = data || []
@@ -163,22 +179,17 @@ const loadCompetitors = async () => {
 }
 
 const addCompetitor = async () => {
+  const productId = activeProductId.value
+  if (!productId) return
+
   isSubmitting.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const domain = newCompetitor.value.domain
       ? new URL(newCompetitor.value.domain).hostname.replace('www.', '')
       : null
 
     await supabase.from('competitors').insert({
-      organization_id: userData.organization_id,
+      product_id: productId,
       name: newCompetitor.value.name,
       domain: domain,
       is_active: true

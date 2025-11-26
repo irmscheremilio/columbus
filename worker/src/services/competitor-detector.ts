@@ -181,20 +181,54 @@ Only include actual company/product names, not generic terms. Set confidence bas
         throw new Error('No AI client available')
       }
 
-      // Parse response
-      const cleanResponse = response.replace(/```json\n?|```\n?/g, '').trim()
-      const parsed = JSON.parse(cleanResponse)
+      // Parse response - handle potential malformed JSON
+      let cleanResponse = response.replace(/```json\n?|```\n?/g, '').trim()
 
-      return {
-        competitors: (parsed.competitors || []).map((c: any) => ({
-          name: c.name,
-          confidence: c.confidence || 70,
-          context: c.context || '',
-          domain: c.domain,
-          category: c.category
-        })),
-        brandMentioned: parsed.brandMentioned || false,
-        brandContext: parsed.brandContext
+      // Try to extract JSON object if there's extra content
+      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        cleanResponse = jsonMatch[0]
+      }
+
+      // Try to fix common JSON issues (truncated strings, etc.)
+      try {
+        // First try direct parse
+        const parsed = JSON.parse(cleanResponse)
+        return {
+          competitors: (parsed.competitors || []).map((c: any) => ({
+            name: c.name,
+            confidence: c.confidence || 70,
+            context: c.context || '',
+            domain: c.domain,
+            category: c.category
+          })),
+          brandMentioned: parsed.brandMentioned || false,
+          brandContext: parsed.brandContext
+        }
+      } catch (parseError) {
+        // If JSON is truncated, try to salvage what we can
+        console.warn('[Competitor Detector] JSON parse failed, attempting to salvage partial data')
+
+        // Try to extract brandMentioned
+        const brandMatch = cleanResponse.match(/"brandMentioned"\s*:\s*(true|false)/i)
+        const brandMentioned = brandMatch ? brandMatch[1].toLowerCase() === 'true' : false
+
+        // Try to extract competitor names using regex
+        const competitorMatches = cleanResponse.matchAll(/"name"\s*:\s*"([^"]+)"/g)
+        const competitors = [...competitorMatches].map(m => ({
+          name: m[1],
+          confidence: 70,
+          context: '',
+          domain: undefined,
+          category: undefined
+        }))
+
+        if (competitors.length > 0 || brandMentioned) {
+          return { competitors, brandMentioned, brandContext: undefined }
+        }
+
+        // If nothing could be salvaged, fall back to quick detect
+        throw parseError
       }
     } catch (error) {
       console.error('[Competitor Detector] AI detection error:', error)

@@ -324,6 +324,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const analyzing = ref(false)
@@ -471,25 +472,40 @@ const collapseAll = () => {
   }
 }
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadRecommendations()
+  }
+})
+
 onMounted(async () => {
-  await loadRecommendations()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadRecommendations()
+  } else {
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadRecommendations()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadRecommendations = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const { data } = await supabase
       .from('fix_recommendations')
       .select('*')
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('priority', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -506,10 +522,12 @@ const refreshRecommendations = async () => {
 }
 
 const runWebsiteAnalysis = async () => {
+  if (!activeProductId.value) return
+
   analyzing.value = true
   try {
     const { data, error } = await supabase.functions.invoke('trigger-website-analysis', {
-      body: { includeCompetitorGaps: true, multiPageAnalysis: true }
+      body: { productId: activeProductId.value, includeCompetitorGaps: true, multiPageAnalysis: true }
     })
 
     if (error) throw error

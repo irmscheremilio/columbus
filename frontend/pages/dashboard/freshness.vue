@@ -298,6 +298,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
 const pages = ref<any[]>([])
@@ -319,18 +320,41 @@ const newPage = ref({
   checkFrequencyHours: 72
 })
 
+// Watch for product changes to reload data
+watch(activeProductId, async (newProductId) => {
+  if (newProductId) {
+    await loadData()
+  }
+})
+
 onMounted(async () => {
-  await loadData()
+  // Wait for product to be initialized
+  if (productInitialized.value && activeProductId.value) {
+    await loadData()
+  } else {
+    const unwatch = watch(productInitialized, async (initialized) => {
+      if (initialized && activeProductId.value) {
+        await loadData()
+        unwatch()
+      }
+    })
+  }
 })
 
 const loadData = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
     // Load all data from edge function in a single GET call
-    const { data, error } = await supabase.functions.invoke('manage-freshness?action=dashboard', {
+    const { data, error } = await supabase.functions.invoke(`manage-freshness?action=dashboard&productId=${productId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
       method: 'GET'
     })
@@ -358,6 +382,9 @@ const loadData = async () => {
 }
 
 const addPage = async () => {
+  const productId = activeProductId.value
+  if (!productId) return
+
   addingPage.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -366,6 +393,7 @@ const addPage = async () => {
     const { data, error } = await supabase.functions.invoke('manage-freshness?action=add-page', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
+        productId,
         url: newPage.value.url,
         title: newPage.value.title,
         checkFrequencyHours: newPage.value.checkFrequencyHours
@@ -407,6 +435,9 @@ const removePage = async (pageId: string) => {
 }
 
 const triggerFreshnessCheck = async () => {
+  const productId = activeProductId.value
+  if (!productId) return
+
   checkingFreshness.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -414,7 +445,7 @@ const triggerFreshnessCheck = async () => {
 
     await supabase.functions.invoke('manage-freshness?action=trigger-check', {
       headers: { Authorization: `Bearer ${session.access_token}` },
-      body: {},
+      body: { productId },
       method: 'POST'
     })
 

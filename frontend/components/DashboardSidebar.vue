@@ -122,7 +122,7 @@
           </div>
         </div>
 
-        <!-- Product Selector -->
+        <!-- Product Selector - Always show when there's at least one product -->
         <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200">
           <div class="relative">
             <button
@@ -274,13 +274,12 @@ const route = useRoute()
 const router = useRouter()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { products, activeProductId, activeProduct, setActiveProduct, loadProducts } = useActiveProduct()
 
 const mobileMenuOpen = ref(false)
 const showOrgSwitcher = ref(false)
 const showProductSwitcher = ref(false)
 const organizations = ref<any[]>([])
-const products = ref<any[]>([])
-const activeProductId = ref<string | null>(null)
 
 // Close mobile menu and switchers on route change
 watch(() => route.path, () => {
@@ -317,60 +316,15 @@ const loadOrganizations = async () => {
   }
 }
 
-const loadProducts = async () => {
-  if (!user.value) return
-
-  try {
-    // Get user's profile to find organization and active product
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('organization_id, active_organization_id, active_product_id')
-      .eq('id', user.value.id)
-      .single()
-
-    if (!profile) return
-
-    const orgId = profile.active_organization_id || profile.organization_id
-    activeProductId.value = profile.active_product_id
-
-    // Get products for the organization
-    const { data: productsData } = await supabase
-      .from('products')
-      .select('id, name, domain')
-      .eq('organization_id', orgId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-
-    products.value = productsData || []
-
-    // Auto-select first product if none selected
-    if (!activeProductId.value && products.value.length > 0) {
-      await switchProduct(products.value[0].id)
-    }
-  } catch (e) {
-    console.error('Failed to load products:', e)
-  }
-}
-
 const currentProduct = computed(() => {
-  return products.value.find(p => p.id === activeProductId.value) || products.value[0]
+  return activeProduct.value || products.value[0]
 })
 
 const switchProduct = async (productId: string) => {
-  try {
-    await supabase
-      .from('profiles')
-      .update({ active_product_id: productId })
-      .eq('id', user.value?.id)
-
-    activeProductId.value = productId
-    showProductSwitcher.value = false
-
-    // Reload the page to refresh all data with new product context
-    window.location.reload()
-  } catch (e: any) {
-    console.error('Failed to switch product:', e)
-  }
+  await setActiveProduct(productId)
+  showProductSwitcher.value = false
+  // Reload the page to refresh all data with new product context
+  window.location.reload()
 }
 
 const currentOrg = computed(() => {

@@ -10,29 +10,51 @@ export class GeminiClient extends AIClient {
 
   async testPrompt(prompt: string): Promise<string> {
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }]
-          })
-        }
-      )
+      // Try gemini-2.0-flash first, fallback to gemini-1.5-flash-latest
+      const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash']
 
-      if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`)
+      for (const model of models) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: prompt
+                  }]
+                }]
+              })
+            }
+          )
+
+          if (response.ok) {
+            const data = await response.json() as any
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+          }
+
+          // If 404 Not Found, try next model
+          if (response.status === 404) {
+            console.warn(`Gemini model ${model} not found, trying next...`)
+            continue
+          }
+
+          // Other errors, throw
+          const errorBody = await response.text()
+          throw new Error(`Gemini API error (${response.status}): ${errorBody}`)
+        } catch (err: any) {
+          if (err.message?.includes('not found') || err.message?.includes('404')) {
+            continue
+          }
+          throw err
+        }
       }
 
-      const data = await response.json() as any
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      throw new Error('No available Gemini model found')
     } catch (error: any) {
       console.error('Gemini API error:', error)
       throw new Error(`Gemini API error: ${error.message}`)

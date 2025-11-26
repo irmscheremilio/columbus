@@ -31,37 +31,34 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get user's organization
-    const { data: profile } = await supabaseClient
-      .from('profiles')
-      .select('organization_id, active_organization_id')
-      .eq('id', user.id)
-      .single()
+    // Parse request body to get productId
+    const body = await req.json().catch(() => ({}))
+    const { productId } = body
 
-    const organizationId = profile?.active_organization_id || profile?.organization_id
-
-    if (!organizationId) {
+    if (!productId) {
       return new Response(
-        JSON.stringify({ error: 'No organization found' }),
+        JSON.stringify({ error: 'productId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get organization details
-    const { data: org } = await supabaseClient
-      .from('organizations')
-      .select('*')
-      .eq('id', organizationId)
+    // Get product details
+    const { data: product } = await supabaseClient
+      .from('products')
+      .select('*, organizations(*)')
+      .eq('id', productId)
       .single()
 
-    if (!org) {
+    if (!product) {
       return new Response(
-        JSON.stringify({ error: 'Organization not found' }),
+        JSON.stringify({ error: 'Product not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check plan limits
+    const organizationId = product.organization_id
+
+    // Check plan limits using organization
     const usageCheck = await checkUsageLimit(supabaseClient, organizationId, 'scansPerMonth')
     if (!usageCheck.allowed) {
       return new Response(
@@ -76,45 +73,30 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if website has been analyzed
-    if (!org.website_analyzed || !org.domain) {
+    // Check if product has a domain
+    if (!product.domain) {
       return new Response(
         JSON.stringify({
-          error: 'Please complete onboarding first',
-          message: 'Your website needs to be analyzed before running scans. Please complete the onboarding process.',
-          redirectTo: '/onboarding'
+          error: 'Product has no domain',
+          message: 'Please set a domain for this product first.',
+          redirectTo: '/dashboard/products'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get active brand for this organization
-    const { data: brand } = await supabaseClient
-      .from('brands')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .limit(1)
-      .single()
-
-    if (!brand) {
-      return new Response(
-        JSON.stringify({ error: 'No brand found. Please add a brand first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get prompts for this organization
+    // Get prompts for this product
     const { data: prompts } = await supabaseClient
       .from('prompts')
       .select('id')
-      .eq('organization_id', organizationId)
+      .eq('product_id', productId)
 
     if (!prompts || prompts.length === 0) {
       return new Response(
         JSON.stringify({
           error: 'No prompts found',
-          message: 'Please complete onboarding to generate prompts, or add custom prompts manually.',
-          redirectTo: '/onboarding'
+          message: 'Please add prompts for this product first.',
+          redirectTo: '/dashboard/prompts'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -122,11 +104,11 @@ Deno.serve(async (req) => {
 
     const promptIds = prompts.map(p => p.id)
 
-    // Get active competitors
+    // Get active competitors for this product
     const { data: competitors } = await supabaseClient
       .from('competitors')
       .select('name')
-      .eq('organization_id', organizationId)
+      .eq('product_id', productId)
       .eq('is_active', true)
 
     const competitorNames = competitors?.map(c => c.name) || []
@@ -135,13 +117,13 @@ Deno.serve(async (req) => {
     const { data: job } = await supabaseClient
       .from('jobs')
       .insert({
-        organization_id: organizationId,
+        product_id: productId,
         job_type: 'visibility_scan',
         status: 'queued',
         metadata: {
-          brandId: brand.id,
-          brandName: brand.name,
-          domain: org.domain,
+          productId,
+          productName: product.name,
+          domain: product.domain,
           promptIds,
           competitors: competitorNames,
           promptCount: promptIds.length,
@@ -156,7 +138,7 @@ Deno.serve(async (req) => {
       throw new Error('Failed to create job')
     }
 
-    // Increment usage counter
+    // Increment usage counter using organization id
     await incrementUsage(supabaseClient, organizationId, 'scans')
 
     return new Response(
