@@ -277,7 +277,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
             url: pc.url,
             title: pc.title,
             contentType: pc.contentType,
-            content: pc.content,
+            content: pc.textContent || '',
             analysis: pc.analysis || websiteAnalysis
           }))
 

@@ -409,10 +409,10 @@ ${this.knowledgeBase.general}
 ## KEY PLATFORM-SPECIFIC INSIGHTS
 
 ### ChatGPT/SearchGPT
-${this.knowledgeBase.chatgpt.slice(0, 1500)}
+${(this.knowledgeBase.chatgpt || '').slice(0, 1500)}
 
 ### Google Gemini
-${this.knowledgeBase.gemini.slice(0, 1500)}
+${(this.knowledgeBase.gemini || '').slice(0, 1500)}
 
 ## CRITICAL RULES
 
@@ -452,11 +452,11 @@ ${pagesContext}
 
 ## PAGE DETAILS
 
-${pages.map(p => `### ${p.title} (${p.url})
-Type: ${p.contentType}
-Content Preview: ${p.content.slice(0, 500)}...
-AEO Score: ${p.analysis.aeoReadiness.score}/100
-Issues: ${p.analysis.aeoReadiness.weaknesses.slice(0, 3).join(', ')}
+${pages.map(p => `### ${p.title || 'Untitled'} (${p.url})
+Type: ${p.contentType || 'unknown'}
+Content Preview: ${(p.content || '').slice(0, 500)}...
+AEO Score: ${p.analysis?.aeoReadiness?.score || 0}/100
+Issues: ${(p.analysis?.aeoReadiness?.weaknesses || []).slice(0, 3).join(', ') || 'None identified'}
 `).join('\n')}
 
 Generate 1-3 UNIQUE recommendations per page. Focus on the specific content and purpose of each page. Pages with high AEO scores may need fewer recommendations.
