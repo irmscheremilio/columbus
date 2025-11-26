@@ -347,6 +347,7 @@
 
 <script setup lang="ts">
 import Chart from 'chart.js/auto'
+import { useActiveProduct } from '~/composables/useActiveProduct'
 
 definePageMeta({
   middleware: 'auth',
@@ -354,6 +355,7 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
+const { activeProduct } = useActiveProduct()
 
 const loading = ref(true)
 const chartLoading = ref(true)
@@ -403,10 +405,16 @@ const loadData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
+    const productId = activeProduct.value?.id
+
     const { data, error } = await supabase.functions.invoke('roi-calculator', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       method: 'GET',
-      query: { action: 'summary', days: selectedPeriod.value.toString() }
+      query: {
+        action: 'summary',
+        days: selectedPeriod.value.toString(),
+        ...(productId && { productId })
+      }
     })
 
     if (error) throw error
@@ -464,6 +472,8 @@ const recordConversion = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
+    const productId = activeProduct.value?.id
+
     const { error } = await supabase.functions.invoke('roi-calculator', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
@@ -472,7 +482,10 @@ const recordConversion = async () => {
         value: newConversion.value.value
       },
       method: 'POST',
-      query: { action: 'record-conversion' }
+      query: {
+        action: 'record-conversion',
+        ...(productId && { productId })
+      }
     })
 
     if (error) throw error
@@ -493,6 +506,8 @@ const saveSettings = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
+    const productId = activeProduct.value?.id
+
     const { error } = await supabase.functions.invoke('roi-calculator', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
@@ -500,7 +515,10 @@ const saveSettings = async () => {
         avgConversionValue: settings.value.avgConversionValue
       },
       method: 'POST',
-      query: { action: 'save-settings' }
+      query: {
+        action: 'save-settings',
+        ...(productId && { productId })
+      }
     })
 
     if (error) throw error
@@ -723,6 +741,14 @@ const generateDummyChartData = () => {
 watch(selectedPeriod, async () => {
   chartLoading.value = true
   await loadData()
+})
+
+// Watch for active product changes to reload data
+watch(() => activeProduct.value?.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    chartLoading.value = true
+    await loadData()
+  }
 })
 
 // Cleanup

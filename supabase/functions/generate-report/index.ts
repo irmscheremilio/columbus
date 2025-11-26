@@ -33,10 +33,10 @@ serve(async (req) => {
       )
     }
 
-    // Get user's organization
+    // Get user's organization and active product
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_product_id')
       .eq('id', user.id)
       .single()
 
@@ -53,14 +53,38 @@ serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action') || 'generate'
 
+    // Get product ID from query param or use active product
+    let productId = url.searchParams.get('productId') || profile.active_product_id
+
+    // If still no product, try to get the first active product
+    if (!productId) {
+      const { data: firstProduct } = await supabaseClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      productId = firstProduct?.id
+    }
+
     if (req.method === 'GET' && action === 'list') {
       // List existing reports
-      const { data: reports, error } = await supabaseClient
+      let query = supabaseClient
         .from('reports')
         .select('*')
-        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false })
         .limit(20)
+
+      if (productId) {
+        query = query.eq('product_id', productId)
+      } else {
+        query = query.eq('organization_id', profile.organization_id)
+      }
+
+      const { data: reports, error } = await query
 
       if (error) throw error
 
@@ -96,12 +120,14 @@ serve(async (req) => {
         .from('jobs')
         .insert({
           organization_id: profile.organization_id,
+          product_id: productId,
           job_type: 'report_generation',
           status: 'queued',
           metadata: {
             reportType,
             periodDays,
-            email: sendEmail ? user.email : null
+            email: sendEmail ? user.email : null,
+            productId
           }
         })
         .select()

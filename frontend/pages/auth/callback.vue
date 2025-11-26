@@ -233,6 +233,7 @@ const analysisSteps = [
   { id: 'analyze', title: 'Understanding your product', description: 'Using AI to identify your core offerings...' },
   { id: 'prompts', title: 'Generating search prompts', description: 'Creating relevant queries to track...' },
   { id: 'recommendations', title: 'Building recommendations', description: 'Preparing AI-powered optimization tips...' },
+  { id: 'visibility', title: 'Analyzing visibility', description: 'Checking your presence across AI platforms...' },
   { id: 'complete', title: 'Finalizing setup', description: 'Preparing your dashboard...' }
 ]
 
@@ -337,11 +338,8 @@ const createProduct = async () => {
       await simulateSteps()
     }
 
-    // Redirect to dashboard
-    currentAnalysisStep.value = analysisSteps.length
-    setTimeout(() => {
-      router.push('/dashboard')
-    }, 1500)
+    // Ensure all steps are visually complete before redirecting
+    await completeAllStepsAndRedirect()
 
   } catch (e: any) {
     console.error('Create product error:', e)
@@ -352,11 +350,28 @@ const createProduct = async () => {
 }
 
 const simulateSteps = async () => {
-  const stepDurations = [5000, 8000, 6000, 5000, 3000]
+  const stepDurations = [5000, 8000, 6000, 5000, 6000, 3000]
   for (let i = 0; i < analysisSteps.length; i++) {
     currentAnalysisStep.value = i
     await new Promise(resolve => setTimeout(resolve, stepDurations[i] || 5000))
   }
+}
+
+const completeAllStepsAndRedirect = async () => {
+  // Animate through any remaining steps
+  for (let i = currentAnalysisStep.value; i < analysisSteps.length; i++) {
+    currentAnalysisStep.value = i
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+
+  // Mark all steps as complete
+  currentAnalysisStep.value = analysisSteps.length
+
+  // Wait a moment to show the "Complete!" state
+  await new Promise(resolve => setTimeout(resolve, 1500))
+
+  // Redirect to dashboard
+  router.push('/dashboard')
 }
 
 const pollJobStatus = async (jobId: string) => {
@@ -372,30 +387,29 @@ const pollJobStatus = async (jobId: string) => {
         .single()
 
       if (job?.status === 'completed') {
-        for (let i = currentAnalysisStep.value; i <= analysisSteps.length; i++) {
-          currentAnalysisStep.value = i
-          await new Promise(resolve => setTimeout(resolve, 400))
-        }
+        // Job completed successfully - let completeAllStepsAndRedirect handle the final animation
         return
       }
 
       if (job?.status === 'failed') {
         console.error('Job failed:', job)
-        currentAnalysisStep.value = analysisSteps.length
+        // Even on failure, let completeAllStepsAndRedirect handle showing completion
         return
       }
 
-      // Time-based progression
+      // Time-based progression (6 steps now) - only go up to step 4 (index), leave last step for completion
       if (attempts < 10) {
-        currentAnalysisStep.value = 0
-      } else if (attempts < 25) {
-        currentAnalysisStep.value = 1
-      } else if (attempts < 40) {
-        currentAnalysisStep.value = 2
-      } else if (attempts < 55) {
-        currentAnalysisStep.value = 3
+        currentAnalysisStep.value = 0 // Crawling
+      } else if (attempts < 22) {
+        currentAnalysisStep.value = 1 // Understanding
+      } else if (attempts < 34) {
+        currentAnalysisStep.value = 2 // Generating prompts
+      } else if (attempts < 46) {
+        currentAnalysisStep.value = 3 // Building recommendations
+      } else if (attempts < 58) {
+        currentAnalysisStep.value = 4 // Analyzing visibility
       } else {
-        currentAnalysisStep.value = 4
+        currentAnalysisStep.value = 5 // Finalizing (but not complete yet)
       }
     } catch (err) {
       console.error('Error polling job status:', err)
@@ -405,6 +419,6 @@ const pollJobStatus = async (jobId: string) => {
     attempts++
   }
 
-  currentAnalysisStep.value = analysisSteps.length
+  // Timeout - let completeAllStepsAndRedirect handle showing completion
 }
 </script>

@@ -39,10 +39,10 @@ serve(async (req) => {
       )
     }
 
-    // Get user's organization
+    // Get user's organization and active product
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_product_id')
       .eq('id', user.id)
       .single()
 
@@ -60,6 +60,23 @@ serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action') || 'summary'
 
+    // Get product ID from query param or use active product
+    let productId = url.searchParams.get('productId') || profile.active_product_id
+
+    // If still no product, try to get the first active product
+    if (!productId) {
+      const { data: firstProduct } = await supabaseClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      productId = firstProduct?.id
+    }
+
     // Handle different actions
     switch (req.method) {
       case 'GET': {
@@ -70,39 +87,70 @@ serve(async (req) => {
             const endDate = new Date()
             const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000)
 
+            // Build product filter - use product_id if available, fallback to organization_id
+            const productFilter = productId
+              ? { column: 'product_id', value: productId }
+              : { column: 'organization_id', value: organizationId }
+
             // Get cached calculation or calculate new
-            const { data: cached } = await supabaseClient
+            let cachedQuery = supabaseClient
               .from('roi_calculations')
               .select('*')
-              .eq('organization_id', organizationId)
               .gte('period_start', startDate.toISOString().split('T')[0])
               .lte('period_end', endDate.toISOString().split('T')[0])
               .order('calculated_at', { ascending: false })
               .limit(1)
-              .single()
+
+            if (productId) {
+              cachedQuery = cachedQuery.eq('product_id', productId)
+            } else {
+              cachedQuery = cachedQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: cached } = await cachedQuery.single()
 
             // Get traffic metrics
-            const { data: trafficMetrics } = await supabaseClient
+            let trafficQuery = supabaseClient
               .from('ai_traffic_metrics')
               .select('*')
-              .eq('organization_id', organizationId)
               .gte('date', startDate.toISOString().split('T')[0])
               .order('date', { ascending: true })
 
+            if (productId) {
+              trafficQuery = trafficQuery.eq('product_id', productId)
+            } else {
+              trafficQuery = trafficQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: trafficMetrics } = await trafficQuery
+
             // Get recent conversions
-            const { data: recentConversions } = await supabaseClient
+            let conversionsQuery = supabaseClient
               .from('ai_conversion_events')
               .select('*')
-              .eq('organization_id', organizationId)
               .order('occurred_at', { ascending: false })
               .limit(10)
 
+            if (productId) {
+              conversionsQuery = conversionsQuery.eq('product_id', productId)
+            } else {
+              conversionsQuery = conversionsQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: recentConversions } = await conversionsQuery
+
             // Get integration status
-            const { data: integration } = await supabaseClient
+            let integrationQuery = supabaseClient
               .from('analytics_integrations')
               .select('*')
-              .eq('organization_id', organizationId)
-              .single()
+
+            if (productId) {
+              integrationQuery = integrationQuery.eq('product_id', productId)
+            } else {
+              integrationQuery = integrationQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: integration } = await integrationQuery.single()
 
             return jsonResponse({
               summary: cached || calculateSummary(trafficMetrics || []),
@@ -128,9 +176,14 @@ serve(async (req) => {
             let query = supabaseClient
               .from('ai_traffic_metrics')
               .select('*')
-              .eq('organization_id', organizationId)
               .gte('date', startDate.toISOString().split('T')[0])
               .order('date', { ascending: true })
+
+            if (productId) {
+              query = query.eq('product_id', productId)
+            } else {
+              query = query.eq('organization_id', organizationId)
+            }
 
             if (source) {
               query = query.eq('source', source)
@@ -150,9 +203,14 @@ serve(async (req) => {
             let query = supabaseClient
               .from('ai_conversion_events')
               .select('*')
-              .eq('organization_id', organizationId)
               .order('occurred_at', { ascending: false })
               .limit(limit)
+
+            if (productId) {
+              query = query.eq('product_id', productId)
+            } else {
+              query = query.eq('organization_id', organizationId)
+            }
 
             if (source) {
               query = query.eq('source', source)
@@ -193,10 +251,15 @@ serve(async (req) => {
               return jsonResponse({ error: 'date and source are required' }, 400)
             }
 
+            if (!productId) {
+              return jsonResponse({ error: 'No active product found' }, 400)
+            }
+
             const { error } = await serviceClient
               .from('ai_traffic_metrics')
               .upsert({
                 organization_id: organizationId,
+                product_id: productId,
                 date,
                 source,
                 sessions: sessions || 0,
@@ -207,7 +270,7 @@ serve(async (req) => {
                 conversions: conversions || 0,
                 conversion_value: conversionValue || 0
               }, {
-                onConflict: 'organization_id,date,source'
+                onConflict: 'product_id,date,source'
               })
 
             if (error) throw error
@@ -222,10 +285,15 @@ serve(async (req) => {
               return jsonResponse({ error: 'eventName and source are required' }, 400)
             }
 
+            if (!productId) {
+              return jsonResponse({ error: 'No active product found' }, 400)
+            }
+
             const { data, error } = await serviceClient
               .from('ai_conversion_events')
               .insert({
                 organization_id: organizationId,
+                product_id: productId,
                 event_name: eventName,
                 source,
                 value: value || 0,
@@ -242,17 +310,22 @@ serve(async (req) => {
             // Save analytics integration settings
             const { provider, conversionGoal, avgConversionValue, currency } = body
 
+            if (!productId) {
+              return jsonResponse({ error: 'No active product found' }, 400)
+            }
+
             const { data, error } = await serviceClient
               .from('analytics_integrations')
               .upsert({
                 organization_id: organizationId,
+                product_id: productId,
                 provider: provider || 'manual',
                 conversion_goal: conversionGoal,
                 average_conversion_value: avgConversionValue || 0,
                 currency: currency || 'USD',
                 updated_at: new Date().toISOString()
               }, {
-                onConflict: 'organization_id'
+                onConflict: 'product_id'
               })
               .select()
               .single()
@@ -267,26 +340,50 @@ serve(async (req) => {
             const endDate = new Date()
             const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000)
 
+            if (!productId) {
+              return jsonResponse({ error: 'No active product found' }, 400)
+            }
+
             // Get all traffic data
-            const { data: trafficData } = await supabaseClient
+            let trafficQuery = supabaseClient
               .from('ai_traffic_metrics')
               .select('*')
-              .eq('organization_id', organizationId)
               .gte('date', startDate.toISOString().split('T')[0])
 
+            if (productId) {
+              trafficQuery = trafficQuery.eq('product_id', productId)
+            } else {
+              trafficQuery = trafficQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: trafficData } = await trafficQuery
+
             // Get all conversions
-            const { data: conversionData } = await supabaseClient
+            let conversionQuery = supabaseClient
               .from('ai_conversion_events')
               .select('*')
-              .eq('organization_id', organizationId)
               .gte('occurred_at', startDate.toISOString())
 
+            if (productId) {
+              conversionQuery = conversionQuery.eq('product_id', productId)
+            } else {
+              conversionQuery = conversionQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: conversionData } = await conversionQuery
+
             // Get settings
-            const { data: settings } = await supabaseClient
+            let settingsQuery = supabaseClient
               .from('analytics_integrations')
               .select('average_conversion_value')
-              .eq('organization_id', organizationId)
-              .single()
+
+            if (productId) {
+              settingsQuery = settingsQuery.eq('product_id', productId)
+            } else {
+              settingsQuery = settingsQuery.eq('organization_id', organizationId)
+            }
+
+            const { data: settings } = await settingsQuery.single()
 
             // Get subscription cost
             const { data: subscription } = await supabaseClient
@@ -310,12 +407,13 @@ serve(async (req) => {
               .from('roi_calculations')
               .upsert({
                 organization_id: organizationId,
+                product_id: productId,
                 period_start: startDate.toISOString().split('T')[0],
                 period_end: endDate.toISOString().split('T')[0],
                 ...summary,
                 calculated_at: new Date().toISOString()
               }, {
-                onConflict: 'organization_id,period_start,period_end'
+                onConflict: 'product_id,period_start,period_end'
               })
 
             return jsonResponse({ roi: summary })

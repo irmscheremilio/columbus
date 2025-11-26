@@ -51,10 +51,10 @@
         </div>
 
         <!-- Organization Switcher -->
-        <div v-if="organizations.length > 1" class="px-3 py-3 border-b border-gray-200">
+        <div v-if="organizations.length > 1" class="px-3 py-3 border-b border-gray-200" data-org-switcher>
           <div class="relative">
             <button
-              @click="showOrgSwitcher = !showOrgSwitcher"
+              @click.stop="showOrgSwitcher = !showOrgSwitcher"
               class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <div class="flex items-center gap-2 min-w-0">
@@ -123,10 +123,10 @@
         </div>
 
         <!-- Product Selector - Always show when there's at least one product -->
-        <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200">
+        <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200" data-product-switcher>
           <div class="relative">
             <button
-              @click="showProductSwitcher = !showProductSwitcher"
+              @click.stop="showProductSwitcher = !showProductSwitcher"
               class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <div class="flex items-center gap-2 min-w-0">

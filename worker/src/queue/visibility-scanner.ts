@@ -154,6 +154,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
     const modelStats = calculatePerModelStats(allResults, models)
     const historyEntries = modelStats.map(stat => ({
       organization_id: organizationId,
+      product_id: productId,
       ai_model: stat.model,
       score: stat.score,
       mention_rate: stat.mentionRate,
@@ -164,7 +165,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       recorded_at: new Date().toISOString()
     }))
 
-    if (historyEntries.length > 0) {
+    if (historyEntries.length > 0 && productId) {
       const { error: historyError } = await supabase
         .from('visibility_history')
         .insert(historyEntries)

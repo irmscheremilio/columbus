@@ -78,7 +78,7 @@ Return ONLY valid JSON, no markdown or explanation.`
 
   /**
    * Generate prompts based on product analysis
-   * Creates 5 prompt topics × 3 granularity levels = 15 prompts
+   * Creates 1 prompt per granularity level = 3 prompts total for initial setup
    */
   async generatePrompts(
     productAnalysis: ProductAnalysis,
@@ -86,7 +86,7 @@ Return ONLY valid JSON, no markdown or explanation.`
   ): Promise<GeneratedPrompt[]> {
     const prompt = `You are an expert at understanding how real users search for solutions using AI assistants like ChatGPT, Claude, and Perplexity.
 
-Your task: Generate 15 realistic search prompts that a user might type when looking for a solution that this product provides.
+Your task: Generate 3 realistic search prompts that a user might type when looking for a solution that this product provides.
 
 CRITICAL RULES:
 1. NEVER include the product name "${productAnalysis.productName}" in any prompt
@@ -101,28 +101,27 @@ Key capabilities: ${productAnalysis.keyFeatures.join(', ')}
 Target users: ${productAnalysis.targetAudience}
 Problems it solves: ${productAnalysis.useCases.join(', ')}
 
-Generate 15 prompts across 3 granularity levels (5 prompts per level):
+Generate exactly 3 prompts, one for each granularity level:
 
-LEVEL 1 - Broad (5 prompts):
+LEVEL 1 - Broad (1 prompt):
 User is early in research, asking general questions about a problem space.
-Examples of variety: "tools for X", "how do people handle Y", "what's the best way to Z", "I need help with...", "recommendations for..."
+Examples: "tools for X", "how do people handle Y", "what's the best way to Z", "I need help with...", "recommendations for..."
 
-LEVEL 2 - Medium (5 prompts):
+LEVEL 2 - Medium (1 prompt):
 User knows what they want but exploring options. More specific context.
-Examples of variety: asking about specific features, mentioning their tech stack, comparing approaches, asking about workflows
+Examples: asking about specific features, mentioning their tech stack, comparing approaches, asking about workflows
 
-LEVEL 3 - Specific (5 prompts):
+LEVEL 3 - Specific (1 prompt):
 User has clear requirements, asking detailed questions that match exactly what this product does.
-Examples of variety: mentioning specific integrations, asking about edge cases, technical implementation details, specific use case scenarios
+Examples: mentioning specific integrations, asking about edge cases, technical implementation details, specific use case scenarios
 
 IMPORTANT:
 - Make each prompt COMPLETELY DIFFERENT in structure and wording
 - Include variety: questions, statements, requests for recommendations, comparisons
-- Some can be short and casual, others more detailed
 - Think about different personas who might need this solution
 
-Return ONLY a valid JSON array with exactly 15 objects:
-[{"promptText": "...", "granularityLevel": 1}, ...]
+Return ONLY a valid JSON array with exactly 3 objects:
+[{"promptText": "...", "granularityLevel": 1}, {"promptText": "...", "granularityLevel": 2}, {"promptText": "...", "granularityLevel": 3}]
 
 No markdown, no explanation, just the JSON array.`
 

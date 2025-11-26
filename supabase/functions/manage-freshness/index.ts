@@ -39,10 +39,10 @@ serve(async (req) => {
       )
     }
 
-    // Get user's organization
+    // Get user's organization and active product
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_product_id')
       .eq('id', user.id)
       .single()
 
@@ -60,22 +60,39 @@ serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action') || 'list'
 
+    // Get product ID from query param or use active product
+    let productId = url.searchParams.get('productId') || profile.active_product_id
+
+    // If still no product, try to get the first active product
+    if (!productId) {
+      const { data: firstProduct } = await supabaseClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      productId = firstProduct?.id
+    }
+
     // Handle different HTTP methods and actions
     switch (req.method) {
       case 'GET': {
-        return await handleGet(supabaseClient, organizationId, action, url.searchParams)
+        return await handleGet(supabaseClient, organizationId, productId, action, url.searchParams)
       }
       case 'POST': {
         const body = await req.json()
-        return await handlePost(serviceClient, organizationId, action, body)
+        return await handlePost(serviceClient, organizationId, productId, action, body)
       }
       case 'PUT': {
         const body = await req.json()
-        return await handlePut(serviceClient, organizationId, action, body)
+        return await handlePut(serviceClient, organizationId, productId, action, body)
       }
       case 'DELETE': {
         const body = await req.json()
-        return await handleDelete(serviceClient, organizationId, action, body)
+        return await handleDelete(serviceClient, organizationId, productId, action, body)
       }
       default:
         return new Response(
@@ -102,14 +119,24 @@ serve(async (req) => {
 })
 
 // GET handler - list pages, alerts, or settings
-async function handleGet(client: any, orgId: string, action: string, params: URLSearchParams) {
+async function handleGet(client: any, orgId: string, productId: string | null, action: string, params: URLSearchParams) {
+  // Build filter based on product or organization
+  const buildFilter = (query: any) => {
+    if (productId) {
+      return query.eq('product_id', productId)
+    }
+    return query.eq('organization_id', orgId)
+  }
+
   switch (action) {
     case 'pages': {
-      const { data, error } = await client
+      let query = client
         .from('monitored_pages')
         .select('*')
-        .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
+
+      query = buildFilter(query)
+      const { data, error } = await query
 
       if (error) throw error
       return jsonResponse({ pages: data })
@@ -120,8 +147,9 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
       let query = client
         .from('freshness_alerts')
         .select('*, monitored_pages(url, title)')
-        .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
+
+      query = buildFilter(query)
 
       if (unreadOnly) {
         query = query.eq('is_read', false).eq('is_dismissed', false)
@@ -133,14 +161,15 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
     }
 
     case 'settings': {
-      const { data, error } = await client
+      let query = client
         .from('freshness_settings')
         .select('*')
-        .eq('organization_id', orgId)
-        .single()
+
+      query = buildFilter(query)
+      const { data, error } = await query.single()
 
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-      return jsonResponse({ settings: data || getDefaultSettings(orgId) })
+      return jsonResponse({ settings: data || getDefaultSettings(orgId, productId) })
     }
 
     case 'snapshots': {
@@ -162,21 +191,27 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
 
     case 'dashboard': {
       // Get overview stats for dashboard
+      let pagesQuery = client
+        .from('monitored_pages')
+        .select('id, url, title, freshness_score, status, last_crawled_at')
+
+      let alertsQuery = client
+        .from('freshness_alerts')
+        .select('id, alert_type, severity, is_read')
+        .eq('is_dismissed', false)
+
+      let settingsQuery = client
+        .from('freshness_settings')
+        .select('*')
+
+      pagesQuery = buildFilter(pagesQuery)
+      alertsQuery = buildFilter(alertsQuery)
+      settingsQuery = buildFilter(settingsQuery)
+
       const [pagesResult, alertsResult, settingsResult] = await Promise.all([
-        client
-          .from('monitored_pages')
-          .select('id, url, title, freshness_score, status, last_crawled_at')
-          .eq('organization_id', orgId),
-        client
-          .from('freshness_alerts')
-          .select('id, alert_type, severity, is_read')
-          .eq('organization_id', orgId)
-          .eq('is_dismissed', false),
-        client
-          .from('freshness_settings')
-          .select('*')
-          .eq('organization_id', orgId)
-          .single()
+        pagesQuery,
+        alertsQuery,
+        settingsQuery.single()
       ])
 
       const pages = pagesResult.data || []
@@ -184,12 +219,12 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
 
       // Calculate stats
       const avgFreshness = pages.length > 0
-        ? Math.round(pages.reduce((sum, p) => sum + (p.freshness_score || 50), 0) / pages.length)
+        ? Math.round(pages.reduce((sum: number, p: any) => sum + (p.freshness_score || 50), 0) / pages.length)
         : 0
 
-      const staleCount = pages.filter(p => (p.freshness_score || 50) < 50).length
-      const unreadAlerts = alerts.filter(a => !a.is_read).length
-      const criticalAlerts = alerts.filter(a => a.severity === 'critical' && !a.is_read).length
+      const staleCount = pages.filter((p: any) => (p.freshness_score || 50) < 50).length
+      const unreadAlerts = alerts.filter((a: any) => !a.is_read).length
+      const criticalAlerts = alerts.filter((a: any) => a.severity === 'critical' && !a.is_read).length
 
       return jsonResponse({
         stats: {
@@ -201,7 +236,7 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
         },
         recentPages: pages.slice(0, 5),
         recentAlerts: alerts.slice(0, 5),
-        settings: settingsResult.data || getDefaultSettings(orgId)
+        settings: settingsResult.data || getDefaultSettings(orgId, productId)
       })
     }
 
@@ -211,12 +246,16 @@ async function handleGet(client: any, orgId: string, action: string, params: URL
 }
 
 // POST handler - add pages or trigger checks
-async function handlePost(client: any, orgId: string, action: string, body: any) {
+async function handlePost(client: any, orgId: string, productId: string | null, action: string, body: any) {
   switch (action) {
     case 'add-page': {
       const { url, title, checkFrequencyHours } = body
       if (!url) {
         return jsonResponse({ error: 'URL is required' }, 400)
+      }
+
+      if (!productId) {
+        return jsonResponse({ error: 'No active product found' }, 400)
       }
 
       // Validate URL
@@ -226,11 +265,11 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
         return jsonResponse({ error: 'Invalid URL' }, 400)
       }
 
-      // Check if page already exists
+      // Check if page already exists for this product
       const { data: existing } = await client
         .from('monitored_pages')
         .select('id')
-        .eq('organization_id', orgId)
+        .eq('product_id', productId)
         .eq('url', url)
         .single()
 
@@ -242,6 +281,7 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
         .from('monitored_pages')
         .insert({
           organization_id: orgId,
+          product_id: productId,
           url,
           title: title || null,
           check_frequency_hours: checkFrequencyHours || 72,
@@ -256,6 +296,7 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
       // Queue an immediate freshness check by creating a job
       await client.from('jobs').insert({
         organization_id: orgId,
+        product_id: productId,
         job_type: 'freshness_check',
         status: 'queued',
         metadata: { pageId: data.id }
@@ -271,17 +312,19 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
         // Check single page
         await client.from('jobs').insert({
           organization_id: orgId,
+          product_id: productId,
           job_type: 'freshness_check',
           status: 'queued',
           metadata: { pageId }
         })
       } else {
-        // Check all pages for org
+        // Check all pages for product
         await client.from('jobs').insert({
           organization_id: orgId,
+          product_id: productId,
           job_type: 'freshness_check',
           status: 'queued',
-          metadata: { organizationId: orgId }
+          metadata: { productId: productId }
         })
       }
 
@@ -291,10 +334,15 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
     case 'save-settings': {
       const { staleThresholdDays, criticalThresholdDays, autoCheckEnabled, emailAlertsEnabled, slackWebhookUrl } = body
 
+      if (!productId) {
+        return jsonResponse({ error: 'No active product found' }, 400)
+      }
+
       const { data, error } = await client
         .from('freshness_settings')
         .upsert({
           organization_id: orgId,
+          product_id: productId,
           stale_threshold_days: staleThresholdDays || 30,
           critical_threshold_days: criticalThresholdDays || 90,
           auto_check_enabled: autoCheckEnabled ?? true,
@@ -302,7 +350,7 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
           slack_webhook_url: slackWebhookUrl || null,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'organization_id'
+          onConflict: 'product_id'
         })
         .select()
         .single()
@@ -317,7 +365,7 @@ async function handlePost(client: any, orgId: string, action: string, body: any)
 }
 
 // PUT handler - update pages or alerts
-async function handlePut(client: any, orgId: string, action: string, body: any) {
+async function handlePut(client: any, orgId: string, productId: string | null, action: string, body: any) {
   switch (action) {
     case 'update-page': {
       const { pageId, title, checkFrequencyHours, status } = body
@@ -330,13 +378,19 @@ async function handlePut(client: any, orgId: string, action: string, body: any) 
       if (checkFrequencyHours !== undefined) updates.check_frequency_hours = checkFrequencyHours
       if (status !== undefined) updates.status = status
 
-      const { data, error } = await client
+      // Use product_id if available, otherwise fallback to organization_id
+      let query = client
         .from('monitored_pages')
         .update(updates)
         .eq('id', pageId)
-        .eq('organization_id', orgId)
-        .select()
-        .single()
+
+      if (productId) {
+        query = query.eq('product_id', productId)
+      } else {
+        query = query.eq('organization_id', orgId)
+      }
+
+      const { data, error } = await query.select().single()
 
       if (error) throw error
       return jsonResponse({ page: data })
@@ -350,14 +404,21 @@ async function handlePut(client: any, orgId: string, action: string, body: any) 
         return jsonResponse({ error: 'alertId or alertIds required' }, 400)
       }
 
-      const { error } = await client
+      let query = client
         .from('freshness_alerts')
         .update({
           is_read: true,
           read_at: new Date().toISOString()
         })
         .in('id', ids)
-        .eq('organization_id', orgId)
+
+      if (productId) {
+        query = query.eq('product_id', productId)
+      } else {
+        query = query.eq('organization_id', orgId)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       return jsonResponse({ message: 'Alerts marked as read' })
@@ -371,14 +432,21 @@ async function handlePut(client: any, orgId: string, action: string, body: any) 
         return jsonResponse({ error: 'alertId or alertIds required' }, 400)
       }
 
-      const { error } = await client
+      let query = client
         .from('freshness_alerts')
         .update({
           is_dismissed: true,
           dismissed_at: new Date().toISOString()
         })
         .in('id', ids)
-        .eq('organization_id', orgId)
+
+      if (productId) {
+        query = query.eq('product_id', productId)
+      } else {
+        query = query.eq('organization_id', orgId)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       return jsonResponse({ message: 'Alerts dismissed' })
@@ -390,7 +458,7 @@ async function handlePut(client: any, orgId: string, action: string, body: any) 
 }
 
 // DELETE handler - remove pages
-async function handleDelete(client: any, orgId: string, action: string, body: any) {
+async function handleDelete(client: any, orgId: string, productId: string | null, action: string, body: any) {
   switch (action) {
     case 'remove-page': {
       const { pageId } = body
@@ -399,11 +467,18 @@ async function handleDelete(client: any, orgId: string, action: string, body: an
       }
 
       // Delete page (cascades to snapshots and alerts)
-      const { error } = await client
+      let query = client
         .from('monitored_pages')
         .delete()
         .eq('id', pageId)
-        .eq('organization_id', orgId)
+
+      if (productId) {
+        query = query.eq('product_id', productId)
+      } else {
+        query = query.eq('organization_id', orgId)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       return jsonResponse({ message: 'Page removed from monitoring' })
@@ -425,10 +500,11 @@ function jsonResponse(data: any, status = 200) {
   )
 }
 
-// Default settings for new organizations
-function getDefaultSettings(orgId: string) {
+// Default settings for new organizations/products
+function getDefaultSettings(orgId: string, productId: string | null) {
   return {
     organization_id: orgId,
+    product_id: productId,
     stale_threshold_days: 30,
     critical_threshold_days: 90,
     auto_check_enabled: true,
