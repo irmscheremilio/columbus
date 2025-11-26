@@ -147,6 +147,33 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       }
     })
 
+    // Store per-model visibility history for trend analysis
+    const modelStats = calculatePerModelStats(allResults, models)
+    const historyEntries = modelStats.map(stat => ({
+      organization_id: organizationId,
+      ai_model: stat.model,
+      score: stat.score,
+      mention_rate: stat.mentionRate,
+      citation_rate: stat.citationRate,
+      prompts_tested: stat.promptsTested,
+      prompts_mentioned: stat.promptsMentioned,
+      prompts_cited: stat.promptsCited,
+      recorded_at: new Date().toISOString()
+    }))
+
+    if (historyEntries.length > 0) {
+      const { error: historyError } = await supabase
+        .from('visibility_history')
+        .insert(historyEntries)
+
+      if (historyError) {
+        console.error('[Visibility Scanner] Error storing visibility history:', historyError)
+        // Don't throw - history is supplementary
+      } else {
+        console.log(`[Visibility Scanner] Stored visibility history for ${historyEntries.length} AI models`)
+      }
+    }
+
     console.log(`[Visibility Scanner] Scan complete. Visibility score: ${visibilityScore}`)
 
     return {
@@ -159,6 +186,44 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
   },
   { connection }
 )
+
+interface ModelStats {
+  model: AIModel
+  score: number
+  mentionRate: number
+  citationRate: number
+  promptsTested: number
+  promptsMentioned: number
+  promptsCited: number
+}
+
+/**
+ * Calculate per-model statistics for visibility history
+ */
+function calculatePerModelStats(results: AIResponse[], models: AIModel[]): ModelStats[] {
+  return models.map(model => {
+    const modelResults = results.filter(r => r.model === model)
+    const promptsTested = modelResults.length
+    const promptsMentioned = modelResults.filter(r => r.brandMentioned).length
+    const promptsCited = modelResults.filter(r => r.citationPresent).length
+
+    const mentionRate = promptsTested > 0 ? (promptsMentioned / promptsTested) * 100 : 0
+    const citationRate = promptsTested > 0 ? (promptsCited / promptsTested) * 100 : 0
+
+    // Calculate model-specific score
+    const score = calculateVisibilityScore(modelResults)
+
+    return {
+      model,
+      score,
+      mentionRate: Math.round(mentionRate * 100) / 100,
+      citationRate: Math.round(citationRate * 100) / 100,
+      promptsTested,
+      promptsMentioned,
+      promptsCited
+    }
+  })
+}
 
 /**
  * Calculate overall visibility score (0-100)

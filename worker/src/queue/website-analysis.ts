@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { WebsiteCrawler } from '../analyzers/website-crawler.js'
 import { RecommendationEngine, Recommendation } from '../analyzers/recommendation-engine.js'
+import { AIRecommendationEngine, AIRecommendation } from '../analyzers/ai-recommendation-engine.js'
 import { PromptGenerator } from '../analyzers/prompt-generator.js'
 import { PageDiscovery, DiscoveredPage, PageContent } from '../analyzers/page-discovery.js'
 import { sendScanCompletedEmail } from '../services/email.js'
@@ -230,23 +231,48 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         competitorGaps = gaps || []
       }
 
-      // 7. Generate AI-enhanced recommendations for homepage
-      console.log(`[Website Analysis] Generating homepage recommendations...`)
-      const recommendationEngine = new RecommendationEngine()
-      const homepageRecommendations = recommendationEngine.generateRecommendations(
-        websiteAnalysis,
-        scanResults || [],
-        competitorGaps
-      )
+      // 7. Generate AI-powered recommendations using research knowledge base
+      console.log(`[Website Analysis] Generating AI-powered recommendations...`)
+      const aiRecommendationEngine = new AIRecommendationEngine()
 
-      // Get personalized recommendations from AI
+      let aiRecommendations: AIRecommendation[] = []
+      try {
+        aiRecommendations = await aiRecommendationEngine.generateRecommendations(
+          websiteAnalysis,
+          scanResults || [],
+          {
+            productName: productAnalysis.productName,
+            productDescription: productAnalysis.productDescription,
+            targetAudience: productAnalysis.targetAudience
+          },
+          { maxRecommendations: 15 }
+        )
+        console.log(`[Website Analysis] Generated ${aiRecommendations.length} AI-powered recommendations`)
+      } catch (error) {
+        console.error('[Website Analysis] AI recommendation generation failed, falling back to rule-based:', error)
+      }
+
+      // Fallback to rule-based recommendations if AI fails or returns nothing
+      const recommendationEngine = new RecommendationEngine()
+      let homepageRecommendations: Recommendation[] = []
+
+      if (aiRecommendations.length === 0) {
+        console.log(`[Website Analysis] Using rule-based recommendations as fallback`)
+        homepageRecommendations = recommendationEngine.generateRecommendations(
+          websiteAnalysis,
+          scanResults || [],
+          competitorGaps
+        )
+      }
+
+      // Get additional personalized recommendations from prompt generator
       const personalizedRecs = await promptGenerator.generatePersonalizedRecommendations(
         productAnalysis,
         websiteAnalysis
       )
 
       if (personalizedRecs.length > 0) {
-        console.log(`[Website Analysis] Adding ${personalizedRecs.length} personalized recommendations`)
+        console.log(`[Website Analysis] Adding ${personalizedRecs.length} additional personalized recommendations`)
       }
 
       // 8. Prepare all recommendations for storage
@@ -261,7 +287,29 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       const allRecommendationsToInsert: any[] = []
 
-      // Add homepage recommendations (no page_url)
+      // Add AI-powered recommendations (primary source)
+      for (const rec of aiRecommendations) {
+        allRecommendationsToInsert.push({
+          organization_id: organizationId,
+          title: rec.title,
+          description: rec.description,
+          category: rec.category,
+          priority: rec.priority,
+          estimated_impact: rec.estimatedImpact,
+          implementation_guide: rec.implementationGuide,
+          code_snippets: rec.codeSnippets || [],
+          estimated_time: rec.estimatedTime,
+          difficulty: rec.difficulty,
+          status: 'pending',
+          page_url: null, // AI recommendations are general
+          page_title: rec.aiPlatformSpecific?.length
+            ? `Optimized for: ${rec.aiPlatformSpecific.join(', ')}`
+            : 'General',
+          ai_generated: true // Mark as AI-generated
+        })
+      }
+
+      // Add rule-based homepage recommendations (fallback)
       for (const rec of homepageRecommendations) {
         allRecommendationsToInsert.push({
           organization_id: organizationId,
@@ -276,11 +324,12 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           difficulty: rec.difficulty,
           status: 'pending',
           page_url: null, // Homepage/general recommendation
-          page_title: 'Homepage'
+          page_title: 'Homepage',
+          ai_generated: false
         })
       }
 
-      // Add AI-personalized recommendations
+      // Add additional AI-personalized insights from prompt generator
       for (const rec of personalizedRecs) {
         allRecommendationsToInsert.push({
           organization_id: organizationId,
@@ -295,7 +344,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           difficulty: 'medium',
           status: 'pending',
           page_url: null,
-          page_title: 'General'
+          page_title: 'General',
+          ai_generated: true
         })
       }
 

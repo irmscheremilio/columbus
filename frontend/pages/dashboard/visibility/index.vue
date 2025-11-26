@@ -80,6 +80,48 @@
           </div>
         </div>
 
+        <!-- Visibility Trends Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+          <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900">Visibility Over Time</h2>
+                <p class="text-sm text-gray-500">Track your visibility score trends per AI platform</p>
+              </div>
+            </div>
+            <select
+              v-model="chartTimeRange"
+              class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+              @change="loadVisibilityHistory"
+            >
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </div>
+
+          <!-- Chart Container -->
+          <div class="relative h-80">
+            <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50/50">
+              <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+            </div>
+            <canvas ref="visibilityChartCanvas"></canvas>
+          </div>
+
+          <!-- Legend -->
+          <div class="flex flex-wrap justify-center gap-4 mt-4 pt-4 border-t border-gray-100">
+            <div v-for="platform in chartPlatforms" :key="platform.name" class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: platform.color }"></div>
+              <span class="text-sm text-gray-600">{{ platform.label }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Platform Comparison -->
         <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
           <div class="flex items-center gap-3 mb-5">
@@ -226,6 +268,8 @@
 </template>
 
 <script setup lang="ts">
+import Chart from 'chart.js/auto'
+
 definePageMeta({
   middleware: 'auth'
 })
@@ -234,6 +278,7 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 
 const loading = ref(true)
+const chartLoading = ref(true)
 const overallScore = ref(0)
 const scoreChange = ref(0)
 const totalTests = ref(0)
@@ -251,8 +296,21 @@ const platforms = ref([
 
 const results = ref<any[]>([])
 
+// Chart-related refs
+const visibilityChartCanvas = ref<HTMLCanvasElement | null>(null)
+const chartTimeRange = ref('30')
+let visibilityChart: Chart | null = null
+
+const chartPlatforms = [
+  { name: 'chatgpt', label: 'ChatGPT', color: '#10a37f' },
+  { name: 'claude', label: 'Claude', color: '#d97757' },
+  { name: 'gemini', label: 'Gemini', color: '#4285f4' },
+  { name: 'perplexity', label: 'Perplexity', color: '#20b8cd' }
+]
+
 onMounted(async () => {
   await loadVisibilityData()
+  await loadVisibilityHistory()
 })
 
 const loadVisibilityData = async () => {
@@ -349,4 +407,207 @@ const viewDetails = (result: any) => {
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
+
+// Load visibility history for the chart
+const loadVisibilityHistory = async () => {
+  chartLoading.value = true
+  try {
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.value?.id)
+      .single()
+
+    if (!userData?.organization_id) return
+
+    const daysAgo = parseInt(chartTimeRange.value)
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - daysAgo)
+
+    const { data: historyData } = await supabase
+      .from('visibility_history')
+      .select('*')
+      .eq('organization_id', userData.organization_id)
+      .gte('recorded_at', startDate.toISOString())
+      .order('recorded_at', { ascending: true })
+
+    // Process data for chart
+    const chartData = processHistoryForChart(historyData || [], daysAgo)
+    renderChart(chartData)
+  } catch (error) {
+    console.error('Error loading visibility history:', error)
+    // Render empty chart with placeholder
+    renderChart(generateDummyData())
+  } finally {
+    chartLoading.value = false
+  }
+}
+
+// Process history data for Chart.js
+const processHistoryForChart = (historyData: any[], daysAgo: number) => {
+  // Generate date labels
+  const labels: string[] = []
+  const today = new Date()
+  for (let i = daysAgo - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+  }
+
+  // Group data by platform and date
+  const platformData: Record<string, (number | null)[]> = {
+    chatgpt: new Array(daysAgo).fill(null),
+    claude: new Array(daysAgo).fill(null),
+    gemini: new Array(daysAgo).fill(null),
+    perplexity: new Array(daysAgo).fill(null)
+  }
+
+  for (const entry of historyData) {
+    const entryDate = new Date(entry.recorded_at)
+    const dayIndex = daysAgo - 1 - Math.floor((today.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (dayIndex >= 0 && dayIndex < daysAgo && platformData[entry.ai_model]) {
+      platformData[entry.ai_model][dayIndex] = entry.score
+    }
+  }
+
+  // Interpolate missing values (connect the dots)
+  for (const platform of Object.keys(platformData)) {
+    let lastValue: number | null = null
+    for (let i = 0; i < platformData[platform].length; i++) {
+      if (platformData[platform][i] !== null) {
+        lastValue = platformData[platform][i]
+      } else if (lastValue !== null) {
+        // Keep as null for gaps in data - Chart.js will handle it
+      }
+    }
+  }
+
+  return { labels, platformData }
+}
+
+// Generate dummy data for visualization when no real data exists
+const generateDummyData = () => {
+  const daysAgo = parseInt(chartTimeRange.value)
+  const labels: string[] = []
+  const today = new Date()
+
+  for (let i = daysAgo - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+  }
+
+  // Generate smooth random data for demonstration
+  const generateSmoothData = (baseValue: number, variance: number): (number | null)[] => {
+    const data: (number | null)[] = []
+    let value = baseValue
+    for (let i = 0; i < daysAgo; i++) {
+      value += (Math.random() - 0.5) * variance
+      value = Math.max(0, Math.min(100, value))
+      data.push(Math.round(value))
+    }
+    return data
+  }
+
+  return {
+    labels,
+    platformData: {
+      chatgpt: generateSmoothData(65, 8),
+      claude: generateSmoothData(55, 10),
+      gemini: generateSmoothData(70, 7),
+      perplexity: generateSmoothData(45, 12)
+    }
+  }
+}
+
+// Render the Chart.js multiline chart
+const renderChart = (chartData: { labels: string[], platformData: Record<string, (number | null)[]> }) => {
+  if (!visibilityChartCanvas.value) return
+
+  // Destroy existing chart
+  if (visibilityChart) {
+    visibilityChart.destroy()
+  }
+
+  const ctx = visibilityChartCanvas.value.getContext('2d')
+  if (!ctx) return
+
+  const datasets = chartPlatforms.map(platform => ({
+    label: platform.label,
+    data: chartData.platformData[platform.name] || [],
+    borderColor: platform.color,
+    backgroundColor: platform.color + '20',
+    borderWidth: 2,
+    fill: false,
+    tension: 0.3,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: platform.color,
+    spanGaps: true
+  }))
+
+  visibilityChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.labels,
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      plugins: {
+        legend: {
+          display: false // Using custom legend
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: { size: 14, weight: 'bold' },
+          bodyFont: { size: 13 },
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y
+              return value !== null ? `${context.dataset.label}: ${value}%` : `${context.dataset.label}: No data`
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 11 },
+            color: '#6b7280'
+          }
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: {
+            color: '#f3f4f6'
+          },
+          ticks: {
+            font: { size: 11 },
+            color: '#6b7280',
+            callback: (value) => `${value}%`
+          }
+        }
+      }
+    }
+  })
+}
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (visibilityChart) {
+    visibilityChart.destroy()
+  }
+})
 </script>

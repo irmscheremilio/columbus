@@ -1,0 +1,50 @@
+{
+  "name": "@columbus/tracker",
+  "version": "1.0.0",
+  "description": "Columbus AI Traffic Tracking SDK - Track visitors from AI platforms and measure ROI",
+  "main": "dist/columbus-tracker.js",
+  "module": "dist/columbus-tracker.mjs",
+  "types": "dist/columbus-tracker.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/columbus-tracker.mjs",
+      "require": "./dist/columbus-tracker.js",
+      "types": "./dist/columbus-tracker.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup columbus-tracker.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "columbus",
+    "aeo",
+    "ai-tracking",
+    "chatgpt",
+    "claude",
+    "perplexity",
+    "gemini",
+    "analytics",
+    "conversion-tracking"
+  ],
+  "author": "Columbus AEO",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/columbus-aeo/tracker-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/columbus-aeo/tracker-sdk/issues"
+  },
+  "homepage": "https://columbus-aeo.com/docs/sdk"
+}
