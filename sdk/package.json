@@ -8,16 +8,18 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/columbus-tracker.mjs",
-      "require": "./dist/columbus-tracker.js",
-      "types": "./dist/columbus-tracker.d.ts"
+      "types": "./dist/columbus-tracker.d.ts",
+      "import": "./dist/columbus-tracker.js",
+      "require": "./dist/columbus-tracker.cjs"
     }
   },
+  "browser": "./dist/columbus-tracker.global.js",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup columbus-tracker.ts --format cjs,esm --dts --clean",
+    "build": "tsup columbus-tracker.ts --format cjs,esm,iife --dts --clean --global-name Columbus --minify",
+    "build:cdn": "tsup columbus-tracker.ts --format iife --global-name Columbus --minify --out-dir dist/cdn --no-dts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

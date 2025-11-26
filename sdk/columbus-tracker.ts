@@ -165,7 +165,13 @@ export class ColumbusTracker {
     const aiParams = ['from_chatgpt', 'from_claude', 'from_perplexity', 'ai_ref']
     for (const param of aiParams) {
       if (urlParams.has(param)) {
-        this.aiSource = urlParams.get(param) || param.replace('from_', '')
+        const value = urlParams.get(param)
+        // If value is 'true' or empty, extract source from param name
+        if (!value || value === 'true' || value === '1') {
+          this.aiSource = param.replace('from_', '')
+        } else {
+          this.aiSource = value
+        }
         this.setSessionStorage('columbus_ai_source', this.aiSource)
         this.setSessionStorage('columbus_landing_page', window.location.href)
         break

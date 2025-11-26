@@ -378,6 +378,133 @@ ${aeoReadiness.weaknesses.map(w => `- ${w}`).join('\n') || '- None identified'}`
   }
 
   /**
+   * Generate recommendations for specific pages
+   * Each page gets unique, non-repetitive recommendations based on its content
+   */
+  async generatePageRecommendations(
+    pages: Array<{
+      url: string
+      title: string
+      contentType: string
+      content: string
+      analysis: WebsiteAnalysis
+    }>,
+    productInfo: {
+      productName: string
+      productDescription: string
+    },
+    existingRecommendations: string[] = []
+  ): Promise<Map<string, AIRecommendation[]>> {
+    const results = new Map<string, AIRecommendation[]>()
+
+    // Build context of pages being analyzed
+    const pagesContext = pages.map(p => `- ${p.title} (${p.url}): ${p.contentType}`).join('\n')
+
+    const systemPrompt = `You are an AEO (Answer Engine Optimization) expert analyzing multiple pages of a website.
+
+## AEO RESEARCH KNOWLEDGE BASE
+
+${this.knowledgeBase.general}
+
+## KEY PLATFORM-SPECIFIC INSIGHTS
+
+### ChatGPT/SearchGPT
+${this.knowledgeBase.chatgpt.slice(0, 1500)}
+
+### Google Gemini
+${this.knowledgeBase.gemini.slice(0, 1500)}
+
+## CRITICAL RULES
+
+1. Generate UNIQUE recommendations for each page - NO duplicate or similar recommendations across pages
+2. Each recommendation must be SPECIFIC to that page's content and purpose
+3. Reference the actual page URL and content in your recommendations
+4. Do NOT generate generic recommendations like "Add FAQ schema" for every page
+5. Focus on what makes each page unique and how to optimize IT SPECIFICALLY
+6. If a page already has good optimization, generate fewer recommendations for it
+7. Avoid these already-generated recommendations: ${existingRecommendations.slice(0, 10).join(', ')}
+
+## OUTPUT FORMAT
+
+Return a JSON object where keys are page URLs and values are arrays of recommendations:
+{
+  "https://example.com/page1": [
+    {
+      "title": "Specific title for this page",
+      "description": "Why this matters for THIS specific page",
+      "category": "schema|content|technical|authority",
+      "priority": 1-5,
+      "estimatedImpact": "low|medium|high",
+      "implementationGuide": [{"platform": "wordpress|react|custom", "steps": ["Step 1", "Step 2"]}],
+      "estimatedTime": "30 mins",
+      "difficulty": "easy|medium|hard"
+    }
+  ],
+  "https://example.com/page2": [...]
+}`
+
+    const userPrompt = `## PRODUCT CONTEXT
+Product: ${productInfo.productName}
+Description: ${productInfo.productDescription}
+
+## PAGES TO ANALYZE
+${pagesContext}
+
+## PAGE DETAILS
+
+${pages.map(p => `### ${p.title} (${p.url})
+Type: ${p.contentType}
+Content Preview: ${p.content.slice(0, 500)}...
+AEO Score: ${p.analysis.aeoReadiness.score}/100
+Issues: ${p.analysis.aeoReadiness.weaknesses.slice(0, 3).join(', ')}
+`).join('\n')}
+
+Generate 1-3 UNIQUE recommendations per page. Focus on the specific content and purpose of each page. Pages with high AEO scores may need fewer recommendations.
+
+Return ONLY valid JSON.`
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' }
+      })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) {
+        console.error('[AIRecommendationEngine] Empty response for page recommendations')
+        return results
+      }
+
+      const parsed = JSON.parse(content)
+
+      // Process each page's recommendations
+      for (const [pageUrl, recs] of Object.entries(parsed)) {
+        if (Array.isArray(recs)) {
+          const validRecs = (recs as any[])
+            .map(rec => this.validateRecommendation(rec))
+            .filter(Boolean) as AIRecommendation[]
+          if (validRecs.length > 0) {
+            results.set(pageUrl, validRecs)
+          }
+        }
+      }
+
+      console.log(`[AIRecommendationEngine] Generated page recommendations for ${results.size} pages`)
+      return results
+
+    } catch (error) {
+      console.error('[AIRecommendationEngine] Error generating page recommendations:', error)
+      return results
+    }
+  }
+
+  /**
    * Validate and clean a recommendation object
    */
   private validateRecommendation(rec: any): AIRecommendation | null {

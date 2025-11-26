@@ -178,7 +178,12 @@ Return a JSON array of 3 strings, each being a specific recommendation. Return O
 
     try {
       const response = await this.callAI(prompt)
-      return JSON.parse(response)
+      // Clean up response - remove markdown code blocks if present
+      let cleanResponse = response.trim()
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+      }
+      return JSON.parse(cleanResponse)
     } catch (error) {
       console.error('[Prompt Generator] Error generating recommendations:', error)
       return []

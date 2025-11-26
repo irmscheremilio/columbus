@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc",
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs');const path=require('path');const src='src/knowledge';const dest='dist/knowledge';if(fs.existsSync(src)){fs.mkdirSync(dest,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(path.join(src,f),path.join(dest,f)));console.log('Copied knowledge files to dist')}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
