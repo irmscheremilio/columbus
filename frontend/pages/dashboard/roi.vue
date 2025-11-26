@@ -117,6 +117,16 @@
             <canvas ref="roiChartCanvas"></canvas>
           </div>
 
+          <!-- Dummy data notice -->
+          <div v-if="showingDummyData" class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex items-center gap-2 text-amber-700 text-sm">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Showing sample data. Install the SDK to track real AI traffic.</span>
+            </div>
+          </div>
+
           <!-- Legend -->
           <div class="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
             <div class="flex items-center gap-2">
@@ -366,6 +376,8 @@ const summary = ref({
 
 const topSources = ref<any[]>([])
 const recentConversions = ref<any[]>([])
+const trafficTrend = ref<any[]>([])
+const showingDummyData = ref(false)
 
 const newConversion = ref({
   eventName: '',
@@ -410,8 +422,11 @@ const loadData = async () => {
       }
     }
 
-    if (data?.trafficTrend) {
-      // Aggregate by source
+    // Store raw traffic trend for chart
+    trafficTrend.value = data?.trafficTrend || []
+
+    if (data?.trafficTrend && data.trafficTrend.length > 0) {
+      // Aggregate by source for the source breakdown
       const sourceMap = new Map()
       for (const item of data.trafficTrend) {
         const existing = sourceMap.get(item.source) || { sessions: 0, conversions: 0 }
@@ -423,6 +438,11 @@ const loadData = async () => {
         .map(([source, data]) => ({ source, ...data }))
         .sort((a, b) => b.sessions - a.sessions)
     }
+
+    // Render chart with data (will show dummy data if no real data)
+    nextTick(() => {
+      renderChart(trafficTrend.value)
+    })
 
     recentConversions.value = data?.recentConversions || []
 
@@ -555,8 +575,12 @@ const renderChart = (trafficTrend: any[]) => {
     revenueData.push(data.revenue)
   }
 
-  // If no real data, use dummy data
-  if (sessionsData.every(s => s === 0) && revenueData.every(r => r === 0)) {
+  // Check if we have real data or need to use dummy data
+  const hasRealData = sessionsData.some(s => s > 0) || revenueData.some(r => r > 0)
+  showingDummyData.value = !hasRealData
+
+  // If no real data, use dummy data for visualization
+  if (!hasRealData) {
     const dummyData = generateDummyChartData()
     sessionsData.length = 0
     revenueData.length = 0
@@ -696,21 +720,10 @@ const generateDummyChartData = () => {
   return { sessions, revenue }
 }
 
-// Watch for data changes to update chart
-watch([topSources, selectedPeriod], () => {
-  if (roiChartCanvas.value) {
-    // Get traffic trend data from topSources
-    renderChart([])
-  }
-}, { deep: true })
-
-// Initial chart render after mount
-onMounted(async () => {
+// Watch for period changes to reload data
+watch(selectedPeriod, async () => {
+  chartLoading.value = true
   await loadData()
-  // Render chart with loaded data
-  nextTick(() => {
-    renderChart([])
-  })
 })
 
 // Cleanup

@@ -91,7 +91,7 @@ export class AIRecommendationEngine {
       productName: string
       productDescription: string
       industry?: string
-      targetAudience?: string[]
+      targetAudience?: string | string[]
     },
     options?: {
       maxRecommendations?: number
@@ -167,7 +167,7 @@ ${productInfo ? `## PRODUCT/BUSINESS INFORMATION
 - Product Name: ${productInfo.productName}
 - Description: ${productInfo.productDescription}
 ${productInfo.industry ? `- Industry: ${productInfo.industry}` : ''}
-${productInfo.targetAudience ? `- Target Audience: ${productInfo.targetAudience.join(', ')}` : ''}
+${productInfo.targetAudience ? `- Target Audience: ${Array.isArray(productInfo.targetAudience) ? productInfo.targetAudience.join(', ') : productInfo.targetAudience}` : ''}
 ` : ''}
 
 ${scanContext ? `## CURRENT AI VISIBILITY SCAN RESULTS
@@ -330,7 +330,7 @@ ${aeoReadiness.weaknesses.map(w => `- ${w}`).join('\n') || '- None identified'}`
     }
 
     for (const result of scanResults) {
-      const platform = result.aiModel as keyof typeof platformStats
+      const platform = result.model as keyof typeof platformStats
       if (platformStats[platform]) {
         platformStats[platform].total++
         if (result.brandMentioned) platformStats[platform].mentions++
