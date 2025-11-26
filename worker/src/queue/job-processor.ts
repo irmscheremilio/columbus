@@ -100,8 +100,10 @@ class JobProcessor {
       case 'website_analysis':
         await websiteAnalysisQueue.add('analyze', {
           organizationId: job.organization_id,
+          productId: job.metadata.productId || job.product_id,
           domain: job.metadata.domain,
           includeCompetitorGaps: job.metadata.includeCompetitorGaps ?? true,
+          triggerVisibilityScan: job.metadata.triggerVisibilityScan ?? false,
           jobId: job.id
         })
         break
@@ -120,8 +122,8 @@ class JobProcessor {
       case 'visibility_scan':
         await visibilityScanQueue.add('scan', {
           organizationId: job.organization_id,
-          brandId: job.metadata.brandId,
-          brandName: job.metadata.brandName,
+          productId: job.metadata.productId || job.metadata.brandId,
+          productName: job.metadata.productName || job.metadata.brandName,
           domain: job.metadata.domain,
           promptIds: job.metadata.promptIds,
           competitors: job.metadata.competitors || [],

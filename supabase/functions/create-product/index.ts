@@ -29,7 +29,14 @@ serve(async (req) => {
       )
     }
 
-    const { name, website, description, industry, triggerAnalysis = true } = await req.json()
+    const body = await req.json()
+    const name = body.name
+    // Accept both 'website' and 'domain' for backwards compatibility
+    const website = body.website || body.domain
+    const description = body.description
+    const industry = body.industry
+    // Accept both 'triggerAnalysis' and 'runInitialAnalysis' for backwards compatibility
+    const triggerAnalysis = body.triggerAnalysis ?? body.runInitialAnalysis ?? true
 
     // Validate input
     if (!name || !website) {
@@ -170,7 +177,7 @@ serve(async (req) => {
           product_id: product.id,
           job_type: 'website_analysis',
           status: 'queued',
-          metadata: { domain, productId: product.id }
+          metadata: { domain, productId: product.id, triggerVisibilityScan: true }
         })
         .select()
         .single()
@@ -192,7 +199,8 @@ serve(async (req) => {
                 organizationId,
                 productId: product.id,
                 domain,
-                jobId: job.id
+                jobId: job.id,
+                triggerVisibilityScan: true
               })
             })
           } catch (err) {

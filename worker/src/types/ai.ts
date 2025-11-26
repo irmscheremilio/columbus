@@ -32,8 +32,11 @@ export interface MentionData {
 
 export interface ScanJobData {
   organizationId: string
-  brandId: string
-  brandName: string
+  // Support both product (new) and brand (legacy) naming
+  productId?: string
+  productName?: string
+  brandId?: string // @deprecated use productId
+  brandName?: string // @deprecated use productName
   domain: string
   promptIds: string[]
   competitors: string[]
@@ -43,7 +46,8 @@ export interface ScanJobData {
 
 export interface ScanJobResult {
   organizationId: string
-  brandId: string
+  productId?: string
+  brandId?: string // @deprecated use productId
   results: AIResponse[]
   visibilityScore: number
   completedAt: Date

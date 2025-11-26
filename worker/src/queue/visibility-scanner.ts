@@ -25,9 +25,12 @@ export const visibilityScanQueue = new Queue<ScanJobData>('visibility-scans', { 
 export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
   'visibility-scans',
   async (job) => {
-    const { organizationId, brandId, brandName, promptIds, competitors } = job.data
+    const { organizationId, promptIds, competitors } = job.data
+    // Support both product (new) and brand (legacy) naming
+    const productId = job.data.productId || job.data.brandId
+    const productName = job.data.productName || job.data.brandName || 'Unknown'
 
-    console.log(`[Visibility Scanner] Starting scan for org ${organizationId}, brand ${brandId}`)
+    console.log(`[Visibility Scanner] Starting scan for org ${organizationId}, product ${productId}`)
 
     // Fetch prompts from database
     const { data: prompts, error: promptError } = await supabase
@@ -60,8 +63,8 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
           // Get response from AI
           const responseText = await client.testPrompt(prompt.prompt_text)
 
-          // Format into full response with brand analysis
-          const clientResult = client.formatResponse(responseText, brandName, competitors)
+          // Format into full response with product/brand analysis
+          const clientResult = client.formatResponse(responseText, productName, competitors)
 
           // Construct compatible AIResponse
           const result: AIResponse = {
@@ -101,7 +104,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
           try {
             const detection = await competitorDetector.detectCompetitors(
               result.responseText,
-              brandName,
+              productName,
               competitors
             )
 
@@ -109,7 +112,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
               console.log(`[Visibility Scanner] Detected ${detection.competitors.length} potential competitors in ${model} response`)
               await competitorDetector.saveDetectedCompetitors(
                 organizationId,
-                brandName,
+                productName,
                 detection.competitors
               )
             }
@@ -178,7 +181,8 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
 
     return {
       organizationId,
-      brandId,
+      productId,
+      brandId: productId, // backwards compatibility
       results: allResults,
       visibilityScore,
       completedAt: new Date()
@@ -303,7 +307,7 @@ visibilityScanWorker.on('completed', async (job, result) => {
     await sendScanCompletedEmail({
       recipientEmail: owner.email,
       recipientName: owner.full_name || 'there',
-      brandName: job.data.brandName,
+      brandName: job.data.productName || job.data.brandName || org.name,
       scanType: 'visibility',
       totalScans: result.results.length,
       visibilityScore: result.visibilityScore,
