@@ -313,12 +313,8 @@ onMounted(async () => {
   }
 })
 
-const prefillFromUser = (user: any) => {
-  // Pre-fill email domain as company name hint
-  const emailDomain = user.email?.split('@')[1]?.split('.')[0]
-  if (emailDomain) {
-    setupForm.value.companyName = emailDomain.charAt(0).toUpperCase() + emailDomain.slice(1)
-  }
+const prefillFromUser = (_user: any) => {
+  // No prefill - let user enter their actual company name
 }
 
 const completeSetupFromMetadata = async (userId: string, metadata: any) => {
