@@ -1,171 +1,251 @@
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-gray-50">
     <DashboardNav />
 
-    <main class="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div v-if="loading" class="text-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
+    <main class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <!-- Loading State -->
+      <div v-if="loading" class="flex items-center justify-center py-24">
+        <div class="text-center">
+          <div class="relative w-16 h-16 mx-auto mb-4">
+            <div class="absolute inset-0 rounded-full border-4 border-primary-100"></div>
+            <div class="absolute inset-0 rounded-full border-4 border-primary-500 border-t-transparent animate-spin"></div>
+          </div>
+          <p class="text-gray-500">Loading recommendation...</p>
+        </div>
       </div>
 
-      <div v-else-if="!recommendation" class="card-highlight text-center py-12">
-        <p class="text-gray-500">Recommendation not found</p>
-        <NuxtLink to="/dashboard/recommendations" class="btn-primary mt-4 inline-block">
+      <!-- Not Found State -->
+      <div v-else-if="!recommendation" class="bg-white rounded-2xl border border-gray-200 text-center py-16 px-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Recommendation not found</h2>
+        <p class="text-gray-500 mb-6">This recommendation may have been removed or doesn't exist.</p>
+        <NuxtLink to="/dashboard/recommendations" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
           Back to Recommendations
         </NuxtLink>
       </div>
 
-      <div v-else class="px-4 py-6 sm:px-0">
-        <!-- Header -->
-        <div class="mb-6">
-          <NuxtLink to="/dashboard/recommendations" class="text-brand hover:text-brand-dark mb-4 inline-flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Recommendations
-          </NuxtLink>
+      <!-- Main Content -->
+      <div v-else class="space-y-6">
+        <!-- Back Link -->
+        <NuxtLink
+          to="/dashboard/recommendations"
+          class="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm font-medium group"
+        >
+          <svg class="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Recommendations
+        </NuxtLink>
 
-          <div class="flex items-start gap-6">
-            <div
-              class="flex-shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg"
-              :class="getPriorityColor(recommendation.priority)"
-            >
-              {{ recommendation.priority }}
-            </div>
-
-            <div class="flex-1">
-              <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ recommendation.title }}</h1>
-              <p class="text-lg text-gray-600 mb-4">{{ recommendation.description }}</p>
-
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="text-sm px-3 py-1.5 bg-gray-100 text-gray-800 rounded-full font-medium">
-                  {{ recommendation.category }}
-                </span>
-                <span
-                  class="text-sm px-3 py-1.5 rounded-full font-medium"
-                  :class="getImpactClass(recommendation.estimated_impact)"
+        <!-- Hero Card -->
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <!-- Header with gradient based on priority -->
+          <div
+            class="px-8 py-6"
+            :class="getHeaderGradient(recommendation.priority)"
+          >
+            <div class="flex items-start gap-5">
+              <!-- Priority Badge -->
+              <div class="flex-shrink-0">
+                <div
+                  class="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg"
+                  :class="getPriorityBgClass(recommendation.priority)"
                 >
-                  {{ recommendation.estimated_impact }} impact
-                </span>
-                <span class="text-sm px-3 py-1.5 bg-purple-100 text-purple-800 rounded-full font-medium">
-                  {{ recommendation.difficulty }}
-                </span>
-                <span class="text-sm px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full font-medium">
-                  {{ recommendation.estimated_time }}
-                </span>
-                <span
-                  class="text-sm px-3 py-1.5 rounded-full font-medium"
-                  :class="getStatusClass(recommendation.status)"
-                >
-                  {{ formatStatus(recommendation.status) }}
-                </span>
+                  P{{ recommendation.priority }}
+                </div>
               </div>
 
-              <!-- Page URL indicator -->
-              <div v-if="recommendation.page_url || recommendation.page_title" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div class="flex items-center gap-2 text-blue-800">
-                  <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span class="font-medium">Page:</span>
+              <!-- Title & Meta -->
+              <div class="flex-1 min-w-0">
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ recommendation.title }}</h1>
+                <p class="text-gray-600 leading-relaxed">{{ recommendation.description }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Meta Tags -->
+          <div class="px-8 py-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium">
+                <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                {{ recommendation.category }}
+              </span>
+              <span
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
+                :class="getImpactClass(recommendation.estimated_impact)"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                {{ recommendation.estimated_impact }} impact
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-sm font-medium">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                {{ recommendation.difficulty }}
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-sm font-medium">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {{ recommendation.estimated_time }}
+              </span>
+              <span
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
+                :class="getStatusClass(recommendation.status)"
+              >
+                <span class="w-2 h-2 rounded-full" :class="getStatusDotClass(recommendation.status)"></span>
+                {{ formatStatus(recommendation.status) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Page URL indicator -->
+          <div v-if="recommendation.page_url || recommendation.page_title || recommendation.ai_platform_specific" class="px-8 py-4 border-t border-gray-100">
+            <div class="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-blue-900">
                   <span v-if="recommendation.page_url">
-                    <a :href="recommendation.page_url" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline">
+                    Applies to:
+                    <a :href="recommendation.page_url" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline underline-offset-2">
                       {{ recommendation.page_title || recommendation.page_url }}
                     </a>
                   </span>
+                  <span v-else-if="recommendation.ai_platform_specific && recommendation.ai_platform_specific.length > 0">
+                    Optimized for: {{ recommendation.ai_platform_specific.join(', ') }}
+                  </span>
                   <span v-else>{{ recommendation.page_title || 'General / Sitewide' }}</span>
-                </div>
-                <p class="text-sm text-blue-700 mt-1">
-                  This recommendation applies specifically to this page.
                 </p>
+                <p class="text-xs text-blue-600 mt-1">This recommendation targets specific optimization opportunities.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="card-highlight mb-6">
-          <h2 class="text-lg font-semibold mb-4 text-gray-900">Quick Actions</h2>
-          <div class="flex flex-wrap gap-3">
-            <button
-              v-if="recommendation.status === 'pending'"
-              @click="updateStatus('in_progress')"
-              class="btn-primary"
-            >
-              Start Implementation
-            </button>
-            <button
-              v-if="recommendation.status === 'in_progress'"
-              @click="updateStatus('completed')"
-              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Mark as Completed
-            </button>
-            <button
-              v-if="recommendation.status !== 'dismissed'"
-              @click="updateStatus('dismissed')"
-              class="btn-outline"
-            >
-              Dismiss
-            </button>
-            <button
-              v-if="recommendation.status !== 'pending'"
-              @click="updateStatus('pending')"
-              class="btn-outline"
-            >
-              Reopen
-            </button>
-          </div>
-        </div>
-
-        <!-- Research Data -->
-        <div v-if="researchData[recommendation.category]" class="card-highlight mb-6 border-l-4 border-brand">
-          <div class="flex items-start gap-3">
-            <svg class="w-6 h-6 text-brand flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <!-- Action Buttons -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6">
+          <div class="flex items-center justify-between">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Research-Backed Insight</h3>
-              <p class="text-gray-700">{{ researchData[recommendation.category] }}</p>
+              <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+              <p class="text-sm text-gray-500 mt-0.5">Update the status of this recommendation</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="recommendation.status === 'pending'"
+                @click="updateStatus('in_progress')"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-all font-medium shadow-sm hover:shadow-md"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Start Implementation
+              </button>
+              <button
+                v-if="recommendation.status === 'in_progress'"
+                @click="updateStatus('completed')"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-all font-medium shadow-sm hover:shadow-md"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Mark Complete
+              </button>
+              <button
+                v-if="recommendation.status !== 'dismissed'"
+                @click="updateStatus('dismissed')"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Dismiss
+              </button>
+              <button
+                v-if="recommendation.status !== 'pending'"
+                @click="updateStatus('pending')"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reopen
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Platform Selector -->
-        <div class="card-highlight mb-6">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900">Implementation Guide</h2>
+        <!-- Research Insight -->
+        <div v-if="researchData[recommendation.category]" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-amber-900 mb-1">Research-Backed Insight</h3>
+              <p class="text-amber-800 leading-relaxed">{{ researchData[recommendation.category] }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Implementation Guide -->
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div class="px-6 py-5 border-b border-gray-100">
+            <h2 class="text-xl font-semibold text-gray-900">Implementation Guide</h2>
+            <p class="text-sm text-gray-500 mt-1">Step-by-step instructions for your platform</p>
+          </div>
 
           <!-- Platform Tabs -->
-          <div class="border-b border-gray-200 mb-6">
-            <nav class="-mb-px flex space-x-6 overflow-x-auto">
+          <div v-if="implementationGuide.length > 0" class="border-b border-gray-100">
+            <div class="px-6 flex gap-1 overflow-x-auto">
               <button
                 v-for="guide in implementationGuide"
                 :key="guide.platform"
                 @click="selectedPlatform = guide.platform"
-                class="py-3 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-colors"
+                class="relative px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap"
                 :class="selectedPlatform === guide.platform
-                  ? 'border-brand text-brand'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                  ? 'text-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ formatPlatform(guide.platform) }}
+                <span
+                  v-if="selectedPlatform === guide.platform"
+                  class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full"
+                ></span>
               </button>
-            </nav>
+            </div>
           </div>
 
-          <!-- Selected Platform Guide -->
-          <div v-if="currentGuide" class="space-y-6">
-            <!-- Plugins/Tools -->
-            <div v-if="currentGuide.pluginsOrTools && currentGuide.pluginsOrTools.length > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          <!-- Guide Content -->
+          <div v-if="currentGuide" class="p-6 space-y-6">
+            <!-- Recommended Tools -->
+            <div v-if="currentGuide.pluginsOrTools && currentGuide.pluginsOrTools.length > 0">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
-                Recommended Tools
-              </h3>
+                <h3 class="font-semibold text-gray-900">Recommended Tools</h3>
+              </div>
               <div class="flex flex-wrap gap-2">
                 <span
                   v-for="tool in currentGuide.pluginsOrTools"
                   :key="tool"
-                  class="px-3 py-1.5 bg-white border border-blue-300 text-blue-800 rounded-full text-sm font-medium"
+                  class="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-sm font-medium"
                 >
                   {{ tool }}
                 </span>
@@ -173,85 +253,111 @@
             </div>
 
             <!-- Steps -->
-            <div class="space-y-4">
-              <h3 class="font-semibold text-gray-900 text-lg">Step-by-Step Instructions</h3>
-              <div
-                v-for="(step, index) in currentGuide.steps"
-                :key="index"
-                class="flex gap-4 group"
-              >
-                <div class="flex-shrink-0 w-10 h-10 bg-brand bg-opacity-10 text-brand rounded-full flex items-center justify-center font-bold group-hover:bg-opacity-20 transition-colors">
-                  {{ index + 1 }}
-                </div>
-                <div class="flex-1 pt-2">
-                  <p class="text-gray-700 text-base">{{ step }}</p>
+            <div>
+              <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                <h3 class="font-semibold text-gray-900">Step-by-Step Instructions</h3>
+              </div>
+              <div class="space-y-3">
+                <div
+                  v-for="(step, index) in currentGuide.steps"
+                  :key="index"
+                  class="flex gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">
+                    {{ index + 1 }}
+                  </div>
+                  <p class="flex-1 text-gray-700 pt-1">{{ step }}</p>
                 </div>
               </div>
             </div>
 
             <!-- Video Link -->
-            <div v-if="currentGuide.videoUrl" class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <a :href="currentGuide.videoUrl" target="_blank" rel="noopener" class="flex items-center gap-3 text-purple-900 hover:text-purple-700">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div v-if="currentGuide.videoUrl" class="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
+              <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span class="font-medium">Watch Video Tutorial</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
+              </div>
+              <div class="flex-1">
+                <a :href="currentGuide.videoUrl" target="_blank" rel="noopener" class="font-medium text-purple-700 hover:text-purple-800">
+                  Watch Video Tutorial
+                </a>
+                <p class="text-sm text-purple-600">Learn with a step-by-step walkthrough</p>
+              </div>
+              <svg class="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
             </div>
+          </div>
+
+          <!-- No guides fallback -->
+          <div v-else class="p-6 text-center text-gray-500">
+            <p>No implementation guide available for this recommendation.</p>
           </div>
         </div>
 
         <!-- Code Snippets -->
-        <div v-if="codeSnippets && codeSnippets.length > 0" class="card-highlight mb-6">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900">Code Snippets</h2>
-          <div class="space-y-6">
+        <div v-if="codeSnippets && codeSnippets.length > 0" class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div class="px-6 py-5 border-b border-gray-100">
+            <h2 class="text-xl font-semibold text-gray-900">Code Snippets</h2>
+            <p class="text-sm text-gray-500 mt-1">Ready-to-use code for implementation</p>
+          </div>
+
+          <div class="p-6 space-y-4">
             <div
               v-for="(snippet, index) in codeSnippets"
               :key="index"
-              class="border border-gray-200 rounded-lg overflow-hidden"
+              class="rounded-xl overflow-hidden border border-gray-200"
             >
-              <div class="bg-gray-100 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <span class="text-sm font-medium text-gray-700">{{ snippet.description || snippet.language }}</span>
-                  <span v-if="snippet.filename" class="text-xs text-gray-500 ml-2">{{ snippet.filename }}</span>
+              <div class="bg-gray-100 px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs font-mono uppercase">{{ snippet.language || 'code' }}</span>
+                  <span class="text-sm text-gray-600">{{ snippet.description }}</span>
+                  <span v-if="snippet.filename" class="text-xs text-gray-400">{{ snippet.filename }}</span>
                 </div>
                 <button
                   @click="copyCode(snippet.code, index)"
-                  class="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                  :class="copiedStates[index] ? 'text-green-600 border-green-200 bg-green-50' : 'text-gray-600'"
                 >
                   <svg v-if="!copiedStates[index]" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  <svg v-else class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                   </svg>
                   {{ copiedStates[index] ? 'Copied!' : 'Copy' }}
                 </button>
               </div>
-              <div class="relative">
-                <pre class="bg-gray-900 text-gray-100 p-4 overflow-x-auto text-sm"><code>{{ snippet.code }}</code></pre>
-              </div>
+              <pre class="bg-gray-900 text-gray-100 p-4 overflow-x-auto text-sm leading-relaxed"><code>{{ snippet.code }}</code></pre>
             </div>
           </div>
         </div>
 
         <!-- Expected Impact -->
-        <div class="card-highlight bg-gradient-to-br from-brand to-brand-dark text-white">
-          <h2 class="text-xl font-semibold mb-3">Expected Impact</h2>
-          <div class="prose prose-invert max-w-none">
-            <p class="text-white text-opacity-95">
-              Implementing this recommendation will have a <strong class="text-white">{{ recommendation.estimated_impact }}</strong> impact
-              on your overall AEO visibility score. This fix is rated as <strong>{{ recommendation.difficulty }}</strong> difficulty
-              and should take approximately <strong>{{ recommendation.estimated_time }}</strong> to complete.
-            </p>
-            <p class="text-white text-opacity-90 mt-3">
-              Based on our analysis of {{ totalScans }} AI model tests, this optimization addresses a key factor
-              in how AI engines discover and cite your content.
-            </p>
+        <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-8 text-white shadow-lg shadow-primary-500/20">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h2 class="text-xl font-bold mb-3">Expected Impact</h2>
+              <p class="text-white/90 leading-relaxed mb-4">
+                Implementing this recommendation will have a <strong class="text-white">{{ recommendation.estimated_impact }}</strong> impact
+                on your overall AEO visibility score. This fix is rated as <strong class="text-white">{{ recommendation.difficulty }}</strong> difficulty
+                and should take approximately <strong class="text-white">{{ recommendation.estimated_time }}</strong> to complete.
+              </p>
+              <p class="text-white/80 text-sm">
+                Based on our analysis of {{ totalScans }} AI model tests, this optimization addresses a key factor
+                in how AI engines discover and cite your content.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -276,7 +382,7 @@ const totalScans = ref(0)
 
 const researchData: Record<string, string> = {
   schema: 'Research shows FAQ schema is the #1 most effective AEO optimization with 40-60% improvement in visibility. AI models explicitly look for structured Q&A content in JSON-LD format.',
-  content: 'Studies show content with 40-60 word direct answers has a 3.2× higher citation rate. AI models prioritize concise, factual responses that directly answer user queries.',
+  content: 'Studies show content with 40-60 word direct answers has a 3.2x higher citation rate. AI models prioritize concise, factual responses that directly answer user queries.',
   technical: 'Pages loading under 2.5 seconds have 47% higher AI citation rates. 3 out of 4 AI platforms cannot execute JavaScript, making SSR critical for visibility.',
   authority: 'Wikipedia accounts for 7.8% of total ChatGPT citations. Getting mentioned on high-authority platforms like G2, Reddit, and industry publications significantly increases AI visibility.'
 }
@@ -390,34 +496,54 @@ const copyCode = async (code: string, index: number) => {
   }
 }
 
-const getPriorityColor = (priority: number) => {
-  if (priority >= 5) return 'bg-red-500'
-  if (priority >= 4) return 'bg-orange-500'
-  if (priority >= 3) return 'bg-yellow-500'
-  return 'bg-blue-500'
+const getHeaderGradient = (priority: number) => {
+  if (priority >= 5) return 'bg-gradient-to-r from-red-50 to-orange-50'
+  if (priority >= 4) return 'bg-gradient-to-r from-orange-50 to-amber-50'
+  if (priority >= 3) return 'bg-gradient-to-r from-yellow-50 to-lime-50'
+  return 'bg-gradient-to-r from-blue-50 to-cyan-50'
+}
+
+const getPriorityBgClass = (priority: number) => {
+  if (priority >= 5) return 'bg-gradient-to-br from-red-500 to-red-600'
+  if (priority >= 4) return 'bg-gradient-to-br from-orange-500 to-orange-600'
+  if (priority >= 3) return 'bg-gradient-to-br from-yellow-500 to-yellow-600'
+  return 'bg-gradient-to-br from-blue-500 to-blue-600'
 }
 
 const getImpactClass = (impact: string) => {
   switch (impact?.toLowerCase()) {
     case 'high':
-      return 'bg-red-100 text-red-800'
+      return 'bg-red-50 text-red-700 border border-red-100'
     case 'medium':
-      return 'bg-orange-100 text-orange-800'
+      return 'bg-orange-50 text-orange-700 border border-orange-100'
     default:
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-blue-50 text-blue-700 border border-blue-100'
   }
 }
 
 const getStatusClass = (status: string) => {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-800'
+      return 'bg-green-50 text-green-700 border border-green-100'
     case 'in_progress':
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-blue-50 text-blue-700 border border-blue-100'
     case 'dismissed':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-100 text-gray-600 border border-gray-200'
     default:
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+  }
+}
+
+const getStatusDotClass = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-500'
+    case 'in_progress':
+      return 'bg-blue-500'
+    case 'dismissed':
+      return 'bg-gray-400'
+    default:
+      return 'bg-yellow-500'
   }
 }
 
