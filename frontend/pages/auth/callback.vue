@@ -88,7 +88,7 @@
 
         <!-- Estimated time -->
         <p class="text-sm text-gray-400">
-          {{ currentStep >= analysisSteps.length ? 'Complete!' : 'Usually takes 30-60 seconds' }}
+          {{ currentStep >= analysisSteps.length ? 'Complete!' : 'This may take 1-2 minutes...' }}
         </p>
       </div>
 
@@ -524,58 +524,107 @@ const completeSetup = async () => {
 
 const simulateSteps = async () => {
   // Simulate progression through steps with realistic timing
-  const stepDurations = [3000, 5000, 4000, 3000, 2000]
+  const stepDurations = [5000, 8000, 6000, 5000, 3000]
 
   for (let i = 0; i < analysisSteps.length; i++) {
     currentStep.value = i
-    await new Promise(resolve => setTimeout(resolve, stepDurations[i] || 3000))
+    await new Promise(resolve => setTimeout(resolve, stepDurations[i] || 5000))
   }
 }
 
 const pollJobStatus = async (jobId: string) => {
-  const maxAttempts = 60 // 2 minutes max
+  const maxAttempts = 90 // 3 minutes max (90 * 2 seconds)
   let attempts = 0
 
   while (attempts < maxAttempts) {
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('status')
-      .eq('id', jobId)
-      .single()
+    try {
+      // Check job status
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('status, metadata')
+        .eq('id', jobId)
+        .single()
 
-    if (job?.status === 'completed') {
-      // Quickly complete remaining steps
-      for (let i = currentStep.value; i < analysisSteps.length; i++) {
-        currentStep.value = i
-        await new Promise(resolve => setTimeout(resolve, 300))
+      if (job?.status === 'completed') {
+        // Job completed - quickly finish remaining steps
+        for (let i = currentStep.value; i <= analysisSteps.length; i++) {
+          currentStep.value = i
+          await new Promise(resolve => setTimeout(resolve, 400))
+        }
+        return
       }
-      return
-    }
 
-    if (job?.status === 'failed') {
-      // Still complete the UI gracefully
-      currentStep.value = analysisSteps.length
-      return
-    }
+      if (job?.status === 'failed') {
+        // Job failed - still redirect to dashboard
+        console.error('Job failed:', job)
+        currentStep.value = analysisSteps.length
+        return
+      }
 
-    // Update step based on time elapsed (map time to steps)
-    if (attempts < 5) {
-      currentStep.value = 0 // Crawling
-    } else if (attempts < 15) {
-      currentStep.value = 1 // Analyzing
-    } else if (attempts < 25) {
-      currentStep.value = 2 // Generating prompts
-    } else if (attempts < 35) {
-      currentStep.value = 3 // Building recommendations
-    } else {
-      currentStep.value = 4 // Finalizing
+      // Job still processing - check actual progress by querying database
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single()
+
+      if (userData?.organization_id) {
+        // Check what data exists to determine actual progress
+        const [analysisResult, promptsResult, recommendationsResult] = await Promise.all([
+          supabase
+            .from('website_analyses')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', userData.organization_id),
+          supabase
+            .from('prompts')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', userData.organization_id),
+          supabase
+            .from('fix_recommendations')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', userData.organization_id)
+        ])
+
+        const hasAnalysis = (analysisResult.count || 0) > 0
+        const hasPrompts = (promptsResult.count || 0) > 0
+        const hasRecommendations = (recommendationsResult.count || 0) > 0
+
+        // Update step based on actual progress
+        if (hasRecommendations) {
+          currentStep.value = 4 // Finalizing (recommendations exist)
+        } else if (hasPrompts) {
+          currentStep.value = 3 // Building recommendations (prompts exist)
+        } else if (hasAnalysis) {
+          currentStep.value = 2 // Generating prompts (analysis exists)
+        } else if (job?.status === 'processing') {
+          currentStep.value = 1 // Analyzing (job started)
+        } else {
+          currentStep.value = 0 // Crawling
+        }
+      } else {
+        // Fallback to time-based progression
+        if (attempts < 10) {
+          currentStep.value = 0
+        } else if (attempts < 25) {
+          currentStep.value = 1
+        } else if (attempts < 40) {
+          currentStep.value = 2
+        } else if (attempts < 55) {
+          currentStep.value = 3
+        } else {
+          currentStep.value = 4
+        }
+      }
+    } catch (error) {
+      console.error('Error polling job status:', error)
     }
 
     await new Promise(resolve => setTimeout(resolve, 2000))
     attempts++
   }
 
-  // Timed out - complete anyway
+  // Timed out - complete anyway and redirect
+  console.log('Job polling timed out, redirecting to dashboard')
   currentStep.value = analysisSteps.length
 }
 </script>
