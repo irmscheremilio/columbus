@@ -24,6 +24,7 @@ export const visibilityScanQueue = new Queue('visibility-scans', {
 
 export interface VisibilityScanJobData {
   organizationId: string
+  productId?: string
   promptIds?: string[]
 }
 

@@ -14,9 +14,9 @@ export function startVisibilityScanWorker() {
   const worker = new Worker<VisibilityScanJobData>(
     'visibility-scans',
     async (job) => {
-      const { organizationId, promptIds } = job.data
+      const { organizationId, productId, promptIds } = job.data
 
-      console.log(`Starting visibility scan for organization: ${organizationId}`)
+      console.log(`Starting visibility scan for organization: ${organizationId}, product: ${productId || 'all'}`)
 
       try {
         // Update job status in database
@@ -24,10 +24,11 @@ export function startVisibilityScanWorker() {
           .from('jobs')
           .insert({
             organization_id: organizationId,
+            product_id: productId || null,
             job_type: 'visibility_scan',
             status: 'processing',
             started_at: new Date().toISOString(),
-            metadata: { promptIds }
+            metadata: { promptIds, productId }
           })
           .select()
           .single()
@@ -43,12 +44,18 @@ export function startVisibilityScanWorker() {
           throw new Error('Organization not found')
         }
 
-        // Get competitors
-        const { data: competitors } = await supabase
+        // Get competitors (filter by product if provided)
+        let competitorQuery = supabase
           .from('competitors')
           .select('*')
           .eq('organization_id', organizationId)
           .eq('is_active', true)
+
+        if (productId) {
+          competitorQuery = competitorQuery.eq('product_id', productId)
+        }
+
+        const { data: competitors } = await competitorQuery
 
         const competitorNames = competitors?.map(c => c.name) || []
 
@@ -61,13 +68,18 @@ export function startVisibilityScanWorker() {
             .in('id', promptIds)
           prompts = data || []
         } else {
-          // Use default prompts for the organization
-          const { data } = await supabase
+          // Use default prompts for the organization/product
+          let promptQuery = supabase
             .from('prompts')
             .select('*')
             .eq('organization_id', organizationId)
             .eq('is_custom', false)
 
+          if (productId) {
+            promptQuery = promptQuery.eq('product_id', productId)
+          }
+
+          const { data } = await promptQuery
           prompts = data || []
 
           // If no prompts exist, create default ones
@@ -78,6 +90,7 @@ export function startVisibilityScanWorker() {
               .insert(
                 defaultPrompts.map(p => ({
                   organization_id: organizationId,
+                  product_id: productId || null,
                   prompt_text: p.text,
                   category: p.category,
                   is_custom: false
@@ -117,6 +130,7 @@ export function startVisibilityScanWorker() {
               await supabase.from('prompt_results').insert({
                 prompt_id: prompt.id,
                 organization_id: organizationId,
+                product_id: productId || null,
                 ai_model: model,
                 response_text: responseText,
                 brand_mentioned: analysis.brandMentioned,
@@ -164,6 +178,7 @@ export function startVisibilityScanWorker() {
 
           await supabase.from('visibility_scores').insert({
             organization_id: organizationId,
+            product_id: productId || null,
             ai_model: model,
             score: avgScore,
             period_start: periodStart.toISOString(),

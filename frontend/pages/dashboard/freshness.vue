@@ -329,43 +329,26 @@ const loadData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    // Load dashboard data from edge function
-    const { data, error } = await supabase.functions.invoke('manage-freshness', {
+    // Load all data from edge function in a single GET call
+    const { data, error } = await supabase.functions.invoke('manage-freshness?action=dashboard', {
       headers: { Authorization: `Bearer ${session.access_token}` },
-      body: {},
-      method: 'GET',
-      query: { action: 'dashboard' }
+      method: 'GET'
     })
 
     if (error) throw error
 
     if (data) {
-      stats.value = data.stats || stats.value
+      if (data.stats) {
+        stats.value = {
+          avgFreshness: data.stats.avgFreshness || 0,
+          totalPages: data.stats.totalPages || 0,
+          stalePages: data.stats.staleCount || 0,
+          unreadAlerts: data.stats.unreadAlerts || 0,
+          criticalAlerts: data.stats.criticalAlerts || 0
+        }
+      }
       pages.value = data.recentPages || []
-    }
-
-    // Load alerts
-    const { data: alertsData } = await supabase.functions.invoke('manage-freshness', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: {},
-      method: 'GET',
-      query: { action: 'alerts', unread: 'true' }
-    })
-
-    if (alertsData?.alerts) {
-      alerts.value = alertsData.alerts
-    }
-
-    // Load all pages
-    const { data: pagesData } = await supabase.functions.invoke('manage-freshness', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: {},
-      method: 'GET',
-      query: { action: 'pages' }
-    })
-
-    if (pagesData?.pages) {
-      pages.value = pagesData.pages
+      alerts.value = data.recentAlerts || []
     }
   } catch (error) {
     console.error('Error loading freshness data:', error)
@@ -380,15 +363,14 @@ const addPage = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase.functions.invoke('manage-freshness', {
+    const { data, error } = await supabase.functions.invoke('manage-freshness?action=add-page', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
         url: newPage.value.url,
         title: newPage.value.title,
         checkFrequencyHours: newPage.value.checkFrequencyHours
       },
-      method: 'POST',
-      query: { action: 'add-page' }
+      method: 'POST'
     })
 
     if (error) throw error
@@ -411,11 +393,10 @@ const removePage = async (pageId: string) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    await supabase.functions.invoke('manage-freshness', {
+    await supabase.functions.invoke('manage-freshness?action=remove-page', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: { pageId },
-      method: 'DELETE',
-      query: { action: 'remove-page' }
+      method: 'DELETE'
     })
 
     await loadData()
@@ -431,11 +412,10 @@ const triggerFreshnessCheck = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    await supabase.functions.invoke('manage-freshness', {
+    await supabase.functions.invoke('manage-freshness?action=trigger-check', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {},
-      method: 'POST',
-      query: { action: 'trigger-check' }
+      method: 'POST'
     })
 
     alert('Freshness check started! Results will be available shortly.')
@@ -452,11 +432,10 @@ const markAlertRead = async (alertId: string) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    await supabase.functions.invoke('manage-freshness', {
+    await supabase.functions.invoke('manage-freshness?action=mark-alert-read', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: { alertId },
-      method: 'PUT',
-      query: { action: 'mark-alert-read' }
+      method: 'PUT'
     })
 
     await loadData()
@@ -473,11 +452,10 @@ const markAllAlertsRead = async () => {
     const alertIds = alerts.value.filter(a => !a.is_read).map(a => a.id)
     if (alertIds.length === 0) return
 
-    await supabase.functions.invoke('manage-freshness', {
+    await supabase.functions.invoke('manage-freshness?action=mark-alert-read', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: { alertIds },
-      method: 'PUT',
-      query: { action: 'mark-alert-read' }
+      method: 'PUT'
     })
 
     await loadData()

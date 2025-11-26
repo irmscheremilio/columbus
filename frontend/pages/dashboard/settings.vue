@@ -33,16 +33,6 @@
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Website</label>
-                  <input
-                    v-model="orgForm.domain"
-                    type="text"
-                    class="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
-                    disabled
-                  />
-                  <p class="text-xs text-gray-500 mt-1">Contact support to change your domain</p>
-                </div>
-                <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Industry</label>
                   <select v-model="orgForm.industry" class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand">
                     <option value="">Select industry...</option>
@@ -395,7 +385,6 @@ const currentUserRole = ref<string>('member')
 
 const orgForm = ref({
   name: '',
-  domain: '',
   industry: ''
 })
 
@@ -435,7 +424,6 @@ const loadSettings = async () => {
       organization.value = org
       orgForm.value = {
         name: org.name,
-        domain: org.domain,
         industry: org.industry || ''
       }
     }

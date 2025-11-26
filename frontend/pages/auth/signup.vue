@@ -13,8 +13,7 @@
           We've sent a confirmation link to <strong>{{ email }}</strong>
         </p>
         <p class="text-sm text-gray-500">
-          Click the link in your email to confirm your account and complete setup.
-          After confirming, we'll analyze your website and set up your dashboard.
+          Click the link in your email to confirm your account and get started.
         </p>
         <div class="mt-6 pt-6 border-t border-gray-200">
           <p class="text-sm text-gray-500">
@@ -49,44 +48,6 @@
           </div>
 
           <div class="rounded-md shadow-sm space-y-4">
-            <div>
-              <label for="company-name" class="label">Company Name <span class="text-red-500">*</span></label>
-              <input
-                id="company-name"
-                v-model="companyName"
-                type="text"
-                required
-                class="input"
-                placeholder="Acme Inc."
-              />
-            </div>
-
-            <div>
-              <label for="website" class="label">Website <span class="text-red-500">*</span></label>
-              <input
-                id="website"
-                v-model="website"
-                type="url"
-                required
-                class="input"
-                placeholder="https://yourcompany.com"
-              />
-              <p class="text-xs text-gray-500 mt-1">
-                We'll analyze your website to generate relevant search prompts
-              </p>
-            </div>
-
-            <div>
-              <label for="description" class="label">What does your business do? <span class="text-gray-400">(optional)</span></label>
-              <textarea
-                id="description"
-                v-model="description"
-                rows="2"
-                class="input"
-                placeholder="e.g., We provide AI-powered analytics..."
-              ></textarea>
-            </div>
-
             <div>
               <label for="email-address" class="label">Email address <span class="text-red-500">*</span></label>
               <input
@@ -154,9 +115,9 @@
 
           <p class="text-xs text-gray-600 text-center">
             By creating an account, you agree to our
-            <a href="#" class="text-primary-600 hover:text-primary-500">Terms of Service</a>
+            <NuxtLink to="/terms" class="text-primary-600 hover:text-primary-500">Terms of Service</NuxtLink>
             and
-            <a href="#" class="text-primary-600 hover:text-primary-500">Privacy Policy</a>
+            <NuxtLink to="/privacy" class="text-primary-600 hover:text-primary-500">Privacy Policy</NuxtLink>
           </p>
         </form>
       </template>
@@ -174,9 +135,6 @@ const supabase = useSupabaseClient()
 
 const email = ref('')
 const password = ref('')
-const companyName = ref('')
-const website = ref('')
-const description = ref('')
 const loading = ref(false)
 const error = ref('')
 const emailSent = ref(false)
@@ -187,31 +145,15 @@ const handleSignup = async () => {
   loading.value = true
 
   try {
-    // Validate website URL
-    let websiteUrl = website.value.trim()
-    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-      websiteUrl = 'https://' + websiteUrl
-    }
-
-    // Validate URL format
-    try {
-      new URL(websiteUrl)
-    } catch {
-      throw new Error('Please enter a valid website URL')
-    }
-
-    // Sign up the user - store company data in user metadata
-    // The actual org/brand creation and website crawl will happen after email confirmation
+    // Sign up the user - no company data needed anymore
+    // The organization will be created in the callback
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?type=email_confirmation`,
         data: {
-          company_name: companyName.value,
-          website: websiteUrl,
-          business_description: description.value,
-          signup_pending: true  // Flag to indicate setup needs completion
+          signup_pending: true
         }
       }
     })

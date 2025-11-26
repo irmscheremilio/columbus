@@ -428,6 +428,12 @@ const loadGranularityStats = async (organizationId: string) => {
 
     if (!prompts || prompts.length === 0) return
 
+    // Create a map of prompt_id to granularity_level for quick lookup
+    const promptGranularityMap = prompts.reduce((acc, p) => {
+      acc[p.id] = p.granularity_level || 1
+      return acc
+    }, {} as Record<string, number>)
+
     const promptsByLevel = prompts.reduce((acc, p) => {
       const level = p.granularity_level || 1
       acc[level] = (acc[level] || 0) + 1
@@ -437,7 +443,7 @@ const loadGranularityStats = async (organizationId: string) => {
     const promptIds = prompts.map(p => p.id)
     const { data: results } = await supabase
       .from('prompt_results')
-      .select('prompt_id, was_mentioned, prompts!inner(granularity_level)')
+      .select('prompt_id, was_mentioned')
       .in('prompt_id', promptIds)
 
     if (results && results.length > 0) {
@@ -448,7 +454,7 @@ const loadGranularityStats = async (organizationId: string) => {
       }
 
       results.forEach((r: any) => {
-        const level = r.prompts?.granularity_level || 1
+        const level = promptGranularityMap[r.prompt_id] || 1
         if (statsByLevel[level]) {
           statsByLevel[level].total++
           if (r.was_mentioned) statsByLevel[level].cited++

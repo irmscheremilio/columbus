@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * Setup User Edge Function
+ *
+ * Creates a default organization for new users without requiring company details.
+ * This is called after signup/OAuth to create the user's workspace.
+ *
+ * The user can later add products (with their own domains) via the create-product endpoint.
+ */
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -19,16 +27,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const { organizationName, brandName, website } = await req.json()
-
-    // Validate input
-    if (!organizationName || !brandName) {
-      return new Response(
-        JSON.stringify({ error: 'Organization name and brand name are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -59,12 +57,51 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Create organization
+    // Check if user already has an organization
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (existingProfile?.organization_id) {
+      // User already has org, return existing data
+      const { data: existingOrg } = await supabaseAdmin
+        .from('organizations')
+        .select('*')
+        .eq('id', existingProfile.organization_id)
+        .single()
+
+      const { data: products } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .eq('organization_id', existingProfile.organization_id)
+        .eq('is_active', true)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          organization: existingOrg,
+          hasProducts: (products?.length || 0) > 0,
+          products: products || [],
+          isExisting: true
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Extract name from email for organization name
+    const emailName = user.email?.split('@')[0] || 'My'
+    const organizationName = `${emailName}'s Workspace`
+
+    // 1. Create organization (no domain - products will have domains)
     const { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
       .insert([{
         name: organizationName,
         plan: 'free',
+        product_limit: 1,
+        created_by: user.id,
       }])
       .select()
       .single()
@@ -73,41 +110,40 @@ serve(async (req) => {
       throw orgError
     }
 
-    // 2. Create brand
-    const { data: brand, error: brandError } = await supabaseAdmin
-      .from('brands')
-      .insert([{
-        organization_id: org.id,
-        name: brandName,
-        website,
-        is_active: true,
-      }])
-      .select()
-      .single()
-
-    if (brandError) {
-      throw brandError
-    }
-
-    // 3. Update user with organization_id
+    // 2. Update user profile with organization_id, active_organization_id, and owner role
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update({ organization_id: org.id })
+      .update({
+        organization_id: org.id,
+        active_organization_id: org.id,
+        role: 'owner'
+      })
       .eq('id', user.id)
 
     if (updateError) {
       throw updateError
     }
 
-    // Note: Prompts are NOT created here
-    // The website-analysis worker generates contextual prompts after analyzing the website
-    // This is triggered via the trigger-website-analysis edge function
+    // 3. Add user to organization_members table as owner
+    const { error: memberError } = await supabaseAdmin
+      .from('organization_members')
+      .insert([{
+        organization_id: org.id,
+        user_id: user.id,
+        role: 'owner'
+      }])
+
+    if (memberError) {
+      throw memberError
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         organization: org,
-        brand,
+        hasProducts: false,
+        products: [],
+        isExisting: false
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

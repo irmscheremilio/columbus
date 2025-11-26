@@ -17,6 +17,7 @@ const supabase = createClient(
 
 export interface WebsiteAnalysisJobData {
   organizationId: string
+  productId?: string
   domain: string
   includeCompetitorGaps?: boolean
   multiPageAnalysis?: boolean // New option for multi-page crawling
@@ -47,9 +48,9 @@ export const websiteAnalysisQueue = new Queue<WebsiteAnalysisJobData>('website-a
 export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
   'website-analysis',
   async (job) => {
-    const { organizationId, domain, includeCompetitorGaps = false, multiPageAnalysis = true } = job.data
+    const { organizationId, productId, domain, includeCompetitorGaps = false, multiPageAnalysis = true } = job.data
 
-    console.log(`[Website Analysis] Starting analysis for ${domain} (multiPage: ${multiPageAnalysis})`)
+    console.log(`[Website Analysis] Starting analysis for ${domain} (productId: ${productId || 'none'}, multiPage: ${multiPageAnalysis})`)
 
     try {
       // 0. Validate organization exists before doing any work
@@ -75,6 +76,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .from('website_analyses')
         .insert({
           organization_id: organizationId,
+          product_id: productId || null,
           domain,
           tech_stack: websiteAnalysis.techStack,
           schema_markup: websiteAnalysis.schemaMarkup,
@@ -104,6 +106,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         // Store discovered pages
         const pagesToStore = discoveredPages.map(page => ({
           organization_id: organizationId,
+          product_id: productId || null,
           url: page.url,
           path: page.path,
           title: page.title,
@@ -188,6 +191,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         .from('product_analyses')
         .upsert({
           organization_id: organizationId,
+          product_id: productId || null,
           domain,
           product_name: productAnalysis.productName,
           product_description: productAnalysis.productDescription,
@@ -197,7 +201,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           differentiators: productAnalysis.differentiators,
           analyzed_at: new Date().toISOString()
         }, {
-          onConflict: 'organization_id'
+          onConflict: productId ? 'product_id' : 'organization_id'
         })
 
       // Generate prompts (5 topics × 3 granularity levels = 15 prompts)
@@ -208,16 +212,22 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       console.log(`[Website Analysis] Generated ${generatedPrompts.length} prompts`)
 
-      // Delete existing prompts for this organization (to avoid duplicates)
-      await supabase
+      // Delete existing prompts for this product/organization (to avoid duplicates)
+      let deleteQuery = supabase
         .from('prompts')
         .delete()
         .eq('organization_id', organizationId)
         .eq('is_custom', false)
 
+      if (productId) {
+        deleteQuery = deleteQuery.eq('product_id', productId)
+      }
+      await deleteQuery
+
       // Store generated prompts
       const promptsToInsert = generatedPrompts.map(p => ({
         organization_id: organizationId,
+        product_id: productId || null,
         prompt_text: p.promptText,
         category: p.category,
         granularity_level: p.granularityLevel,
@@ -327,11 +337,16 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       console.log(`[Website Analysis] Storing recommendations...`)
 
       // Delete existing pending recommendations to avoid duplicates
-      await supabase
+      let deleteRecsQuery = supabase
         .from('fix_recommendations')
         .delete()
         .eq('organization_id', organizationId)
         .eq('status', 'pending')
+
+      if (productId) {
+        deleteRecsQuery = deleteRecsQuery.eq('product_id', productId)
+      }
+      await deleteRecsQuery
 
       const allRecommendationsToInsert: any[] = []
 
@@ -339,6 +354,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       for (const rec of aiRecommendations) {
         allRecommendationsToInsert.push({
           organization_id: organizationId,
+          product_id: productId || null,
           title: rec.title,
           description: rec.description,
           category: rec.category,
@@ -366,6 +382,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         for (const rec of recs) {
           allRecommendationsToInsert.push({
             organization_id: organizationId,
+            product_id: productId || null,
             title: rec.title,
             description: rec.description,
             category: rec.category,
@@ -388,6 +405,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       for (const rec of fallbackRecommendations) {
         allRecommendationsToInsert.push({
           organization_id: organizationId,
+          product_id: productId || null,
           title: rec.title,
           description: rec.description,
           category: rec.category,
@@ -431,9 +449,21 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           .eq('id', job.data.jobId)
       }
 
+      // Update product's aeo_score and last_analyzed_at if productId provided
+      if (productId) {
+        await supabase
+          .from('products')
+          .update({
+            aeo_score: websiteAnalysis.aeoReadiness.score,
+            last_analyzed_at: new Date().toISOString()
+          })
+          .eq('id', productId)
+      }
+
       return {
         success: true,
         domain,
+        productId,
         aeoReadiness: websiteAnalysis.aeoReadiness.score,
         recommendationsCount: totalRecommendations,
         pagesAnalyzed,

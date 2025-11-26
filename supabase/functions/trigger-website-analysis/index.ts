@@ -74,19 +74,61 @@ serve(async (req) => {
       )
     }
 
-    // Get request body (required: domain, optional: businessDescription)
+    // Get request body
     const body = await req.json().catch(() => ({}))
-    const domain = body.domain
+    let { domain, productId } = body
     const includeCompetitorGaps = body.includeCompetitorGaps ?? true
     const businessDescription = body.businessDescription || ''
 
+    // Use admin client for product lookups
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // If productId is provided, get domain from product
+    if (productId) {
+      const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('domain, organization_id')
+        .eq('id', productId)
+        .eq('organization_id', organizationId)
+        .single()
+
+      if (productError || !product) {
+        return new Response(
+          JSON.stringify({ error: 'Product not found or access denied' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      domain = product.domain
+    } else if (!domain) {
+      // If no productId and no domain, try to get active product
+      const { data: userProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('active_product_id')
+        .eq('id', user.id)
+        .single()
+
+      if (userProfile?.active_product_id) {
+        const { data: activeProduct } = await supabaseAdmin
+          .from('products')
+          .select('id, domain')
+          .eq('id', userProfile.active_product_id)
+          .single()
+
+        if (activeProduct) {
+          productId = activeProduct.id
+          domain = activeProduct.domain
+        }
+      }
+    }
+
     if (!domain) {
       return new Response(
-        JSON.stringify({ error: 'Domain is required' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ error: 'Domain or productId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -95,10 +137,12 @@ serve(async (req) => {
       .from('jobs')
       .insert({
         organization_id: organizationId,
+        product_id: productId || null,
         job_type: 'website_analysis',
         status: 'queued',
         metadata: {
           domain: domain,
+          productId: productId || null,
           includeCompetitorGaps,
           businessDescription
         }
@@ -120,7 +164,8 @@ serve(async (req) => {
         success: true,
         message: 'Website analysis started',
         jobId: job.id,
-        domain: domain
+        domain: domain,
+        productId: productId || null
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

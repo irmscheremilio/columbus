@@ -122,6 +122,94 @@
           </div>
         </div>
 
+        <!-- Product Selector -->
+        <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200">
+          <div class="relative">
+            <button
+              @click="showProductSwitcher = !showProductSwitcher"
+              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                  <span class="text-sm font-medium text-gray-900 truncate block">
+                    {{ currentProduct?.name || 'Select Product' }}
+                  </span>
+                  <span v-if="currentProduct" class="text-xs text-gray-500 truncate block">
+                    {{ currentProduct.domain }}
+                  </span>
+                </div>
+              </div>
+              <svg
+                class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform"
+                :class="showProductSwitcher && 'rotate-180'"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Dropdown -->
+            <Transition
+              enter-active-class="transition ease-out duration-100"
+              enter-from-class="transform opacity-0 scale-95"
+              enter-to-class="transform opacity-100 scale-100"
+              leave-active-class="transition ease-in duration-75"
+              leave-from-class="transform opacity-100 scale-100"
+              leave-to-class="transform opacity-0 scale-95"
+            >
+              <div
+                v-if="showProductSwitcher"
+                class="absolute left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10 max-h-64 overflow-y-auto"
+              >
+                <button
+                  v-for="product in products"
+                  :key="product.id"
+                  @click="switchProduct(product.id)"
+                  class="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+                  :class="activeProductId === product.id && 'bg-brand/5'"
+                >
+                  <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand">
+                    {{ product.name?.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="flex-1 min-w-0 text-left">
+                    <div class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</div>
+                    <div class="text-xs text-gray-500 truncate">{{ product.domain }}</div>
+                  </div>
+                  <svg
+                    v-if="activeProductId === product.id"
+                    class="w-4 h-4 text-brand flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <NuxtLink
+                  to="/dashboard/products"
+                  @click="showProductSwitcher = false"
+                  class="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors border-t border-gray-100 text-brand"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span class="text-sm font-medium">Manage Products</span>
+                </NuxtLink>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
         <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           <NuxtLink
@@ -189,22 +277,29 @@ const user = useSupabaseUser()
 
 const mobileMenuOpen = ref(false)
 const showOrgSwitcher = ref(false)
+const showProductSwitcher = ref(false)
 const organizations = ref<any[]>([])
+const products = ref<any[]>([])
+const activeProductId = ref<string | null>(null)
 
-// Close mobile menu and org switcher on route change
+// Close mobile menu and switchers on route change
 watch(() => route.path, () => {
   mobileMenuOpen.value = false
   showOrgSwitcher.value = false
+  showProductSwitcher.value = false
 })
 
-// Close org switcher when clicking outside
+// Close switchers when clicking outside
 onMounted(async () => {
-  await loadOrganizations()
+  await Promise.all([loadOrganizations(), loadProducts()])
 
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
     if (!target.closest('[data-org-switcher]')) {
       showOrgSwitcher.value = false
+    }
+    if (!target.closest('[data-product-switcher]')) {
+      showProductSwitcher.value = false
     }
   })
 })
@@ -219,6 +314,62 @@ const loadOrganizations = async () => {
     }
   } catch (e) {
     console.error('Failed to load organizations:', e)
+  }
+}
+
+const loadProducts = async () => {
+  if (!user.value) return
+
+  try {
+    // Get user's profile to find organization and active product
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id, active_organization_id, active_product_id')
+      .eq('id', user.value.id)
+      .single()
+
+    if (!profile) return
+
+    const orgId = profile.active_organization_id || profile.organization_id
+    activeProductId.value = profile.active_product_id
+
+    // Get products for the organization
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('id, name, domain')
+      .eq('organization_id', orgId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+
+    products.value = productsData || []
+
+    // Auto-select first product if none selected
+    if (!activeProductId.value && products.value.length > 0) {
+      await switchProduct(products.value[0].id)
+    }
+  } catch (e) {
+    console.error('Failed to load products:', e)
+  }
+}
+
+const currentProduct = computed(() => {
+  return products.value.find(p => p.id === activeProductId.value) || products.value[0]
+})
+
+const switchProduct = async (productId: string) => {
+  try {
+    await supabase
+      .from('profiles')
+      .update({ active_product_id: productId })
+      .eq('id', user.value?.id)
+
+    activeProductId.value = productId
+    showProductSwitcher.value = false
+
+    // Reload the page to refresh all data with new product context
+    window.location.reload()
+  } catch (e: any) {
+    console.error('Failed to switch product:', e)
   }
 }
 
@@ -280,8 +431,13 @@ const ChatIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'c
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' })
 ])
 
+const ProductIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' })
+])
+
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
+  { name: 'Products', path: '/dashboard/products', icon: ProductIcon },
   { name: 'Visibility', path: '/dashboard/visibility', icon: ChartIcon },
   { name: 'Recommendations', path: '/dashboard/recommendations', icon: LightbulbIcon },
   { name: 'Freshness', path: '/dashboard/freshness', icon: ClockIcon },

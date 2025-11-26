@@ -29,9 +29,28 @@
         <h1 class="text-4xl md:text-5xl font-bold mb-4">
           Simple, Transparent <span class="brand-text">Pricing</span>
         </h1>
-        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
           Start free and upgrade as your needs grow. No hidden fees, cancel anytime.
         </p>
+
+        <!-- Billing Toggle -->
+        <div class="flex items-center justify-center gap-4">
+          <span :class="billingPeriod === 'monthly' ? 'text-gray-900 font-medium' : 'text-gray-500'">Monthly</span>
+          <button
+            @click="billingPeriod = billingPeriod === 'monthly' ? 'yearly' : 'monthly'"
+            class="relative w-14 h-7 rounded-full transition-colors"
+            :class="billingPeriod === 'yearly' ? 'bg-brand' : 'bg-gray-300'"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform"
+              :class="billingPeriod === 'yearly' ? 'translate-x-7' : 'translate-x-0'"
+            />
+          </button>
+          <span :class="billingPeriod === 'yearly' ? 'text-gray-900 font-medium' : 'text-gray-500'">
+            Yearly
+            <span class="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Save ~17%</span>
+          </span>
+        </div>
       </div>
     </section>
 
@@ -59,6 +78,12 @@
             <p class="text-gray-600 text-sm mb-8">Perfect for exploring AI visibility optimization</p>
 
             <ul class="space-y-4 mb-8">
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>1</strong> product</span>
+              </li>
               <li class="flex items-start gap-3">
                 <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -127,12 +152,21 @@
               </div>
             </div>
             <div class="mb-6">
-              <span class="text-5xl font-bold">$49</span>
-              <span class="text-gray-400 ml-1">/month</span>
+              <span class="text-5xl font-bold">${{ billingPeriod === 'yearly' ? '490' : '49' }}</span>
+              <span class="text-gray-400 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
+              <div v-if="billingPeriod === 'yearly'" class="text-sm text-gray-400 mt-1">
+                $40.83/month billed annually
+              </div>
             </div>
             <p class="text-gray-400 text-sm mb-8">For businesses serious about AI visibility</p>
 
             <ul class="space-y-4 mb-8">
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-200"><strong>1</strong> product</span>
+              </li>
               <li class="flex items-start gap-3">
                 <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -162,12 +196,6 @@
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
                 <span class="text-gray-200">AI-powered recommendations</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Platform-specific guides</span>
               </li>
               <li class="flex items-start gap-3">
                 <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -212,8 +240,11 @@
               </div>
             </div>
             <div class="mb-6">
-              <span class="text-5xl font-bold text-gray-900">$149</span>
-              <span class="text-gray-500 ml-1">/month</span>
+              <span class="text-5xl font-bold text-gray-900">${{ billingPeriod === 'yearly' ? '1,490' : '149' }}</span>
+              <span class="text-gray-500 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
+              <div v-if="billingPeriod === 'yearly'" class="text-sm text-gray-500 mt-1">
+                $124.17/month billed annually
+              </div>
             </div>
             <p class="text-gray-600 text-sm mb-8">For agencies managing multiple clients</p>
 
@@ -223,6 +254,12 @@
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
                 <span class="text-gray-700">Everything in Pro</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-gray-700"><strong>5</strong> products</span>
               </li>
               <li class="flex items-start gap-3">
                 <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -247,12 +284,6 @@
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
                 <span class="text-gray-700">Priority support</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">API access</span>
               </li>
             </ul>
 
@@ -299,6 +330,12 @@
               </tr>
             </thead>
             <tbody>
+              <tr class="border-b border-gray-100">
+                <td class="py-4 px-4 text-gray-700">Products</td>
+                <td class="py-4 px-4 text-center text-gray-600">1</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">1</td>
+                <td class="py-4 px-4 text-center font-medium text-gray-900">5</td>
+              </tr>
               <tr class="border-b border-gray-100">
                 <td class="py-4 px-4 text-gray-700">Prompt checks/month</td>
                 <td class="py-4 px-4 text-center text-gray-600">5</td>
@@ -444,7 +481,7 @@
           </div>
           <div class="bg-white rounded-xl p-6 border border-gray-200">
             <h3 class="font-semibold text-gray-900 mb-2">Do you offer annual billing?</h3>
-            <p class="text-gray-600">Yes! Annual billing saves you 20%. Contact us for annual pricing options.</p>
+            <p class="text-gray-600">Yes! Annual billing saves you ~17% (pay for 10 months, get 12). Just toggle to "Yearly" at the top of this page to see annual pricing.</p>
           </div>
           <div class="bg-white rounded-xl p-6 border border-gray-200">
             <h3 class="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
@@ -513,6 +550,7 @@ const { createCheckout, createPortal } = useEdgeFunctions()
 
 const upgrading = ref(false)
 const currentPlan = ref<string>('free')
+const billingPeriod = ref<'monthly' | 'yearly'>('monthly')
 
 // Load current plan if user is logged in
 onMounted(async () => {
@@ -539,7 +577,7 @@ onMounted(async () => {
 
 const handleUpgrade = async (planId: string) => {
   if (!user.value) {
-    navigateTo(`/auth/signup?plan=${planId}`)
+    navigateTo(`/auth/signup?plan=${planId}&billing=${billingPeriod.value}`)
     return
   }
 
@@ -554,7 +592,7 @@ const handleUpgrade = async (planId: string) => {
       }
     } else {
       // Create checkout session for new subscription
-      const result = await createCheckout(planId)
+      const result = await createCheckout(planId, billingPeriod.value)
       if (result.url) {
         window.location.href = result.url
       }

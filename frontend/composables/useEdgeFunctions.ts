@@ -19,9 +19,37 @@ export const useEdgeFunctions = () => {
     return data
   }
 
-  const setupUser = async (organizationName: string, brandName: string, website?: string) => {
+  const setupUser = async () => {
     const { data, error } = await supabase.functions.invoke('setup-user', {
-      body: { organizationName, brandName, website }
+      body: {}
+    })
+
+    if (error) throw error
+    return data
+  }
+
+  const createProduct = async (params: {
+    name: string
+    domain: string
+    description?: string
+    runInitialAnalysis?: boolean
+  }) => {
+    const { data, error } = await supabase.functions.invoke('create-product', {
+      body: params
+    })
+
+    if (error) throw error
+    return data
+  }
+
+  const triggerWebsiteAnalysis = async (params: {
+    productId?: string
+    domain?: string
+    includeCompetitorGaps?: boolean
+    businessDescription?: string
+  }) => {
+    const { data, error } = await supabase.functions.invoke('trigger-website-analysis', {
+      body: params
     })
 
     if (error) throw error
@@ -29,9 +57,9 @@ export const useEdgeFunctions = () => {
   }
 
   // Stripe functions
-  const createCheckout = async (planId: string) => {
+  const createCheckout = async (planId: string, billingPeriod: 'monthly' | 'yearly' = 'monthly') => {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { planId }
+      body: { planId, billingPeriod }
     })
 
     if (error) throw error
@@ -129,6 +157,8 @@ export const useEdgeFunctions = () => {
     triggerScan,
     submitWaitlist,
     setupUser,
+    createProduct,
+    triggerWebsiteAnalysis,
     // Stripe
     createCheckout,
     createPortal,

@@ -7,13 +7,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Plan definitions
+// Plan definitions with monthly and yearly price IDs
 const PLANS = {
   free: {
     id: 'free',
     name: 'Free',
-    price: 0,
-    priceId: null,
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    monthlyPriceId: null,
+    yearlyPriceId: null,
     limits: {
       promptsPerMonth: 5,
       competitors: 1,
@@ -24,11 +26,27 @@ const PLANS = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 49,
-    priceId: Deno.env.get('STRIPE_PRO_PRICE_ID'),
+    monthlyPrice: 49,
+    yearlyPrice: 490, // 10 months (save ~17%)
+    monthlyPriceId: Deno.env.get('STRIPE_PRO_MONTHLY_PRICE_ID'),
+    yearlyPriceId: Deno.env.get('STRIPE_PRO_YEARLY_PRICE_ID'),
     limits: {
       promptsPerMonth: -1,
       competitors: 10,
+      scansPerMonth: -1,
+      websiteAnalyses: -1
+    }
+  },
+  agency: {
+    id: 'agency',
+    name: 'Agency',
+    monthlyPrice: 149,
+    yearlyPrice: 1490, // 10 months (save ~17%)
+    monthlyPriceId: Deno.env.get('STRIPE_AGENCY_MONTHLY_PRICE_ID'),
+    yearlyPriceId: Deno.env.get('STRIPE_AGENCY_YEARLY_PRICE_ID'),
+    limits: {
+      promptsPerMonth: -1,
+      competitors: 50,
       scansPerMonth: -1,
       websiteAnalyses: -1
     }
@@ -68,7 +86,7 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { planId, successUrl, cancelUrl } = await req.json()
+    const { planId, billingPeriod = 'monthly', successUrl, cancelUrl } = await req.json()
 
     if (!planId || planId === 'free') {
       return new Response(
@@ -77,10 +95,25 @@ serve(async (req) => {
       )
     }
 
-    const plan = PLANS[planId as keyof typeof PLANS]
-    if (!plan || !plan.priceId) {
+    if (!['monthly', 'yearly'].includes(billingPeriod)) {
       return new Response(
-        JSON.stringify({ error: 'Plan not found or has no price' }),
+        JSON.stringify({ error: 'Invalid billing period. Must be monthly or yearly' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const plan = PLANS[planId as keyof typeof PLANS]
+    if (!plan) {
+      return new Response(
+        JSON.stringify({ error: 'Plan not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const priceId = billingPeriod === 'yearly' ? plan.yearlyPriceId : plan.monthlyPriceId
+    if (!priceId) {
+      return new Response(
+        JSON.stringify({ error: `Price ID not configured for ${plan.name} ${billingPeriod} plan` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -117,7 +150,7 @@ serve(async (req) => {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: plan.priceId,
+          price: priceId,
           quantity: 1
         }
       ],
@@ -129,13 +162,15 @@ serve(async (req) => {
       metadata: {
         userId: user.id,
         organizationId: organizationId,
-        plan: planId
+        plan: planId,
+        billingPeriod: billingPeriod
       },
       subscription_data: {
         metadata: {
           userId: user.id,
           organizationId: organizationId,
-          plan: planId
+          plan: planId,
+          billingPeriod: billingPeriod
         }
       }
     })
