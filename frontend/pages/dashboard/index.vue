@@ -1,5 +1,26 @@
 <template>
   <div class="min-h-screen bg-gray-50">
+    <!-- Upsell Modal -->
+    <UpsellModal
+      v-model="showUpsellModal"
+      title="Scan Limit Reached"
+      subtitle="Upgrade to continue scanning"
+      usage-label="Scans this month"
+      :current="upsellData.current"
+      :limit="upsellData.limit"
+      :features="[
+        'Unlimited visibility scans per month',
+        'Track up to 10 competitors',
+        'Advanced AI model analysis',
+        'Weekly automated reports',
+        'Priority email support'
+      ]"
+      current-plan="Free"
+      current-plan-desc="2 scans/month"
+      recommended-plan="Pro"
+      recommended-plan-desc="$29/month"
+    />
+
     <div class="p-4 lg:p-6">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
@@ -210,6 +231,14 @@ const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
 const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
+
+// Upsell modal state
+const showUpsellModal = ref(false)
+const upsellData = ref({
+  current: 0,
+  limit: 0,
+  message: ''
+})
 
 const granularityStats = ref({
   hasData: false,
@@ -438,9 +467,20 @@ const runScan = async () => {
 
     if (error) throw error
 
-    // Handle onboarding redirect response
+    // Handle redirect response (e.g., onboarding needed)
     if (data?.redirectTo) {
       navigateTo(data.redirectTo)
+      return
+    }
+
+    // Handle plan limit reached
+    if (data?.upgradeRequired) {
+      upsellData.value = {
+        current: data.current || 0,
+        limit: data.limit || 0,
+        message: data.message || 'You have reached your plan limit'
+      }
+      showUpsellModal.value = true
       return
     }
 
@@ -448,11 +488,25 @@ const runScan = async () => {
     await loadDashboardData()
   } catch (error: any) {
     console.error('Error starting scan:', error)
-    // Check if error response contains redirect info
-    if (error?.context?.json?.redirectTo) {
-      navigateTo(error.context.json.redirectTo)
+
+    // Check if error response contains upgrade info
+    const errorData = error?.context?.json
+    if (errorData?.upgradeRequired) {
+      upsellData.value = {
+        current: errorData.current || 0,
+        limit: errorData.limit || 0,
+        message: errorData.message || 'You have reached your plan limit'
+      }
+      showUpsellModal.value = true
       return
     }
+
+    // Check if error response contains redirect info
+    if (errorData?.redirectTo) {
+      navigateTo(errorData.redirectTo)
+      return
+    }
+
     alert(`Failed: ${error.message || 'Unknown error'}`)
   } finally {
     loading.value = false

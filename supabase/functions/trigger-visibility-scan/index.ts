@@ -114,9 +114,10 @@ Deno.serve(async (req) => {
     const competitorNames = competitors?.map(c => c.name) || []
 
     // Create job record (worker will pick it up via job processor)
-    const { data: job } = await supabaseClient
+    const { data: job, error: jobError } = await supabaseClient
       .from('jobs')
       .insert({
+        organization_id: organizationId,
         product_id: productId,
         job_type: 'visibility_scan',
         status: 'queued',
@@ -133,6 +134,11 @@ Deno.serve(async (req) => {
       })
       .select()
       .single()
+
+    if (jobError) {
+      console.error('Error creating job:', jobError)
+      throw new Error(`Failed to create job: ${jobError.message}`)
+    }
 
     if (!job) {
       throw new Error('Failed to create job')
