@@ -460,27 +460,45 @@ const runScan = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase.functions.invoke('trigger-visibility-scan', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: { productId: activeProductId.value }
-    })
+    const response = await fetch(
+      `${useRuntimeConfig().public.supabaseUrl}/functions/v1/trigger-visibility-scan`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ productId: activeProductId.value })
+      }
+    )
 
-    if (error) throw error
+    const data = await response.json()
 
-    // Handle redirect response (e.g., onboarding needed)
-    if (data?.redirectTo) {
-      navigateTo(data.redirectTo)
-      return
+    // Handle non-2xx responses
+    if (!response.ok) {
+      // Handle plan limit reached (403)
+      if (data?.upgradeRequired) {
+        upsellData.value = {
+          current: data.current || 0,
+          limit: data.limit || 0,
+          message: data.message || 'You have reached your plan limit'
+        }
+        showUpsellModal.value = true
+        return
+      }
+
+      // Handle redirect response (e.g., onboarding needed)
+      if (data?.redirectTo) {
+        navigateTo(data.redirectTo)
+        return
+      }
+
+      throw new Error(data?.error || data?.message || 'Request failed')
     }
 
-    // Handle plan limit reached
-    if (data?.upgradeRequired) {
-      upsellData.value = {
-        current: data.current || 0,
-        limit: data.limit || 0,
-        message: data.message || 'You have reached your plan limit'
-      }
-      showUpsellModal.value = true
+    // Handle success with redirect
+    if (data?.redirectTo) {
+      navigateTo(data.redirectTo)
       return
     }
 
@@ -488,25 +506,6 @@ const runScan = async () => {
     await loadDashboardData()
   } catch (error: any) {
     console.error('Error starting scan:', error)
-
-    // Check if error response contains upgrade info
-    const errorData = error?.context?.json
-    if (errorData?.upgradeRequired) {
-      upsellData.value = {
-        current: errorData.current || 0,
-        limit: errorData.limit || 0,
-        message: errorData.message || 'You have reached your plan limit'
-      }
-      showUpsellModal.value = true
-      return
-    }
-
-    // Check if error response contains redirect info
-    if (errorData?.redirectTo) {
-      navigateTo(errorData.redirectTo)
-      return
-    }
-
     alert(`Failed: ${error.message || 'Unknown error'}`)
   } finally {
     loading.value = false
