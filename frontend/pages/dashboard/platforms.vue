@@ -352,14 +352,14 @@ const loadPlatformData = async () => {
 
       const { data: results } = await supabase
         .from('prompt_results')
-        .select('prompt_id, was_mentioned')
+        .select('prompt_id, brand_mentioned')
         .in('prompt_id', promptIds)
 
       if (results) {
         // Calculate citation count per prompt
         const citationCounts: Record<string, number> = {}
         results.forEach(r => {
-          if (r.was_mentioned) {
+          if (r.brand_mentioned) {
             citationCounts[r.prompt_id] = (citationCounts[r.prompt_id] || 0) + 1
           } else {
             citationCounts[r.prompt_id] = citationCounts[r.prompt_id] || 0

@@ -49,21 +49,34 @@ export abstract class AIClient {
     // Check for citation (URLs, references)
     const citation = /https?:\/\//.test(responseText) && mentioned
 
-    // Try to find position in list
+    // Calculate position: which brand was mentioned first among all brands
+    // Position 1 = mentioned first, Position 2 = mentioned second, etc.
     let position: number | null = null
-    const listPatterns = [
-      /\d+\.\s+([^\n]+)/g, // Numbered lists
-      /[-*]\s+([^\n]+)/g,  // Bullet points
-    ]
 
-    for (const pattern of listPatterns) {
-      const matches = [...responseText.matchAll(pattern)]
-      const brandMatch = matches.findIndex(m =>
-        m[1]?.toLowerCase().includes(lowerBrand)
-      )
-      if (brandMatch !== -1) {
-        position = brandMatch + 1
-        break
+    if (mentioned) {
+      // Get all brands to track (product + competitors)
+      const allBrands = [
+        { name: brandName, isProduct: true },
+        ...competitors.map(c => ({ name: c, isProduct: false }))
+      ]
+
+      // Find the first occurrence position of each brand in the response
+      const brandPositions: { name: string; isProduct: boolean; index: number }[] = []
+
+      for (const brand of allBrands) {
+        const index = lowerResponse.indexOf(brand.name.toLowerCase())
+        if (index !== -1) {
+          brandPositions.push({ name: brand.name, isProduct: brand.isProduct, index })
+        }
+      }
+
+      // Sort by position in text (first mentioned = lowest index)
+      brandPositions.sort((a, b) => a.index - b.index)
+
+      // Find our product's rank (1-indexed)
+      const productRank = brandPositions.findIndex(b => b.isProduct)
+      if (productRank !== -1) {
+        position = productRank + 1
       }
     }
 

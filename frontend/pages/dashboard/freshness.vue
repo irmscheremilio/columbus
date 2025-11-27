@@ -1,25 +1,28 @@
 <template>
-  <div>
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <!-- Page header -->
-      <div class="px-4 py-6 sm:px-0">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center">
-              <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <h1 class="text-2xl font-bold text-gray-900">Content Freshness</h1>
-              <p class="text-gray-500">Monitor and track your content's freshness for AI visibility.</p>
-            </div>
-          </div>
+  <div class="min-h-screen bg-gray-50">
+    <div class="p-4 lg:p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900">Content Freshness</h1>
+          <p class="text-sm text-gray-500">Monitor content freshness for AI visibility</p>
+        </div>
+        <div class="flex gap-2">
+          <button
+            @click="triggerFreshnessCheck"
+            :disabled="checkingFreshness"
+            class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <svg class="w-4 h-4" :class="checkingFreshness ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {{ checkingFreshness ? 'Checking...' : 'Check All' }}
+          </button>
           <button
             @click="showAddPageModal = true"
-            class="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 transition-colors"
+            class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 transition-colors"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             Add Page
@@ -27,201 +30,161 @@
         </div>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="px-4 py-4 sm:px-0">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <!-- Average Freshness -->
-          <div class="bg-white rounded-xl p-5 border border-gray-200">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-gray-600">Avg Freshness</span>
-            </div>
-            <div class="text-4xl font-bold text-gray-900 mb-1">{{ stats.avgFreshness }}%</div>
-            <div class="text-sm text-gray-400">across all pages</div>
-          </div>
-
-          <!-- Monitored Pages -->
-          <div class="bg-white rounded-xl p-5 border border-gray-200">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-gray-600">Monitored Pages</span>
-            </div>
-            <div class="text-4xl font-bold text-gray-900 mb-1">{{ stats.totalPages }}</div>
-            <div class="text-sm text-gray-400">being tracked</div>
-          </div>
-
-          <!-- Stale Pages -->
-          <div class="bg-white rounded-xl p-5 border border-gray-200">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-gray-600">Stale Pages</span>
-            </div>
-            <div class="text-4xl font-bold text-gray-900 mb-1">{{ stats.stalePages }}</div>
-            <div class="text-sm text-gray-400">need attention</div>
-          </div>
-
-          <!-- Unread Alerts -->
-          <div class="bg-white rounded-xl p-5 border border-gray-200">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-gray-600">Unread Alerts</span>
-            </div>
-            <div class="text-4xl font-bold text-gray-900 mb-1">{{ stats.unreadAlerts }}</div>
-            <div class="text-sm text-gray-400">{{ stats.criticalAlerts }} critical</div>
-          </div>
+      <!-- Stats Row -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Avg Freshness</div>
+          <div class="text-lg font-bold text-gray-900">{{ stats.avgFreshness }}<span class="text-xs font-normal text-gray-400">%</span></div>
+        </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Monitored</div>
+          <div class="text-lg font-bold text-blue-600">{{ stats.totalPages }}</div>
+        </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Fresh</div>
+          <div class="text-lg font-bold text-green-600">{{ freshCount }}</div>
+        </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Stale</div>
+          <div class="text-lg font-bold text-yellow-600">{{ stats.stalePages }}</div>
+        </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Alerts</div>
+          <div class="text-lg font-bold text-red-600">{{ stats.unreadAlerts }}</div>
         </div>
       </div>
 
-      <!-- Alerts Section -->
-      <div v-if="alerts.length > 0" class="px-4 py-4 sm:px-0">
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-          <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <h2 class="text-lg font-semibold text-gray-900">Recent Alerts</h2>
-            </div>
-            <button
-              @click="markAllAlertsRead"
-              class="text-sm text-brand hover:underline font-medium"
-            >
-              Mark all as read
-            </button>
-          </div>
-          <div class="space-y-3">
-            <div
-              v-for="alert in alerts.slice(0, 5)"
-              :key="alert.id"
-              class="flex items-start gap-3 p-3 rounded-lg"
-              :class="alert.is_read ? 'bg-gray-50' : 'bg-amber-50 border border-amber-200'"
-            >
-              <div
-                class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                :class="getSeverityClass(alert.severity)"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="font-medium text-gray-900 text-sm">{{ alert.title }}</h3>
-                <p class="text-xs text-gray-500 mt-0.5">{{ alert.description }}</p>
-                <div class="flex items-center gap-2 mt-2">
-                  <span
-                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                    :class="getSeverityBadgeClass(alert.severity)"
-                  >
-                    {{ alert.severity }}
-                  </span>
-                  <span class="text-xs text-gray-400">{{ formatDate(alert.created_at) }}</span>
-                </div>
-              </div>
-              <button
-                v-if="!alert.is_read"
-                @click="markAlertRead(alert.id)"
-                class="flex-shrink-0 text-gray-400 hover:text-gray-600"
-              >
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Monitored Pages -->
-      <div class="px-4 py-4 sm:px-0">
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-          <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center">
-                <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h2 class="text-lg font-semibold text-gray-900">Monitored Pages</h2>
-            </div>
-            <button
-              @click="triggerFreshnessCheck"
-              :disabled="checkingFreshness"
-              class="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              <svg class="w-4 h-4" :class="checkingFreshness ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {{ checkingFreshness ? 'Checking...' : 'Check All' }}
-            </button>
+      <!-- Main Content Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Pages Table -->
+        <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Monitored Pages</h2>
+            <span class="text-xs text-gray-500">{{ pages.length }} pages</span>
           </div>
 
           <div v-if="loading" class="flex items-center justify-center py-12">
-            <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+            <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
           </div>
 
           <div v-else-if="pages.length === 0" class="text-center py-12">
-            <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p class="text-gray-500 mb-2">No pages being monitored</p>
+            <p class="text-sm text-gray-500 mb-2">No pages being monitored</p>
             <button @click="showAddPageModal = true" class="text-brand font-medium hover:underline text-sm">
-              Add your first page →
+              Add your first page
             </button>
           </div>
 
-          <div v-else class="space-y-3">
-            <div
-              v-for="page in pages"
-              :key="page.id"
-              class="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-            >
-              <div class="flex items-center gap-4 flex-1 min-w-0">
-                <div
-                  class="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-                  :class="getFreshnessColorClass(page.freshness_score)"
+          <div v-else class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                  <th class="text-left px-4 py-2 font-medium">Page</th>
+                  <th class="text-center px-4 py-2 font-medium w-20">Score</th>
+                  <th class="text-center px-4 py-2 font-medium hidden sm:table-cell">Status</th>
+                  <th class="text-center px-4 py-2 font-medium hidden md:table-cell">Last Check</th>
+                  <th class="text-right px-4 py-2 font-medium w-16">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr
+                  v-for="page in pages"
+                  :key="page.id"
+                  class="text-sm hover:bg-gray-50"
                 >
-                  {{ page.freshness_score || '?' }}
+                  <td class="px-4 py-3">
+                    <div class="text-gray-900 font-medium truncate max-w-xs">{{ page.title || getPageTitle(page.url) }}</div>
+                    <div class="text-xs text-gray-400 truncate max-w-xs">{{ page.url }}</div>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span
+                      class="inline-flex w-8 h-8 rounded text-xs font-bold text-white items-center justify-center"
+                      :class="getFreshnessColorClass(page.freshness_score)"
+                    >
+                      {{ page.freshness_score || '?' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-center hidden sm:table-cell">
+                    <span
+                      class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
+                      :class="getStatusBadgeClass(page.status)"
+                    >
+                      {{ page.status }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-center hidden md:table-cell">
+                    <span class="text-xs text-gray-500">{{ page.last_crawled_at ? formatDate(page.last_crawled_at) : '-' }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button
+                      @click="removePage(page.id)"
+                      class="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Remove"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Alerts Sidebar -->
+        <div class="bg-white rounded-lg border border-gray-200">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Recent Alerts</h2>
+            <button
+              v-if="alerts.some(a => !a.is_read)"
+              @click="markAllAlertsRead"
+              class="text-xs text-brand hover:underline font-medium"
+            >
+              Mark all read
+            </button>
+          </div>
+
+          <div v-if="alerts.length === 0" class="text-center py-8 text-sm text-gray-500">
+            No alerts
+          </div>
+
+          <div v-else class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            <div
+              v-for="alert in alerts.slice(0, 10)"
+              :key="alert.id"
+              class="px-4 py-3 hover:bg-gray-50"
+              :class="!alert.is_read ? 'bg-amber-50' : ''"
+            >
+              <div class="flex items-start gap-2">
+                <div
+                  class="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center"
+                  :class="getSeverityClass(alert.severity)"
+                >
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-medium text-gray-900 truncate">{{ page.title || page.url }}</h3>
-                  <p class="text-sm text-gray-500 truncate">{{ page.url }}</p>
-                  <div class="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                    <span v-if="page.last_crawled_at">Last checked: {{ formatDate(page.last_crawled_at) }}</span>
-                    <span v-if="page.word_count">{{ page.word_count }} words</span>
+                  <div class="text-sm font-medium text-gray-900 truncate">{{ alert.title }}</div>
+                  <div class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ alert.description }}</div>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span
+                      class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium uppercase"
+                      :class="getSeverityBadgeClass(alert.severity)"
+                    >
+                      {{ alert.severity }}
+                    </span>
+                    <span class="text-[10px] text-gray-400">{{ formatDate(alert.created_at) }}</span>
                   </div>
                 </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span
-                  class="px-2 py-1 rounded text-xs font-medium"
-                  :class="getStatusBadgeClass(page.status)"
-                >
-                  {{ page.status }}
-                </span>
                 <button
-                  @click="removePage(page.id)"
-                  class="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  v-if="!alert.is_read"
+                  @click="markAlertRead(alert.id)"
+                  class="flex-shrink-0 p-1 text-gray-400 hover:text-green-600"
+                  title="Mark as read"
                 >
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </button>
               </div>
@@ -229,56 +192,60 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Add Page Modal -->
-      <div v-if="showAddPageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Page to Monitor</h3>
-          <form @submit.prevent="addPage">
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Page URL</label>
-                <input
-                  v-model="newPage.url"
-                  type="url"
-                  required
-                  placeholder="https://example.com/page"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Title (optional)</label>
-                <input
-                  v-model="newPage.title"
-                  type="text"
-                  placeholder="Page title"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Check Frequency</label>
-                <select
-                  v-model="newPage.checkFrequencyHours"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
-                >
-                  <option :value="24">Daily</option>
-                  <option :value="72">Every 3 days</option>
-                  <option :value="168">Weekly</option>
-                </select>
-              </div>
+    <!-- Add Page Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showAddPageModal"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+        @click.self="showAddPageModal = false"
+      >
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+          <h3 class="text-lg font-semibold mb-4">Add Page to Monitor</h3>
+          <form @submit.prevent="addPage" class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Page URL</label>
+              <input
+                v-model="newPage.url"
+                type="url"
+                required
+                placeholder="https://example.com/page"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+              />
             </div>
-            <div class="flex justify-end gap-3 mt-6">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Title (optional)</label>
+              <input
+                v-model="newPage.title"
+                type="text"
+                placeholder="Page title"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Check Frequency</label>
+              <select
+                v-model="newPage.checkFrequencyHours"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
+              >
+                <option :value="24">Daily</option>
+                <option :value="72">Every 3 days</option>
+                <option :value="168">Weekly</option>
+              </select>
+            </div>
+            <div class="flex gap-2 pt-2">
               <button
                 type="button"
                 @click="showAddPageModal = false"
-                class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                class="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 :disabled="addingPage"
-                class="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50"
+                class="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
               >
                 {{ addingPage ? 'Adding...' : 'Add Page' }}
               </button>
@@ -286,7 +253,7 @@
           </form>
         </div>
       </div>
-    </main>
+    </Teleport>
   </div>
 </template>
 
@@ -297,7 +264,6 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
-const user = useSupabaseUser()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
@@ -320,15 +286,13 @@ const newPage = ref({
   checkFrequencyHours: 72
 })
 
-// Watch for product changes to reload data
+const freshCount = computed(() => stats.value.totalPages - stats.value.stalePages)
+
 watch(activeProductId, async (newProductId) => {
-  if (newProductId) {
-    await loadData()
-  }
+  if (newProductId) await loadData()
 })
 
 onMounted(async () => {
-  // Wait for product to be initialized
   if (productInitialized.value && activeProductId.value) {
     await loadData()
   } else {
@@ -353,7 +317,6 @@ const loadData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    // Load all data from edge function in a single GET call
     const { data, error } = await supabase.functions.invoke(`manage-freshness?action=dashboard&productId=${productId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
       method: 'GET'
@@ -390,7 +353,7 @@ const addPage = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase.functions.invoke('manage-freshness?action=add-page', {
+    const { error } = await supabase.functions.invoke('manage-freshness?action=add-page', {
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: {
         productId,
@@ -415,7 +378,7 @@ const addPage = async () => {
 }
 
 const removePage = async (pageId: string) => {
-  if (!confirm('Are you sure you want to remove this page from monitoring?')) return
+  if (!confirm('Remove this page from monitoring?')) return
 
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -495,6 +458,15 @@ const markAllAlertsRead = async () => {
   }
 }
 
+const getPageTitle = (url: string) => {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.pathname === '/' ? urlObj.hostname : urlObj.pathname.split('/').pop() || urlObj.hostname
+  } catch {
+    return url
+  }
+}
+
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
@@ -507,14 +479,14 @@ const formatDate = (date: string) => {
 const getFreshnessColorClass = (score: number | null) => {
   if (!score) return 'bg-gray-400'
   if (score >= 70) return 'bg-green-500'
-  if (score >= 40) return 'bg-amber-500'
+  if (score >= 40) return 'bg-yellow-500'
   return 'bg-red-500'
 }
 
 const getSeverityClass = (severity: string) => {
   switch (severity) {
     case 'critical': return 'bg-red-100 text-red-600'
-    case 'high': return 'bg-amber-100 text-amber-600'
+    case 'high': return 'bg-orange-100 text-orange-600'
     case 'medium': return 'bg-yellow-100 text-yellow-600'
     default: return 'bg-blue-100 text-blue-600'
   }
@@ -523,7 +495,7 @@ const getSeverityClass = (severity: string) => {
 const getSeverityBadgeClass = (severity: string) => {
   switch (severity) {
     case 'critical': return 'bg-red-100 text-red-700'
-    case 'high': return 'bg-amber-100 text-amber-700'
+    case 'high': return 'bg-orange-100 text-orange-700'
     case 'medium': return 'bg-yellow-100 text-yellow-700'
     default: return 'bg-blue-100 text-blue-700'
   }

@@ -1,157 +1,129 @@
 <template>
-  <div>
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <!-- Page header -->
-      <div class="px-4 py-6 sm:px-0">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">Search Prompts</h1>
-            <p class="mt-2 text-gray-600">
-              Manage and customize the search prompts used to test your AI visibility
-            </p>
-          </div>
-          <button @click="showAddPrompt = true" class="btn-primary">
-            + Add Custom Prompt
-          </button>
+  <div class="min-h-screen bg-gray-50">
+    <div class="p-4 lg:p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900">Prompts</h1>
+          <p class="text-sm text-gray-500">Manage search prompts for visibility testing</p>
         </div>
+        <button
+          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 transition-colors"
+          @click="showAddPrompt = true"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Prompt
+        </button>
+      </div>
 
-        <!-- Product Info -->
-        <div v-if="productAnalysis" class="card-highlight mb-6">
-          <h2 class="text-lg font-semibold mb-2">{{ productAnalysis.product_name }}</h2>
-          <p class="text-gray-600 text-sm mb-4">{{ productAnalysis.product_description }}</p>
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="feature in productAnalysis.key_features"
-              :key="feature"
-              class="px-3 py-1 bg-brand/10 text-brand rounded-full text-sm"
-            >
-              {{ feature }}
-            </span>
-          </div>
+      <!-- Stats Row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Total</div>
+          <div class="text-lg font-bold text-gray-900">{{ prompts.length }}</div>
         </div>
-
-        <!-- Stats -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-          <div class="card-highlight">
-            <div class="text-sm text-gray-500">Total Prompts</div>
-            <div class="text-2xl font-bold">{{ prompts.length }}</div>
-          </div>
-          <div class="card-highlight">
-            <div class="text-sm text-gray-500">Level 1 (Broad)</div>
-            <div class="text-2xl font-bold">{{ promptsByLevel[1] || 0 }}</div>
-          </div>
-          <div class="card-highlight">
-            <div class="text-sm text-gray-500">Level 2 (Specific)</div>
-            <div class="text-2xl font-bold">{{ promptsByLevel[2] || 0 }}</div>
-          </div>
-          <div class="card-highlight">
-            <div class="text-sm text-gray-500">Level 3 (Detailed)</div>
-            <div class="text-2xl font-bold">{{ promptsByLevel[3] || 0 }}</div>
-          </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Broad (L1)</div>
+          <div class="text-lg font-bold text-green-600">{{ promptsByLevel[1] || 0 }}</div>
         </div>
-
-        <!-- Filter tabs -->
-        <div class="mb-6 flex gap-2">
-          <button
-            @click="filter = 'all'"
-            class="px-4 py-2 rounded-lg font-medium transition-colors"
-            :class="filter === 'all' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          >
-            All Prompts
-          </button>
-          <button
-            @click="filter = 1"
-            class="px-4 py-2 rounded-lg font-medium transition-colors"
-            :class="filter === 1 ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          >
-            Level 1
-          </button>
-          <button
-            @click="filter = 2"
-            class="px-4 py-2 rounded-lg font-medium transition-colors"
-            :class="filter === 2 ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          >
-            Level 2
-          </button>
-          <button
-            @click="filter = 3"
-            class="px-4 py-2 rounded-lg font-medium transition-colors"
-            :class="filter === 3 ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          >
-            Level 3
-          </button>
-          <button
-            @click="filter = 'custom'"
-            class="px-4 py-2 rounded-lg font-medium transition-colors"
-            :class="filter === 'custom' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          >
-            Custom
-          </button>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Specific (L2)</div>
+          <div class="text-lg font-bold text-yellow-600">{{ promptsByLevel[2] || 0 }}</div>
         </div>
+        <div class="bg-white rounded border border-gray-200 px-3 py-2">
+          <div class="text-[10px] font-medium text-gray-400 uppercase">Detailed (L3)</div>
+          <div class="text-lg font-bold text-orange-600">{{ promptsByLevel[3] || 0 }}</div>
+        </div>
+      </div>
 
-        <!-- Prompts List -->
-        <div class="space-y-3">
-          <div
-            v-for="prompt in filteredPrompts"
-            :key="prompt.id"
-            class="card-highlight hover:border-brand/30 transition-colors"
+      <!-- Filters -->
+      <div class="bg-white rounded-lg border border-gray-200 p-3 mb-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            v-for="f in filters"
+            :key="f.value"
+            @click="filter = f.value"
+            class="px-2 py-1 text-xs font-medium rounded-md transition-colors"
+            :class="filter === f.value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
           >
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1">
-                <div class="flex items-center gap-3 mb-2">
+            {{ f.label }}
+          </button>
+          <div class="ml-auto text-xs text-gray-500">{{ filteredPrompts.length }} prompts</div>
+        </div>
+      </div>
+
+      <!-- Prompts Table -->
+      <div class="bg-white rounded-lg border border-gray-200">
+        <div v-if="filteredPrompts.length === 0" class="text-center py-12 text-sm text-gray-500">
+          No prompts found for this filter
+        </div>
+        <div v-else class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                <th class="text-left px-4 py-2 font-medium">Prompt</th>
+                <th class="text-center px-4 py-2 font-medium w-20">Level</th>
+                <th class="text-center px-4 py-2 font-medium hidden sm:table-cell">Type</th>
+                <th class="text-right px-4 py-2 font-medium w-24">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr
+                v-for="prompt in filteredPrompts"
+                :key="prompt.id"
+                class="text-sm hover:bg-gray-50"
+              >
+                <td class="px-4 py-3">
+                  <div class="text-gray-900">{{ prompt.prompt_text }}</div>
+                  <div v-if="prompt.category" class="text-xs text-gray-400 mt-0.5">{{ prompt.category }}</div>
+                </td>
+                <td class="px-4 py-3 text-center">
                   <span
-                    class="px-2 py-1 rounded text-xs font-bold text-white"
+                    class="inline-flex w-6 h-6 rounded text-[10px] font-bold text-white items-center justify-center"
                     :class="getLevelColor(prompt.granularity_level)"
                   >
-                    L{{ prompt.granularity_level }}
+                    {{ prompt.granularity_level }}
                   </span>
+                </td>
+                <td class="px-4 py-3 text-center hidden sm:table-cell">
                   <span
                     v-if="prompt.is_custom"
-                    class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium"
+                    class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
                   >
                     Custom
                   </span>
-                  <span
-                    v-if="prompt.category"
-                    class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs"
-                  >
-                    {{ prompt.category }}
-                  </span>
-                </div>
-                <p class="text-gray-900 font-medium">{{ prompt.prompt_text }}</p>
-                <p v-if="prompt.lastTested" class="text-sm text-gray-500 mt-2">
-                  Last tested: {{ formatDate(prompt.lastTested) }}
-                </p>
-              </div>
-              <div class="flex gap-2">
-                <button
-                  @click="editPrompt(prompt)"
-                  class="p-2 text-gray-400 hover:text-brand transition-colors"
-                  title="Edit"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </button>
-                <button
-                  @click="deletePrompt(prompt.id)"
-                  class="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                  title="Delete"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="filteredPrompts.length === 0" class="text-center py-12 text-gray-500">
-            No prompts found for this filter.
-          </div>
+                  <span v-else class="text-xs text-gray-400">Auto</span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-1">
+                    <button
+                      @click="editPrompt(prompt)"
+                      class="p-1.5 text-gray-400 hover:text-brand transition-colors"
+                      title="Edit"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                    </button>
+                    <button
+                      @click="deletePrompt(prompt.id)"
+                      class="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Delete"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- Add/Edit Prompt Modal -->
     <Teleport to="body">
@@ -160,96 +132,53 @@
         class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
         @click.self="closeModal"
       >
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden">
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between p-6 border-b border-gray-100">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center">
-                <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <div>
-                <h2 class="text-lg font-semibold text-gray-900">
-                  {{ editingPrompt ? 'Edit Prompt' : 'Add Custom Prompt' }}
-                </h2>
-                <p class="text-sm text-gray-500">Create a custom search prompt to test</p>
-              </div>
-            </div>
-            <button
-              @click="closeModal"
-              class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Modal Body -->
-          <div class="p-6 space-y-5">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+          <h3 class="text-lg font-semibold mb-4">{{ editingPrompt ? 'Edit Prompt' : 'Add Prompt' }}</h3>
+          <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                Prompt Text
-              </label>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Prompt Text</label>
               <textarea
                 v-model="promptForm.text"
                 rows="3"
-                class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none"
-                placeholder="e.g., What tools can help agencies create quick demos?"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand resize-none"
+                placeholder="What tools can help with..."
               ></textarea>
-              <p class="text-xs text-gray-400 mt-1.5">Write a natural question that users might ask AI assistants</p>
             </div>
-
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                  Granularity Level
-                </label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Level</label>
                 <select
                   v-model.number="promptForm.level"
-                  class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand appearance-none cursor-pointer"
+                  class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
                 >
-                  <option :value="1">Level 1 - Broad</option>
-                  <option :value="2">Level 2 - Specific</option>
-                  <option :value="3">Level 3 - Detailed</option>
+                  <option :value="1">1 - Broad</option>
+                  <option :value="2">2 - Specific</option>
+                  <option :value="3">3 - Detailed</option>
                 </select>
               </div>
-
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                  Category
-                  <span class="text-gray-400 font-normal">(optional)</span>
-                </label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
                 <input
                   v-model="promptForm.category"
                   type="text"
-                  class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-                  placeholder="e.g., discovery"
+                  class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
+                  placeholder="Optional"
                 />
               </div>
             </div>
           </div>
-
-          <!-- Modal Footer -->
-          <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <div class="flex gap-2 mt-5">
             <button
               @click="closeModal"
-              class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              class="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>
             <button
               @click="savePrompt"
-              class="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 transition-colors"
+              class="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors"
             >
-              <svg v-if="!editingPrompt" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              {{ editingPrompt ? 'Save Changes' : 'Add Prompt' }}
+              {{ editingPrompt ? 'Save' : 'Add' }}
             </button>
           </div>
         </div>
@@ -265,14 +194,20 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
-const user = useSupabaseUser()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const prompts = ref<any[]>([])
-const productAnalysis = ref<any>(null)
 const filter = ref<'all' | 1 | 2 | 3 | 'custom'>('all')
 const showAddPrompt = ref(false)
 const editingPrompt = ref<any>(null)
+
+const filters = [
+  { label: 'All', value: 'all' as const },
+  { label: 'L1', value: 1 as const },
+  { label: 'L2', value: 2 as const },
+  { label: 'L3', value: 3 as const },
+  { label: 'Custom', value: 'custom' as const }
+]
 
 const promptForm = ref({
   text: '',
@@ -295,24 +230,17 @@ const filteredPrompts = computed(() => {
   return prompts.value.filter(p => p.granularity_level === filter.value)
 })
 
-// Watch for product changes to reload data
 watch(activeProductId, async (newProductId) => {
-  if (newProductId) {
-    await loadPrompts()
-    await loadProductAnalysis()
-  }
+  if (newProductId) await loadPrompts()
 })
 
 onMounted(async () => {
-  // Wait for product to be initialized
   if (productInitialized.value && activeProductId.value) {
     await loadPrompts()
-    await loadProductAnalysis()
   } else {
     const unwatch = watch(productInitialized, async (initialized) => {
       if (initialized && activeProductId.value) {
         await loadPrompts()
-        await loadProductAnalysis()
         unwatch()
       }
     })
@@ -332,19 +260,6 @@ const loadPrompts = async () => {
   prompts.value = data || []
 }
 
-const loadProductAnalysis = async () => {
-  const productId = activeProductId.value
-  if (!productId) return
-
-  const { data } = await supabase
-    .from('product_analyses')
-    .select('*')
-    .eq('product_id', productId)
-    .single()
-
-  productAnalysis.value = data
-}
-
 const getLevelColor = (level: number) => {
   switch (level) {
     case 1: return 'bg-green-500'
@@ -352,15 +267,6 @@ const getLevelColor = (level: number) => {
     case 3: return 'bg-orange-500'
     default: return 'bg-gray-500'
   }
-}
-
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  })
 }
 
 const editPrompt = (prompt: any) => {
@@ -375,11 +281,7 @@ const editPrompt = (prompt: any) => {
 const closeModal = () => {
   showAddPrompt.value = false
   editingPrompt.value = null
-  promptForm.value = {
-    text: '',
-    level: 1,
-    category: ''
-  }
+  promptForm.value = { text: '', level: 1, category: '' }
 }
 
 const savePrompt = async () => {
@@ -390,7 +292,6 @@ const savePrompt = async () => {
 
   try {
     if (editingPrompt.value) {
-      // Update existing prompt
       await supabase
         .from('prompts')
         .update({
@@ -400,7 +301,6 @@ const savePrompt = async () => {
         })
         .eq('id', editingPrompt.value.id)
     } else {
-      // Insert new custom prompt
       await supabase
         .from('prompts')
         .insert({
@@ -421,14 +321,10 @@ const savePrompt = async () => {
 }
 
 const deletePrompt = async (promptId: string) => {
-  if (!confirm('Are you sure you want to delete this prompt?')) return
+  if (!confirm('Delete this prompt?')) return
 
   try {
-    await supabase
-      .from('prompts')
-      .delete()
-      .eq('id', promptId)
-
+    await supabase.from('prompts').delete().eq('id', promptId)
     await loadPrompts()
   } catch (error) {
     console.error('Error deleting prompt:', error)

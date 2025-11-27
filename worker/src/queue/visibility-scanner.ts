@@ -32,6 +32,32 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
 
     console.log(`[Visibility Scanner] Starting scan for org ${organizationId}, product ${productId}`)
 
+    // Validate organization exists
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('id', organizationId)
+      .single()
+
+    if (orgError || !org) {
+      console.error(`[Visibility Scanner] Organization ${organizationId} not found, skipping job`)
+      throw new Error(`Organization ${organizationId} not found`)
+    }
+
+    // Validate product exists if provided
+    if (productId) {
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('id', productId)
+        .single()
+
+      if (productError || !product) {
+        console.error(`[Visibility Scanner] Product ${productId} not found, skipping job`)
+        throw new Error(`Product ${productId} not found`)
+      }
+    }
+
     // Fetch prompts from database
     const { data: prompts, error: promptError } = await supabase
       .from('prompts')
@@ -89,6 +115,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
           const { data: promptResult } = await supabase.from('prompt_results').insert({
             prompt_id: prompt.id,
             organization_id: organizationId,
+            product_id: productId,
             ai_model: result.model,
             response_text: result.responseText,
             brand_mentioned: result.brandMentioned,
@@ -108,11 +135,11 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
               competitors
             )
 
-            if (detection.competitors.length > 0) {
+            if (detection.competitors.length > 0 && productId) {
               console.log(`[Visibility Scanner] Detected ${detection.competitors.length} potential competitors in ${model} response`)
               await competitorDetector.saveDetectedCompetitors(
                 organizationId,
-                productName,
+                productId,
                 detection.competitors
               )
             }
@@ -136,8 +163,9 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
     const visibilityScore = calculateVisibilityScore(allResults)
 
     // Store overall score
-    await supabase.from('visibility_scores').insert({
+    const scoreInsert: any = {
       organization_id: organizationId,
+      product_id: productId,
       score: visibilityScore,
       ai_model: 'overall',
       period_start: new Date(),
@@ -148,7 +176,12 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
         mentionRate: allResults.filter(r => r.brandMentioned).length / allResults.length,
         citationRate: allResults.filter(r => r.citationPresent).length / allResults.length
       }
-    })
+    }
+
+    const { error: scoreError } = await supabase.from('visibility_scores').insert(scoreInsert)
+    if (scoreError) {
+      console.error('[Visibility Scanner] Error storing visibility score:', scoreError)
+    }
 
     // Store per-model visibility history for trend analysis
     const modelStats = calculatePerModelStats(allResults, models)

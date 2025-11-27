@@ -239,10 +239,11 @@ Only include actual company/product names, not generic terms. Set confidence bas
 
   /**
    * Save detected competitors to database
+   * Status values: 'proposed' (auto-detected), 'tracking' (user approved), 'denied' (user rejected)
    */
   async saveDetectedCompetitors(
     organizationId: string,
-    brandName: string,
+    productId: string,
     detectedCompetitors: DetectedCompetitor[]
   ): Promise<{ added: number; updated: number }> {
     let added = 0
@@ -252,16 +253,16 @@ Only include actual company/product names, not generic terms. Set confidence bas
       // Skip low confidence detections
       if (competitor.confidence < 50) continue
 
-      // Check if competitor already exists
+      // Check if competitor already exists for this product (by name, case-insensitive)
       const { data: existing } = await this.supabase
         .from('competitors')
-        .select('id, detection_count')
-        .eq('organization_id', organizationId)
+        .select('id, detection_count, status')
+        .eq('product_id', productId)
         .ilike('name', competitor.name)
         .single()
 
       if (existing) {
-        // Update detection count
+        // Only update detection count, don't change status (user may have already reviewed)
         await this.supabase
           .from('competitors')
           .update({
@@ -271,18 +272,19 @@ Only include actual company/product names, not generic terms. Set confidence bas
           .eq('id', existing.id)
         updated++
       } else {
-        // Insert new competitor as pending (needs manual confirmation for high confidence)
+        // Insert new competitor as 'proposed' (auto-detected, pending user review)
         const { error } = await this.supabase
           .from('competitors')
           .insert({
             organization_id: organizationId,
+            product_id: productId,
             name: competitor.name,
             domain: competitor.domain,
             is_auto_detected: true,
             detection_confidence: competitor.confidence,
             detection_context: competitor.context,
             detection_count: 1,
-            status: competitor.confidence >= 80 ? 'pending_review' : 'suggested',
+            status: 'proposed',
             last_detected_at: new Date().toISOString()
           })
 
@@ -294,45 +296,34 @@ Only include actual company/product names, not generic terms. Set confidence bas
   }
 
   /**
-   * Get competitors pending review
+   * Get proposed competitors pending review
    */
-  async getPendingCompetitors(organizationId: string): Promise<any[]> {
+  async getProposedCompetitors(productId: string): Promise<any[]> {
     const { data } = await this.supabase
       .from('competitors')
       .select('*')
-      .eq('organization_id', organizationId)
-      .eq('is_auto_detected', true)
-      .in('status', ['pending_review', 'suggested'])
+      .eq('product_id', productId)
+      .eq('status', 'proposed')
       .order('detection_count', { ascending: false })
 
     return data || []
   }
 
   /**
-   * Approve or reject auto-detected competitor
+   * Approve or deny a proposed competitor
+   * approved=true -> status='tracking', approved=false -> status='denied'
    */
   async reviewCompetitor(
     competitorId: string,
     approved: boolean
   ): Promise<void> {
-    if (approved) {
-      await this.supabase
-        .from('competitors')
-        .update({
-          status: 'active',
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', competitorId)
-    } else {
-      // Mark as rejected
-      await this.supabase
-        .from('competitors')
-        .update({
-          status: 'rejected',
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', competitorId)
-    }
+    await this.supabase
+      .from('competitors')
+      .update({
+        status: approved ? 'tracking' : 'denied',
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', competitorId)
   }
 
   // Helper methods
