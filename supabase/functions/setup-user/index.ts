@@ -65,29 +65,39 @@ serve(async (req) => {
       .single()
 
     if (existingProfile?.organization_id) {
-      // User already has org, return existing data
+      // User already has org reference, verify it exists
       const { data: existingOrg } = await supabaseAdmin
         .from('organizations')
         .select('*')
         .eq('id', existingProfile.organization_id)
         .single()
 
-      const { data: products } = await supabaseAdmin
-        .from('products')
-        .select('*')
-        .eq('organization_id', existingProfile.organization_id)
-        .eq('is_active', true)
+      // If organization exists, return it
+      if (existingOrg) {
+        const { data: products } = await supabaseAdmin
+          .from('products')
+          .select('*')
+          .eq('organization_id', existingProfile.organization_id)
+          .eq('is_active', true)
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          organization: existingOrg,
-          hasProducts: (products?.length || 0) > 0,
-          products: products || [],
-          isExisting: true
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+        return new Response(
+          JSON.stringify({
+            success: true,
+            organization: existingOrg,
+            hasProducts: (products?.length || 0) > 0,
+            products: products || [],
+            isExisting: true
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Organization was deleted - clear the stale reference and create new one
+      console.log(`User ${user.id} has stale organization_id ${existingProfile.organization_id}, creating new org`)
+      await supabaseAdmin
+        .from('profiles')
+        .update({ organization_id: null, active_organization_id: null })
+        .eq('id', user.id)
     }
 
     // Extract name from email for organization name

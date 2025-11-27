@@ -1,6 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import OpenAI from 'https://esm.sh/openai@4'
-import { incrementUsage } from '../_shared/plan-limits.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,14 +23,6 @@ interface ScanResult {
     hadWebSearch?: boolean
     responseTimeMs: number
   }
-}
-
-interface AIEvaluation {
-  brandMentioned: boolean
-  position: number | null
-  sentiment: 'positive' | 'neutral' | 'negative'
-  competitorMentions: string[]
-  summary: string
 }
 
 Deno.serve(async (req) => {
@@ -110,40 +100,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get competitors for this product
-    const { data: competitors } = await supabaseAdmin
-      .from('competitors')
-      .select('id, name')
-      .eq('product_id', result.productId)
-      .eq('is_active', true)
-
-    const competitorNames = competitors?.map(c => c.name) || []
-
-    // Evaluate response with AI
-    let aiEvaluation: AIEvaluation | null = null
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-
-    if (openaiApiKey && result.responseText) {
-      try {
-        aiEvaluation = await evaluateResponseWithAI(
-          result.responseText,
-          product.name,
-          competitorNames,
-          openaiApiKey
-        )
-        console.log('AI Evaluation result:', aiEvaluation)
-      } catch (evalError) {
-        console.error('AI evaluation failed, using extension values:', evalError)
-      }
-    }
-
-    // Use AI evaluation if available, otherwise fall back to extension's analysis
-    const brandMentioned = aiEvaluation?.brandMentioned ?? result.brandMentioned
-    const position = aiEvaluation?.position ?? result.position
-    const sentiment = aiEvaluation?.sentiment ?? result.sentiment
-    const competitorMentions = aiEvaluation?.competitorMentions ?? result.competitorMentions
-
-    // Insert prompt result
+    // Save raw result immediately (no AI evaluation - that's done async by worker)
+    // Use extension's basic analysis for now, worker will override with AI evaluation
     const { data: promptResult, error: insertError } = await supabaseAdmin
       .from('prompt_results')
       .insert({
@@ -153,15 +111,15 @@ Deno.serve(async (req) => {
         scan_session_id: result.scanSessionId || null,
         ai_model: result.platform,
         response_text: result.responseText,
-        brand_mentioned: brandMentioned,
+        brand_mentioned: result.brandMentioned,  // Extension's basic detection
         citation_present: result.citationPresent,
-        position: position,
-        sentiment: sentiment,
-        competitor_mentions: competitorMentions,
+        position: result.position,  // Extension's basic detection
+        sentiment: result.sentiment,  // Extension's basic detection
+        competitor_mentions: result.competitorMentions,
         metadata: {
           ...result.metadata,
-          aiEvaluated: !!aiEvaluation,
-          evaluationSummary: aiEvaluation?.summary
+          aiEvaluated: false,  // Mark as not yet evaluated by AI
+          source: 'extension'
         },
         source: 'extension',
         tested_at: new Date().toISOString()
@@ -193,29 +151,22 @@ Deno.serve(async (req) => {
         .insert(citationsToInsert)
     }
 
-    // Insert competitor mentions if present
-    if (competitorMentions && competitorMentions.length > 0 && competitors) {
-      // Get competitor IDs for the mentioned names
-      const mentionedCompetitors = competitors.filter(c =>
-        competitorMentions.some(m => m.toLowerCase() === c.name.toLowerCase())
-      )
+    // Queue a job for AI evaluation (async processing by worker)
+    const { error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .insert({
+        organization_id: organizationId,
+        product_id: result.productId,
+        job_type: 'prompt_evaluation',
+        status: 'queued',
+        metadata: {
+          promptResultId: promptResult.id
+        }
+      })
 
-      if (mentionedCompetitors.length > 0) {
-        const mentionsToInsert = mentionedCompetitors.map(competitor => ({
-          organization_id: organizationId,
-          product_id: result.productId,
-          competitor_id: competitor.id,
-          prompt_result_id: promptResult.id,
-          ai_model: result.platform,
-          mention_context: extractMentionContext(result.responseText, competitor.name),
-          sentiment: sentiment,
-          detected_at: new Date().toISOString()
-        }))
-
-        await supabaseAdmin
-          .from('competitor_mentions')
-          .insert(mentionsToInsert)
-      }
+    if (jobError) {
+      console.error('Error queueing evaluation job:', jobError)
+      // Don't fail the request - result is saved, evaluation can be retried
     }
 
     // Update extension session's last scan time
@@ -235,13 +186,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         resultId: promptResult.id,
-        message: 'Scan result saved successfully',
-        evaluation: aiEvaluation ? {
-          brandMentioned,
-          position,
-          sentiment,
-          competitorMentions
-        } : null
+        message: 'Scan result saved, AI evaluation queued',
+        queued: !jobError
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -269,75 +215,4 @@ function isBrandSource(url: string, productDomain: string): boolean {
   const citationDomain = extractDomain(url).toLowerCase()
   const brandDomain = productDomain.toLowerCase().replace('www.', '')
   return citationDomain.includes(brandDomain) || brandDomain.includes(citationDomain)
-}
-
-function extractMentionContext(text: string, name: string): string {
-  const index = text.toLowerCase().indexOf(name.toLowerCase())
-  if (index === -1) return ''
-
-  const start = Math.max(0, index - 100)
-  const end = Math.min(text.length, index + name.length + 100)
-  return text.slice(start, end)
-}
-
-/**
- * Evaluate AI response using OpenAI to determine brand mention, position, sentiment, and competitors
- */
-async function evaluateResponseWithAI(
-  responseText: string,
-  productName: string,
-  competitorNames: string[],
-  apiKey: string
-): Promise<AIEvaluation> {
-  const openai = new OpenAI({ apiKey })
-
-  const prompt = `Analyze this AI-generated response and determine:
-
-1. **Brand Mentioned**: Is "${productName}" (or clear variations of it) mentioned in the response? Answer true or false.
-
-2. **Position**: If "${productName}" is mentioned in a numbered or bulleted list of recommendations/options, what position is it in? Answer with the number (1, 2, 3, etc.) or null if not in a list.
-
-3. **Sentiment**: What is the overall sentiment toward "${productName}" in this response? Answer: "positive", "negative", or "neutral".
-
-4. **Competitor Mentions**: Which of these competitors are mentioned: ${competitorNames.join(', ')}? List only the ones that are mentioned.
-
-5. **Summary**: Provide a brief (1-2 sentence) summary of how "${productName}" is portrayed in this response.
-
-Response to analyze:
-"""
-${responseText.slice(0, 3000)}
-"""
-
-Respond in this exact JSON format:
-{
-  "brandMentioned": true/false,
-  "position": number or null,
-  "sentiment": "positive" | "neutral" | "negative",
-  "competitorMentions": ["competitor1", "competitor2"],
-  "summary": "Brief summary"
-}`
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.1,
-    max_tokens: 500,
-    response_format: { type: 'json_object' }
-  })
-
-  const responseContent = completion.choices[0]?.message?.content || '{}'
-
-  try {
-    const parsed = JSON.parse(responseContent)
-    return {
-      brandMentioned: !!parsed.brandMentioned,
-      position: typeof parsed.position === 'number' ? parsed.position : null,
-      sentiment: ['positive', 'negative', 'neutral'].includes(parsed.sentiment) ? parsed.sentiment : 'neutral',
-      competitorMentions: Array.isArray(parsed.competitorMentions) ? parsed.competitorMentions : [],
-      summary: parsed.summary || ''
-    }
-  } catch {
-    console.error('Failed to parse AI evaluation response:', responseContent)
-    throw new Error('Invalid AI evaluation response')
-  }
 }

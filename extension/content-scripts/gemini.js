@@ -87,6 +87,8 @@ class GeminiCapture {
       const position = this.findBrandPosition(responseText, brand)
       const sentiment = this.analyzeSentiment(responseText, brand)
 
+      const hadWebSearch = this.detectWebSearch(citations, responseText)
+
       return {
         responseText,
         brandMentioned,
@@ -95,7 +97,7 @@ class GeminiCapture {
         position,
         sentiment,
         modelUsed: 'Gemini',
-        hadWebSearch: citations.length > 0,
+        hadWebSearch,
         responseTimeMs
       }
     } finally {
@@ -209,33 +211,89 @@ class GeminiCapture {
 
   async waitForResponseComplete(timeout = 120000) {
     const start = Date.now()
+    let lastTextLength = 0
+    let stableCount = 0
+    const requiredStableChecks = 3
 
     // Wait for response to start appearing
-    await this.delay(2000)
+    console.log('Columbus Gemini: Waiting for response to start...')
+    await this.delay(3000)
 
     while (Date.now() - start < timeout) {
       // Check for stop/loading indicators
       const isGenerating = document.querySelector('[data-test-id="stop-button"]') ||
                            document.querySelector('button[aria-label="Stop"]') ||
                            document.querySelector('.loading-dots') ||
-                           document.querySelector('[class*="thinking"]')
+                           document.querySelector('[class*="thinking"]') ||
+                           document.querySelector('[class*="loading"]')
 
-      if (!isGenerating) {
-        // Verify we have a response
-        const response = document.querySelector('.model-response-text') ||
-                         document.querySelector('message-content') ||
-                         document.querySelector('[data-message-id]')
+      // Get current response text
+      const currentText = this.getCurrentResponseText()
+      const currentLength = currentText.length
 
-        if (response) {
-          await this.delay(1000) // Final render wait
-          return this.extractLatestResponse()
+      console.log('Columbus Gemini: Response check - generating:', !!isGenerating, 'textLength:', currentLength, 'stable:', stableCount)
+
+      // If generating indicators present, reset stability
+      if (isGenerating) {
+        stableCount = 0
+        lastTextLength = currentLength
+        await this.delay(1000)
+        continue
+      }
+
+      // Check text stability
+      if (currentLength > 50) {
+        if (currentLength === lastTextLength) {
+          stableCount++
+          console.log('Columbus Gemini: Text stable, count:', stableCount)
+
+          if (stableCount >= requiredStableChecks) {
+            console.log('Columbus Gemini: Response complete, length:', currentLength)
+            await this.delay(500)
+            return currentText
+          }
+        } else {
+          stableCount = 0
+          lastTextLength = currentLength
         }
       }
 
-      await this.delay(500)
+      await this.delay(1000)
+    }
+
+    // Timeout - return whatever we have
+    console.log('Columbus Gemini: Timeout reached, returning current response')
+    const finalText = this.getCurrentResponseText()
+    if (finalText.length > 50) {
+      return finalText
     }
 
     throw new Error('Response timeout')
+  }
+
+  getCurrentResponseText() {
+    // Get current response text for stability checking
+    const responseSelectors = [
+      '.model-response-text',
+      'message-content',
+      '[data-message-author-role="model"]',
+      '.response-content',
+      '[class*="model"]',
+      '[class*="response"]'
+    ]
+
+    for (const selector of responseSelectors) {
+      const elements = document.querySelectorAll(selector)
+      if (elements.length > 0) {
+        const lastResponse = elements[elements.length - 1]
+        const text = lastResponse.innerText || lastResponse.textContent || ''
+        if (text.length > 20) {
+          return text
+        }
+      }
+    }
+
+    return ''
   }
 
   extractLatestResponse() {
@@ -368,6 +426,63 @@ class GeminiCapture {
     if (positiveCount > negativeCount) return 'positive'
     if (negativeCount > positiveCount) return 'negative'
     return 'neutral'
+  }
+
+  detectWebSearch(citations, responseText) {
+    // Check if Gemini used Google Search grounding
+
+    // 1. Check for citations (most reliable indicator)
+    if (citations && citations.length > 0) {
+      console.log('Columbus Gemini: Web search detected via citations')
+      return true
+    }
+
+    // 2. Look for "Google Search" grounding indicators in the UI
+    const searchIndicators = [
+      '[data-test-id="grounding-chip"]',
+      '[class*="grounding"]',
+      '[class*="source-chip"]',
+      '[class*="web-result"]',
+      '.source-card',
+      '[data-test-id="search-grounding"]'
+    ]
+
+    for (const selector of searchIndicators) {
+      if (document.querySelector(selector)) {
+        console.log('Columbus Gemini: Web search detected via UI indicator:', selector)
+        return true
+      }
+    }
+
+    // 3. Check for "From the web" or similar sections
+    const webSections = document.querySelectorAll('[class*="source"], [class*="reference"]')
+    for (const section of webSections) {
+      const text = section.innerText || ''
+      if (text.includes('From the web') || text.includes('Sources') || text.includes('Learn more')) {
+        console.log('Columbus Gemini: Web search detected via source section')
+        return true
+      }
+    }
+
+    // 4. Check response text for grounding indicators
+    if (responseText) {
+      const webSearchPatterns = [
+        /according to.*search/i,
+        /based on.*web/i,
+        /from.*google.*search/i,
+        /\[\d+\]/  // Citation markers
+      ]
+
+      for (const pattern of webSearchPatterns) {
+        if (pattern.test(responseText)) {
+          console.log('Columbus Gemini: Web search detected via text pattern')
+          return true
+        }
+      }
+    }
+
+    console.log('Columbus Gemini: No web search detected')
+    return false
   }
 
   delay(ms) {

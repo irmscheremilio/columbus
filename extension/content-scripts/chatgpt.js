@@ -97,6 +97,8 @@ class ChatGPTCapture {
       const position = this.findBrandPosition(responseText, brand)
       const sentiment = this.analyzeSentiment(responseText, brand)
 
+      const hadWebSearch = this.detectWebSearch(citations)
+
       return {
         responseText,
         brandMentioned,
@@ -105,7 +107,7 @@ class ChatGPTCapture {
         position,
         sentiment,
         modelUsed: this.detectModel(),
-        hadWebSearch: citations.length > 0,
+        hadWebSearch,
         responseTimeMs
       }
     } finally {
@@ -197,49 +199,97 @@ class ChatGPTCapture {
 
   async waitForResponseComplete(timeout = 120000) {
     const start = Date.now()
+    let lastTextLength = 0
+    let stableCount = 0
+    const requiredStableChecks = 3
 
-    // Wait for response to start
-    await this.delay(2000)
+    // Wait for response to start appearing
+    console.log('Columbus ChatGPT: Waiting for response to start...')
+    await this.delay(3000)
 
     while (Date.now() - start < timeout) {
       // Check if still generating (stop button visible)
       const stopBtn = document.querySelector('[data-testid="stop-button"]') ||
-                      document.querySelector('[aria-label="Stop generating"]')
+                      document.querySelector('[aria-label="Stop generating"]') ||
+                      document.querySelector('button[aria-label="Stop"]')
 
-      if (!stopBtn) {
-        // Response might be complete, wait a bit more and verify
+      // Also check for streaming indicator
+      const isStreaming = document.querySelector('[class*="result-streaming"]') ||
+                          document.querySelector('[class*="streaming"]')
+
+      // Get current response text
+      const currentText = this.getCurrentResponseText()
+      const currentLength = currentText.length
+
+      console.log('Columbus ChatGPT: Response check - stopBtn:', !!stopBtn, 'streaming:', !!isStreaming, 'textLength:', currentLength, 'stable:', stableCount)
+
+      // If stop button visible or streaming, reset stability
+      if (stopBtn || isStreaming) {
+        stableCount = 0
+        lastTextLength = currentLength
         await this.delay(1000)
+        continue
+      }
 
-        const stillGenerating = document.querySelector('[data-testid="stop-button"]') ||
-                               document.querySelector('[aria-label="Stop generating"]')
+      // Check text stability
+      if (currentLength > 50) {
+        if (currentLength === lastTextLength) {
+          stableCount++
+          console.log('Columbus ChatGPT: Text stable, count:', stableCount)
 
-        if (!stillGenerating) {
-          return this.extractLatestResponse()
+          if (stableCount >= requiredStableChecks) {
+            console.log('Columbus ChatGPT: Response complete, length:', currentLength)
+            await this.delay(500)
+            return currentText
+          }
+        } else {
+          stableCount = 0
+          lastTextLength = currentLength
         }
       }
 
-      await this.delay(500)
+      await this.delay(1000)
+    }
+
+    // Timeout - return whatever we have
+    console.log('Columbus ChatGPT: Timeout reached, returning current response')
+    const finalText = this.getCurrentResponseText()
+    if (finalText.length > 50) {
+      return finalText
     }
 
     throw new Error('Response timeout')
   }
 
-  extractLatestResponse() {
-    // Find all assistant messages
+  getCurrentResponseText() {
+    // Get current response text for stability checking
     const messageSelectors = [
       '[data-message-author-role="assistant"]',
       '.agent-turn .markdown',
-      '.group\\/conversation-turn:last-child .markdown'
+      '.group\\/conversation-turn:last-child .markdown',
+      '[class*="markdown"]',
+      '.prose'
     ]
 
     for (const selector of messageSelectors) {
       const messages = document.querySelectorAll(selector)
       if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1]
-        return lastMessage.innerText || lastMessage.textContent || ''
+        const text = lastMessage.innerText || lastMessage.textContent || ''
+        if (text.length > 20) {
+          return text
+        }
       }
     }
 
+    return ''
+  }
+
+  extractLatestResponse() {
+    const text = this.getCurrentResponseText()
+    if (text.length > 20) {
+      return text
+    }
     throw new Error('No response found')
   }
 
@@ -359,6 +409,62 @@ class ChatGPTCapture {
     }
 
     return 'ChatGPT'
+  }
+
+  detectWebSearch(citations) {
+    // Check if web search was used during this response
+
+    // 1. Check for citations (most reliable indicator)
+    if (citations && citations.length > 0) {
+      console.log('Columbus ChatGPT: Web search detected via citations')
+      return true
+    }
+
+    // 2. Look for "Searched X sites" or "Browsing the web" indicators
+    const searchIndicators = [
+      '[data-testid="browse-results"]',
+      '[class*="browse"]',
+      '[class*="search-result"]',
+      '[data-testid="web-search"]'
+    ]
+
+    for (const selector of searchIndicators) {
+      if (document.querySelector(selector)) {
+        console.log('Columbus ChatGPT: Web search detected via UI indicator:', selector)
+        return true
+      }
+    }
+
+    // 3. Check response text for web search indicators
+    const responseEl = document.querySelector('[data-message-author-role="assistant"]:last-of-type')
+    if (responseEl) {
+      const text = responseEl.innerText || ''
+      // ChatGPT often says "According to..." or "Based on..." when using web search
+      // Also look for inline citation markers like [1], [2]
+      const webSearchPatterns = [
+        /\[\d+\]/,  // Citation markers like [1], [2]
+        /searched.*web/i,
+        /browsed.*web/i,
+        /according to.*sources/i
+      ]
+
+      for (const pattern of webSearchPatterns) {
+        if (pattern.test(text)) {
+          console.log('Columbus ChatGPT: Web search detected via text pattern')
+          return true
+        }
+      }
+    }
+
+    // 4. Check for source cards/chips in the response
+    const sourceCards = document.querySelectorAll('[data-testid="citation"], [class*="source-card"], [class*="citation"]')
+    if (sourceCards.length > 0) {
+      console.log('Columbus ChatGPT: Web search detected via source cards')
+      return true
+    }
+
+    console.log('Columbus ChatGPT: No web search detected')
+    return false
   }
 
   delay(ms) {

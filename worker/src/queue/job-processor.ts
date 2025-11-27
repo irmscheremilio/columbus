@@ -5,6 +5,7 @@ import { competitorAnalysisQueue } from './competitor-analysis.js'
 import { visibilityScanQueue } from './visibility-scanner.js'
 import { freshnessCheckQueue } from './freshness-checker.js'
 import { reportGenerationQueue } from './report-generator.js'
+import { promptEvaluationQueue } from './prompt-evaluation.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -153,6 +154,13 @@ class JobProcessor {
           reportType: job.metadata.reportType || 'executive_summary',
           periodDays: job.metadata.periodDays || 30,
           email: job.metadata.email,
+          jobId: job.id
+        })
+        break
+
+      case 'prompt_evaluation':
+        await promptEvaluationQueue.add('evaluate', {
+          promptResultId: job.metadata.promptResultId,
           jobId: job.id
         })
         break

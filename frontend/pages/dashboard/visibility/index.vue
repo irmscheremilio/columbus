@@ -107,6 +107,7 @@
                 <th class="text-left px-4 py-3 font-medium">Prompt</th>
                 <th class="text-center px-4 py-3 font-medium">Mentioned</th>
                 <th class="text-center px-4 py-3 font-medium hidden sm:table-cell">Cited</th>
+                <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Web</th>
                 <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Position</th>
                 <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Sentiment</th>
                 <th class="text-right px-4 py-3 font-medium">Date</th>
@@ -141,6 +142,15 @@
                     :class="result.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
                   >
                     {{ result.citation_present ? '✓' : '−' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-center hidden md:table-cell">
+                  <span
+                    class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs"
+                    :class="result.metadata?.hadWebSearch ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-400'"
+                    :title="result.metadata?.hadWebSearch ? 'Web search was used' : 'No web search'"
+                  >
+                    {{ result.metadata?.hadWebSearch ? '🌐' : '−' }}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center hidden md:table-cell text-gray-600 font-medium">
@@ -206,6 +216,12 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
                 <span class="text-xs font-medium">{{ selectedResult.citation_present ? 'Citation Found' : 'No Citation' }}</span>
+              </div>
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="selectedResult.metadata?.hadWebSearch ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-500'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <span class="text-xs font-medium">{{ selectedResult.metadata?.hadWebSearch ? 'Web Search Used' : 'No Web Search' }}</span>
               </div>
               <div v-if="selectedResult.position" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700">
                 <span class="text-xs font-medium">Position #{{ selectedResult.position }}</span>

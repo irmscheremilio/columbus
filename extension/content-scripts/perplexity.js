@@ -75,50 +75,43 @@ class PerplexityCapture {
       // Wait a bit longer for Perplexity to fully load
       await this.delay(2000)
 
-      // Find search input - try multiple selectors
+      // Find search input - Perplexity uses a contenteditable div with id="ask-input"
       console.log('Columbus Perplexity: Looking for input field...')
 
       let input = await this.waitForElement([
+        '#ask-input',                              // Main input field ID
+        '[data-lexical-editor="true"]',            // Lexical editor attribute
+        '[role="textbox"][contenteditable="true"]', // Textbox role
+        '[contenteditable="true"][data-lexical-editor]',
         'textarea[placeholder*="Ask"]',
         'textarea[placeholder*="ask"]',
-        'textarea[placeholder*="anything"]',
-        'textarea[placeholder*="Search"]',
-        'textarea[placeholder*="search"]',
-        'input[placeholder*="Ask"]',
         '[data-testid="search-input"]',
-        '[data-testid="query-input"]',
-        'textarea[class*="search"]',
-        'textarea[class*="input"]',
-        'textarea[rows]',
-        'textarea'
+        '[data-testid="query-input"]'
       ], 15000)
 
       if (!input) {
-        // Try to find any textarea on the page
-        console.log('Columbus Perplexity: Primary selectors failed, scanning page...')
+        // Fallback: scan for contenteditable elements
+        console.log('Columbus Perplexity: Primary selectors failed, scanning for contenteditable...')
         console.log('Columbus Perplexity: Current URL:', window.location.href)
-        console.log('Columbus Perplexity: Page title:', document.title)
 
-        // Log what elements exist
-        const textareas = document.querySelectorAll('textarea')
-        console.log('Columbus Perplexity: Found', textareas.length, 'textarea elements')
+        const editables = document.querySelectorAll('[contenteditable="true"]')
+        console.log('Columbus Perplexity: Found', editables.length, 'contenteditable elements')
 
-        const inputs = document.querySelectorAll('input[type="text"], input:not([type])')
-        console.log('Columbus Perplexity: Found', inputs.length, 'text input elements')
-
-        // Try textareas
-        for (const ta of textareas) {
-          console.log('Columbus Perplexity: Textarea:', ta.placeholder, ta.className, 'visible:', ta.offsetParent !== null)
-          if (ta.offsetParent !== null) {
-            input = ta
-            break
+        for (const ed of editables) {
+          // Look for the input that's visible and has lexical editor or is inside the input area
+          if (ed.offsetParent !== null) {
+            const isLexical = ed.hasAttribute('data-lexical-editor')
+            const hasPlaceholder = ed.getAttribute('aria-placeholder') || ed.closest('[aria-placeholder]')
+            console.log('Columbus Perplexity: Contenteditable:', ed.id, 'lexical:', isLexical, 'placeholder:', hasPlaceholder)
+            if (isLexical || ed.id === 'ask-input') {
+              input = ed
+              break
+            }
           }
         }
 
-        // Try contenteditable
+        // Last fallback: any visible contenteditable
         if (!input) {
-          const editables = document.querySelectorAll('[contenteditable="true"]')
-          console.log('Columbus Perplexity: Found', editables.length, 'contenteditable elements')
           for (const ed of editables) {
             if (ed.offsetParent !== null) {
               input = ed
@@ -129,12 +122,11 @@ class PerplexityCapture {
       }
 
       if (!input) {
-        // Last resort: screenshot the page state for debugging
-        console.log('Columbus Perplexity: Page HTML preview:', document.body.innerHTML.substring(0, 2000))
+        console.log('Columbus Perplexity: Could not find input field')
         throw new Error('Could not find search input')
       }
 
-      console.log('Columbus Perplexity: Found input:', input.tagName, input.placeholder || input.className)
+      console.log('Columbus Perplexity: Found input:', input.tagName, input.id || input.className)
 
       // Type the prompt
       await this.typeIntoInput(input, promptText)
@@ -154,6 +146,10 @@ class PerplexityCapture {
       const position = this.findBrandPosition(responseText, brand)
       const sentiment = this.analyzeSentiment(responseText, brand)
 
+      // Perplexity always uses web search, but track if sources were actually found
+      const hadWebSearch = true
+      const sourcesFound = citations.length
+
       return {
         responseText,
         brandMentioned,
@@ -162,7 +158,8 @@ class PerplexityCapture {
         position,
         sentiment,
         modelUsed: 'Perplexity',
-        hadWebSearch: true, // Perplexity always uses web search
+        hadWebSearch,
+        sourcesFound, // Additional metric: how many sources were cited
         responseTimeMs
       }
     } finally {
@@ -218,8 +215,62 @@ class PerplexityCapture {
 
   async typeIntoInput(element, text) {
     element.focus()
+    await this.delay(100)
 
-    // Clear existing
+    // Handle Lexical editor (contenteditable with data-lexical-editor)
+    if (element.hasAttribute('data-lexical-editor') || element.getAttribute('contenteditable') === 'true') {
+      console.log('Columbus Perplexity: Typing into Lexical/contenteditable editor')
+
+      // Clear existing content
+      element.innerHTML = ''
+
+      // For Lexical, we need to simulate actual keyboard input
+      // First, try setting text content directly
+      const p = document.createElement('p')
+      p.textContent = text
+      element.appendChild(p)
+
+      // Dispatch input event
+      element.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: text
+      }))
+
+      // Also try beforeinput for Lexical
+      element.dispatchEvent(new InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: text
+      }))
+
+      await this.delay(200)
+
+      // If the content didn't stick, try character by character
+      if (!element.textContent || element.textContent.trim() === '') {
+        console.log('Columbus Perplexity: Direct insert failed, trying character-by-character')
+        element.focus()
+
+        for (const char of text) {
+          // Simulate keydown, keypress, input, keyup sequence
+          element.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }))
+          element.dispatchEvent(new KeyboardEvent('keypress', { key: char, bubbles: true }))
+          element.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: char
+          }))
+          element.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }))
+          await this.delay(10)
+        }
+      }
+
+      return
+    }
+
+    // Handle regular textarea/input
     if (element.tagName === 'TEXTAREA' || element.tagName === 'INPUT') {
       element.value = ''
       element.dispatchEvent(new Event('input', { bubbles: true }))
@@ -230,64 +281,146 @@ class PerplexityCapture {
         element.dispatchEvent(new Event('input', { bubbles: true }))
         await this.delay(15 + Math.random() * 25)
       }
-    } else {
-      // Contenteditable
-      element.textContent = text
-      element.dispatchEvent(new Event('input', { bubbles: true }))
     }
   }
 
   async submitSearch(input) {
-    // Try clicking submit button first
-    const submitBtn = document.querySelector('[data-testid="submit-button"]') ||
-                      document.querySelector('button[aria-label="Submit"]') ||
-                      document.querySelector('button[type="submit"]')
+    // Wait a moment for the submit button to become enabled
+    await this.delay(500)
 
-    if (submitBtn && !submitBtn.disabled) {
-      submitBtn.click()
-    } else {
-      // Press Enter
-      input.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        keyCode: 13,
-        which: 13,
-        bubbles: true
-      }))
+    // Try clicking submit button first
+    const submitBtnSelectors = [
+      '[data-testid="submit-button"]:not([disabled])',
+      'button[aria-label="Submit"]:not([disabled])',
+      'button[type="submit"]:not([disabled])'
+    ]
+
+    for (const selector of submitBtnSelectors) {
+      const btn = document.querySelector(selector)
+      if (btn) {
+        console.log('Columbus Perplexity: Clicking submit button:', selector)
+        btn.click()
+        return
+      }
     }
+
+    // Check if submit is disabled (need to wait for content)
+    const disabledSubmit = document.querySelector('[data-testid="submit-button"]')
+    if (disabledSubmit && disabledSubmit.disabled) {
+      console.log('Columbus Perplexity: Submit button is disabled, waiting...')
+      await this.delay(500)
+
+      // Try again
+      const btn = document.querySelector('[data-testid="submit-button"]:not([disabled])')
+      if (btn) {
+        btn.click()
+        return
+      }
+    }
+
+    // Fallback: Press Enter
+    console.log('Columbus Perplexity: Using Enter key to submit')
+    input.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true
+    }))
   }
 
   async waitForResponseComplete(timeout = 120000) {
     const start = Date.now()
+    let lastTextLength = 0
+    let stableCount = 0
+    const requiredStableChecks = 3 // Text must be stable for 3 consecutive checks
 
-    // Wait for response to start
+    // Wait for response to start appearing
+    console.log('Columbus Perplexity: Waiting for response to start...')
     await this.delay(3000)
 
     while (Date.now() - start < timeout) {
       // Check for loading/streaming indicators
       const isLoading = document.querySelector('[data-testid="loading"]') ||
                         document.querySelector('.animate-pulse') ||
-                        document.querySelector('[data-loading="true"]')
+                        document.querySelector('[data-loading="true"]') ||
+                        document.querySelector('[class*="loading"]') ||
+                        document.querySelector('[class*="streaming"]')
 
-      // Check for stop button
+      // Check for stop button (visible while generating)
       const stopBtn = document.querySelector('[aria-label="Stop"]') ||
-                      document.querySelector('button[data-testid="stop-button"]')
+                      document.querySelector('[aria-label="Stop generating"]') ||
+                      document.querySelector('button[data-testid="stop-button"]') ||
+                      document.querySelector('button[class*="stop"]')
 
-      if (!isLoading && !stopBtn) {
-        // Check if we have content
-        const hasContent = document.querySelector('.prose') ||
-                           document.querySelector('[data-testid="answer-content"]')
+      // Get current response text length
+      const currentText = this.getCurrentResponseText()
+      const currentLength = currentText.length
 
-        if (hasContent) {
-          await this.delay(1000) // Wait for any final rendering
-          return this.extractLatestResponse()
+      console.log('Columbus Perplexity: Response check - loading:', !!isLoading, 'stopBtn:', !!stopBtn, 'textLength:', currentLength, 'stable:', stableCount)
+
+      // If there's a stop button or loading indicator, response is still generating
+      if (stopBtn || isLoading) {
+        stableCount = 0
+        lastTextLength = currentLength
+        await this.delay(1000)
+        continue
+      }
+
+      // Check if we have content and it's stable
+      if (currentLength > 50) {
+        if (currentLength === lastTextLength) {
+          stableCount++
+          console.log('Columbus Perplexity: Text stable, count:', stableCount)
+
+          if (stableCount >= requiredStableChecks) {
+            // Text has been stable for multiple checks, response is complete
+            console.log('Columbus Perplexity: Response complete, length:', currentLength)
+            await this.delay(500) // Final render wait
+            return currentText
+          }
+        } else {
+          // Text is still changing
+          stableCount = 0
+          lastTextLength = currentLength
         }
       }
 
-      await this.delay(500)
+      await this.delay(1000)
+    }
+
+    // Timeout - return whatever we have
+    console.log('Columbus Perplexity: Timeout reached, returning current response')
+    const finalText = this.getCurrentResponseText()
+    if (finalText.length > 50) {
+      return finalText
     }
 
     throw new Error('Response timeout')
+  }
+
+  getCurrentResponseText() {
+    // Get the current response text for stability checking
+    const answerSelectors = [
+      '[data-testid="answer-content"]',
+      '.prose',
+      '.markdown',
+      '[class*="answer"]',
+      '[class*="response"]'
+    ]
+
+    for (const selector of answerSelectors) {
+      const elements = document.querySelectorAll(selector)
+      if (elements.length > 0) {
+        const answer = elements[elements.length - 1]
+        const text = answer.innerText || answer.textContent || ''
+        if (text.length > 20) {
+          return text
+        }
+      }
+    }
+
+    return ''
   }
 
   extractLatestResponse() {

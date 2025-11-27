@@ -228,34 +228,109 @@ class ClaudeCapture {
 
   async waitForResponseComplete(timeout = 120000) {
     const start = Date.now()
+    let lastTextLength = 0
+    let stableCount = 0
+    const requiredStableChecks = 3
 
-    // Wait for response to start
-    await this.delay(2000)
+    // Wait for response to start appearing
+    console.log('Columbus Claude: Waiting for response to start...')
+    await this.delay(3000)
 
     while (Date.now() - start < timeout) {
       // Check if still generating
       const stopBtn = document.querySelector('[aria-label="Stop response"]') ||
-                      document.querySelector('button:has([data-testid="stop-icon"])')
+                      document.querySelector('[aria-label="Stop"]') ||
+                      document.querySelector('button[class*="stop"]')
 
-      // Check for typing indicator
+      // Check for typing/thinking indicators
       const isTyping = document.querySelector('.typing-indicator') ||
-                       document.querySelector('[data-testid="thinking"]')
+                       document.querySelector('[data-testid="thinking"]') ||
+                       document.querySelector('[class*="thinking"]') ||
+                       document.querySelector('[class*="typing"]') ||
+                       document.querySelector('[class*="loading"]')
 
-      if (!stopBtn && !isTyping) {
-        // Response might be complete
+      // Get current response text
+      const currentText = this.getCurrentResponseText()
+      const currentLength = currentText.length
+
+      console.log('Columbus Claude: Response check - stopBtn:', !!stopBtn, 'typing:', !!isTyping, 'textLength:', currentLength, 'stable:', stableCount)
+
+      // If generating indicators present, reset stability
+      if (stopBtn || isTyping) {
+        stableCount = 0
+        lastTextLength = currentLength
         await this.delay(1000)
+        continue
+      }
 
-        // Double check
-        const stillGenerating = document.querySelector('[aria-label="Stop response"]')
-        if (!stillGenerating) {
-          return this.extractLatestResponse()
+      // Check text stability
+      if (currentLength > 50) {
+        if (currentLength === lastTextLength) {
+          stableCount++
+          console.log('Columbus Claude: Text stable, count:', stableCount)
+
+          if (stableCount >= requiredStableChecks) {
+            console.log('Columbus Claude: Response complete, length:', currentLength)
+            await this.delay(500)
+            return currentText
+          }
+        } else {
+          stableCount = 0
+          lastTextLength = currentLength
         }
       }
 
-      await this.delay(500)
+      await this.delay(1000)
+    }
+
+    // Timeout - return whatever we have
+    console.log('Columbus Claude: Timeout reached, returning current response')
+    const finalText = this.getCurrentResponseText()
+    if (finalText.length > 50) {
+      return finalText
     }
 
     throw new Error('Response timeout')
+  }
+
+  getCurrentResponseText() {
+    // Get current response text for stability checking
+    const messageSelectors = [
+      '[data-testid="message-content"]',
+      '.font-claude-message',
+      '[class*="claude-message"]',
+      '[class*="assistant-message"]',
+      '.prose',
+      'div[class*="markdown"]'
+    ]
+
+    for (const selector of messageSelectors) {
+      const messages = document.querySelectorAll(selector)
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1]
+        const text = lastMessage.innerText || lastMessage.textContent || ''
+        if (text.length > 20) {
+          return text
+        }
+      }
+    }
+
+    // Fallback: scan for substantial text blocks
+    const conversationContainer = document.querySelector('[class*="conversation"]') ||
+                                   document.querySelector('[class*="chat"]') ||
+                                   document.querySelector('main')
+
+    if (conversationContainer) {
+      const textBlocks = conversationContainer.querySelectorAll('div[class]')
+      for (const block of textBlocks) {
+        const text = block.innerText || ''
+        if (text.length > 100 && !block.querySelector('[contenteditable]')) {
+          return text
+        }
+      }
+    }
+
+    return ''
   }
 
   extractLatestResponse() {
