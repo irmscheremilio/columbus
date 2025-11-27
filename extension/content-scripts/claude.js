@@ -67,13 +67,21 @@ class ClaudeCapture {
       await this.typeIntoInput(input, promptText)
       await this.delay(500)
 
-      // Click send button
+      // Click send button or use Enter key
       const sendBtn = await this.findSendButton()
-      if (!sendBtn) {
-        throw new Error('Could not find send button')
+      if (sendBtn) {
+        sendBtn.click()
+      } else {
+        // Fallback: try pressing Enter
+        console.log('Columbus: Send button not found, trying Enter key')
+        input.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          which: 13,
+          bubbles: true
+        }))
       }
-
-      sendBtn.click()
 
       // Wait for response to complete
       const responseText = await this.waitForResponseComplete()
@@ -103,13 +111,29 @@ class ClaudeCapture {
   }
 
   async startNewConversation() {
-    const newChatBtn = document.querySelector('[data-testid="new-chat-button"]') ||
-                       document.querySelector('button[aria-label="New conversation"]') ||
-                       document.querySelector('a[href="/new"]')
+    // Service worker navigates us to /new, so we should already be on a fresh chat
+    // Just wait for the page to be ready
+    console.log('Columbus Claude: Waiting for new conversation page to be ready')
+    await this.delay(500)
 
-    if (newChatBtn) {
-      newChatBtn.click()
-      await this.delay(1500)
+    // If there's an existing conversation somehow, try clicking new chat button
+    if (document.querySelector('[data-message-id]') || document.querySelector('[class*="message"]')) {
+      const newChatSelectors = [
+        '[data-testid="new-chat-button"]',
+        'button[aria-label="New conversation"]',
+        'button[aria-label="New chat"]',
+        'a[href="/new"]'
+      ]
+
+      for (const selector of newChatSelectors) {
+        const btn = document.querySelector(selector)
+        if (btn) {
+          console.log('Columbus Claude: Clicking new chat button')
+          btn.click()
+          await this.delay(2000)
+          return
+        }
+      }
     }
   }
 
@@ -153,11 +177,16 @@ class ClaudeCapture {
   }
 
   async findSendButton() {
+    // Wait briefly for button to become enabled after text input
+    await this.delay(300)
+
     const selectors = [
       'button[aria-label="Send Message"]',
+      'button[aria-label="Send message"]',
       'button[aria-label="Send"]',
       '[data-testid="send-button"]',
-      'button:has(svg[data-testid="send-icon"])'
+      'button[type="button"][class*="send"]',
+      'fieldset button[type="button"]'  // Claude's submit button is often inside a fieldset
     ]
 
     for (const selector of selectors) {
@@ -169,11 +198,28 @@ class ClaudeCapture {
       }
     }
 
-    // Fallback: find button with send icon
-    const buttons = document.querySelectorAll('button')
-    for (const btn of buttons) {
-      if (btn.innerHTML.includes('send') || btn.innerHTML.includes('arrow')) {
-        if (!btn.disabled) return btn
+    // Fallback: find the button near the input area
+    const inputArea = document.querySelector('[contenteditable="true"]') ||
+                      document.querySelector('.ProseMirror')
+    if (inputArea) {
+      const form = inputArea.closest('form') || inputArea.closest('fieldset') || inputArea.parentElement?.parentElement
+      if (form) {
+        const buttons = form.querySelectorAll('button')
+        for (const btn of buttons) {
+          // Look for a button that could be send (not disabled, has icon or specific styling)
+          if (!btn.disabled && btn.querySelector('svg')) {
+            return btn
+          }
+        }
+      }
+    }
+
+    // Last fallback: find any enabled button with arrow/send icon
+    const allButtons = document.querySelectorAll('button:not([disabled])')
+    for (const btn of allButtons) {
+      const svg = btn.querySelector('svg')
+      if (svg && (btn.innerHTML.includes('M') || btn.className.includes('send'))) {
+        return btn
       }
     }
 
@@ -213,30 +259,71 @@ class ClaudeCapture {
   }
 
   extractLatestResponse() {
-    // Find Claude's response
+    // Find Claude's response - try multiple approaches
     const messageSelectors = [
       '[data-testid="message-content"]',
       '.font-claude-message',
       '.message-content.assistant',
-      '.prose'
+      '.prose',
+      // Claude's current UI uses these
+      '[class*="claude-message"]',
+      '[class*="assistant-message"]',
+      '[class*="response"]',
+      'div[class*="markdown"]'
     ]
 
     for (const selector of messageSelectors) {
       const messages = document.querySelectorAll(selector)
       if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1]
-        return lastMessage.innerText || lastMessage.textContent || ''
+        const text = lastMessage.innerText || lastMessage.textContent || ''
+        if (text.length > 20) { // Ensure it's actual content
+          console.log('Columbus Claude: Found response with selector:', selector)
+          return text
+        }
       }
     }
 
-    // Fallback: look for any recent message that's not the user's
-    const allMessages = document.querySelectorAll('[class*="message"]')
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-      const msg = allMessages[i]
-      if (!msg.classList.toString().includes('user') &&
-          !msg.classList.toString().includes('human')) {
-        return msg.innerText || msg.textContent || ''
+    // Try finding by conversation structure - look for message pairs
+    const conversationContainer = document.querySelector('[class*="conversation"]') ||
+                                   document.querySelector('[class*="chat"]') ||
+                                   document.querySelector('main')
+
+    if (conversationContainer) {
+      // Get all text blocks that could be messages
+      const textBlocks = conversationContainer.querySelectorAll('div[class]')
+      let lastLongText = ''
+
+      for (const block of textBlocks) {
+        const text = block.innerText || ''
+        // Look for substantial text that's not the input
+        if (text.length > 100 && !block.querySelector('[contenteditable]') && !block.querySelector('textarea')) {
+          lastLongText = text
+        }
       }
+
+      if (lastLongText) {
+        console.log('Columbus Claude: Found response via conversation scan')
+        return lastLongText
+      }
+    }
+
+    // Last resort: find any div with substantial text content
+    const allDivs = document.querySelectorAll('div')
+    let bestMatch = ''
+    for (const div of allDivs) {
+      const text = div.innerText || ''
+      if (text.length > bestMatch.length && text.length > 200 && text.length < 50000) {
+        // Exclude input areas
+        if (!div.querySelector('[contenteditable]') && !div.closest('[contenteditable]')) {
+          bestMatch = text
+        }
+      }
+    }
+
+    if (bestMatch) {
+      console.log('Columbus Claude: Found response via fallback scan')
+      return bestMatch
     }
 
     throw new Error('No response found')

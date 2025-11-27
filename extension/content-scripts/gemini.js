@@ -104,14 +104,28 @@ class GeminiCapture {
   }
 
   async startNewChat() {
-    // Look for new chat button
-    const newChatBtn = document.querySelector('[data-test-id="new-chat-button"]') ||
-                       document.querySelector('button[aria-label="New chat"]') ||
-                       document.querySelector('a[href="/app"]')
+    // Service worker navigates us to /app, so we should already be on fresh chat
+    console.log('Columbus Gemini: Waiting for new chat page to be ready')
+    await this.delay(500)
 
-    if (newChatBtn) {
-      newChatBtn.click()
-      await this.delay(1500)
+    // If there's an existing conversation, try clicking new chat button
+    if (document.querySelector('[data-message-id]') || document.querySelector('message-content')) {
+      const newChatSelectors = [
+        'button[aria-label="New chat"]',
+        'a[href="/app"]',
+        '[data-test-id="new-chat-button"]',
+        'button[data-test-id="bard-sidenav-new-chat-button"]'
+      ]
+
+      for (const selector of newChatSelectors) {
+        const btn = document.querySelector(selector)
+        if (btn) {
+          console.log('Columbus Gemini: Clicking new chat button')
+          btn.click()
+          await this.delay(2000)
+          return
+        }
+      }
     }
   }
 

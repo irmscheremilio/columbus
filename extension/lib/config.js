@@ -10,7 +10,8 @@ export const CONFIG = {
   API: {
     SCAN_RESULTS: '/functions/v1/extension-scan-results',
     PROMPTS: '/functions/v1/extension-prompts',
-    STATUS: '/functions/v1/extension-status'
+    STATUS: '/functions/v1/extension-status',
+    FINALIZE_SCAN: '/functions/v1/extension-finalize-scan'
   },
 
   // Platform configurations

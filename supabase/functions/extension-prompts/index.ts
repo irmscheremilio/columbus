@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Get user's profile to find organization
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_organization_id')
       .eq('id', user.id)
       .single()
 
@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    const organizationId = profile.organization_id
+    // Use active_organization_id if set, otherwise fall back to organization_id
+    const organizationId = profile.active_organization_id || profile.organization_id
 
     // Get productId from query params
     const url = new URL(req.url)
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
     // Verify product belongs to user's organization and get details
     const { data: product } = await supabaseAdmin
       .from('products')
-      .select('id, name, brand_name, domain')
+      .select('id, name, domain')
       .eq('id', productId)
       .eq('organization_id', organizationId)
       .single()
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
         product: {
           id: product.id,
           name: product.name,
-          brand: product.brand_name,
+          brand: product.name, // Use name as brand since brand_name column doesn't exist
           domain: product.domain
         },
         prompts: formattedPrompts,

@@ -30,16 +30,33 @@ class PerplexityCapture {
   }
 
   isLoggedIn() {
-    // Check for search input or logged-in indicators
+    // Multiple ways to detect if user is logged in to Perplexity
+
+    // Check for any textarea (main search input)
+    const hasTextarea = !!document.querySelector('textarea')
+
+    // Check for search/input area
     const hasSearchInput = !!document.querySelector('textarea[placeholder*="Ask"]') ||
+                           !!document.querySelector('textarea[placeholder*="ask"]') ||
                            !!document.querySelector('input[placeholder*="Ask"]') ||
-                           !!document.querySelector('[data-testid="search-input"]')
+                           !!document.querySelector('[data-testid="search-input"]') ||
+                           !!document.querySelector('[contenteditable="true"]')
 
-    // Also check for user menu or profile elements
-    const hasUserMenu = !!document.querySelector('[data-testid="user-menu"]') ||
-                        !!document.querySelector('[aria-label="User menu"]')
+    // Check for user profile/avatar indicators (logged in users see their profile)
+    const hasUserIndicator = !!document.querySelector('[data-testid="user-menu"]') ||
+                             !!document.querySelector('[aria-label="User menu"]') ||
+                             !!document.querySelector('img[alt*="profile"]') ||
+                             !!document.querySelector('img[alt*="avatar"]') ||
+                             !!document.querySelector('[class*="avatar"]') ||
+                             !!document.querySelector('[class*="profile"]')
 
-    return hasSearchInput || hasUserMenu
+    // Check for navigation elements that only appear when logged in
+    const hasNavigation = !!document.querySelector('nav') ||
+                          !!document.querySelector('[class*="sidebar"]')
+
+    // If there's a textarea or search input, assume we can use it
+    // Perplexity allows some use without login, so just check for the UI elements
+    return hasTextarea || hasSearchInput || hasUserIndicator
   }
 
   async executePrompt(promptText, brand, competitors) {
@@ -55,17 +72,69 @@ class PerplexityCapture {
       await this.startNewSearch()
       await this.delay(1000)
 
-      // Find search input
-      const input = await this.waitForElement([
+      // Wait a bit longer for Perplexity to fully load
+      await this.delay(2000)
+
+      // Find search input - try multiple selectors
+      console.log('Columbus Perplexity: Looking for input field...')
+
+      let input = await this.waitForElement([
         'textarea[placeholder*="Ask"]',
+        'textarea[placeholder*="ask"]',
+        'textarea[placeholder*="anything"]',
+        'textarea[placeholder*="Search"]',
+        'textarea[placeholder*="search"]',
         'input[placeholder*="Ask"]',
         '[data-testid="search-input"]',
+        '[data-testid="query-input"]',
+        'textarea[class*="search"]',
+        'textarea[class*="input"]',
+        'textarea[rows]',
         'textarea'
-      ], 10000)
+      ], 15000)
 
       if (!input) {
+        // Try to find any textarea on the page
+        console.log('Columbus Perplexity: Primary selectors failed, scanning page...')
+        console.log('Columbus Perplexity: Current URL:', window.location.href)
+        console.log('Columbus Perplexity: Page title:', document.title)
+
+        // Log what elements exist
+        const textareas = document.querySelectorAll('textarea')
+        console.log('Columbus Perplexity: Found', textareas.length, 'textarea elements')
+
+        const inputs = document.querySelectorAll('input[type="text"], input:not([type])')
+        console.log('Columbus Perplexity: Found', inputs.length, 'text input elements')
+
+        // Try textareas
+        for (const ta of textareas) {
+          console.log('Columbus Perplexity: Textarea:', ta.placeholder, ta.className, 'visible:', ta.offsetParent !== null)
+          if (ta.offsetParent !== null) {
+            input = ta
+            break
+          }
+        }
+
+        // Try contenteditable
+        if (!input) {
+          const editables = document.querySelectorAll('[contenteditable="true"]')
+          console.log('Columbus Perplexity: Found', editables.length, 'contenteditable elements')
+          for (const ed of editables) {
+            if (ed.offsetParent !== null) {
+              input = ed
+              break
+            }
+          }
+        }
+      }
+
+      if (!input) {
+        // Last resort: screenshot the page state for debugging
+        console.log('Columbus Perplexity: Page HTML preview:', document.body.innerHTML.substring(0, 2000))
         throw new Error('Could not find search input')
       }
+
+      console.log('Columbus Perplexity: Found input:', input.tagName, input.placeholder || input.className)
 
       // Type the prompt
       await this.typeIntoInput(input, promptText)
@@ -102,18 +171,33 @@ class PerplexityCapture {
   }
 
   async startNewSearch() {
-    // Navigate to home or click new search
-    const newSearchBtn = document.querySelector('[data-testid="new-thread-button"]') ||
-                         document.querySelector('a[href="/"]') ||
-                         document.querySelector('button[aria-label="New thread"]')
+    // Service worker navigates us to home page, so we should already be on fresh search
+    console.log('Columbus Perplexity: Waiting for search page to be ready')
+    await this.delay(500)
 
-    if (newSearchBtn) {
-      newSearchBtn.click()
-      await this.delay(1500)
-    } else if (!window.location.pathname.includes('/search')) {
-      // Navigate to search page
-      window.location.href = '/'
-      await this.delay(2000)
+    // If there's an existing answer, try clicking new thread button
+    const hasExistingAnswer = document.querySelector('[class*="answer"]') ||
+                              document.querySelector('[class*="prose"]') ||
+                              document.querySelector('[class*="response"]')
+
+    if (hasExistingAnswer) {
+      const newSearchSelectors = [
+        '[data-testid="new-thread-button"]',
+        'button[aria-label="New thread"]',
+        'button[aria-label="New search"]',
+        'a[href="/"]',
+        '[class*="new-thread"]'
+      ]
+
+      for (const selector of newSearchSelectors) {
+        const btn = document.querySelector(selector)
+        if (btn) {
+          console.log('Columbus Perplexity: Clicking new thread button')
+          btn.click()
+          await this.delay(2000)
+          return
+        }
+      }
     }
   }
 

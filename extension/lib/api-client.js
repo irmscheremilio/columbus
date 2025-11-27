@@ -13,16 +13,20 @@ async function apiRequest(endpoint, options = {}) {
   }
 
   const url = apiUrl(endpoint)
+  console.log('[Columbus API] Request:', url)
+
   const response = await fetch(url, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
+      'apikey': CONFIG.SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
       ...options.headers
     }
   })
 
   const data = await response.json()
+  console.log('[Columbus API] Response:', response.status, data)
 
   if (!response.ok) {
     throw new Error(data.error || `API error: ${response.status}`)
@@ -54,6 +58,18 @@ export async function submitScanResult(result) {
   return apiRequest(CONFIG.API.SCAN_RESULTS, {
     method: 'POST',
     body: JSON.stringify(result)
+  })
+}
+
+/**
+ * Finalize a scan session to trigger visibility history update
+ * @param {string} scanSessionId - UUID of the scan session
+ * @param {string} productId - UUID of the product
+ */
+export async function finalizeScanSession(scanSessionId, productId) {
+  return apiRequest(CONFIG.API.FINALIZE_SCAN, {
+    method: 'POST',
+    body: JSON.stringify({ scanSessionId, productId })
   })
 }
 

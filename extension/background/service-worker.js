@@ -6,6 +6,15 @@ import * as storage from '../lib/storage.js'
 // Scan state
 let currentScan = null
 
+// Generate UUID for scan sessions
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender).then(sendResponse).catch(err => {
@@ -23,7 +32,7 @@ async function handleMessage(message, sender) {
       return getScanStatus()
 
     case 'CANCEL_SCAN':
-      return cancelScan()
+      return await cancelScan()
 
     case 'PROMPT_RESULT':
       return await handlePromptResult(message.result, sender.tab?.id)
@@ -80,7 +89,8 @@ async function startScan(productId) {
       results: [],
       currentIndex: 0,
       status: 'running',
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      scanSessionId: generateUUID() // Unique ID for this scan session
     }
 
     await updateBadge('running')
@@ -186,6 +196,7 @@ async function executeNextPrompt() {
 async function processResult(item, result) {
   const scanResult = {
     productId: currentScan.productId,
+    scanSessionId: currentScan.scanSessionId,
     platform: item.platform,
     promptId: item.promptId,
     promptText: item.promptText,
@@ -237,6 +248,23 @@ async function processResult(item, result) {
 async function completeScan() {
   if (!currentScan) return
 
+  // Finalize the scan session to trigger visibility history update
+  try {
+    await api.finalizeScanSession(currentScan.scanSessionId, currentScan.productId)
+  } catch (error) {
+    console.error('Error finalizing scan session:', error)
+  }
+
+  // Close the scan window
+  if (scanWindowId) {
+    try {
+      await chrome.windows.remove(scanWindowId)
+    } catch {
+      // Window might already be closed
+    }
+    scanWindowId = null
+  }
+
   const results = currentScan.results
   const successful = results.filter(r => r.success)
   const mentioned = successful.filter(r => r.brandMentioned)
@@ -273,12 +301,23 @@ async function completeScan() {
 }
 
 // Cancel the current scan
-function cancelScan() {
+async function cancelScan() {
   if (currentScan) {
     currentScan.status = 'cancelled'
     currentScan = null
     updateBadge('pending')
   }
+
+  // Close the scan window
+  if (scanWindowId) {
+    try {
+      await chrome.windows.remove(scanWindowId)
+    } catch {
+      // Window might already be closed
+    }
+    scanWindowId = null
+  }
+
   return { success: true }
 }
 
@@ -298,23 +337,62 @@ function getScanStatus() {
   }
 }
 
-// Get or create a tab for the given platform
+// Scan window ID - track the window we create for scanning
+let scanWindowId = null
+
+// Platform-specific new chat URLs
+const PLATFORM_NEW_CHAT_URLS = {
+  chatgpt: 'https://chatgpt.com/',
+  claude: 'https://claude.ai/new',
+  gemini: 'https://gemini.google.com/app',
+  perplexity: 'https://www.perplexity.ai/'
+}
+
+// Get or create a tab for the given platform, navigating to fresh chat
 async function getOrCreatePlatformTab(platform) {
   const platformConfig = CONFIG.PLATFORMS[platform]
   if (!platformConfig) return null
 
-  const url = platformConfig.url
+  // Always use the new chat URL to ensure fresh conversation
+  const newChatUrl = PLATFORM_NEW_CHAT_URLS[platform] || platformConfig.url
 
-  // Check for existing tab
-  const tabs = await chrome.tabs.query({ url: `${url}/*` })
-  if (tabs.length > 0) {
-    // Activate existing tab
-    await chrome.tabs.update(tabs[0].id, { active: false })
-    return tabs[0]
+  // Check for existing tab in the scan window
+  if (scanWindowId) {
+    try {
+      const window = await chrome.windows.get(scanWindowId, { populate: true })
+      const existingTab = window.tabs?.find(tab => tab.url?.includes(platformConfig.url.replace('https://', '')))
+
+      if (existingTab) {
+        // Navigate existing tab to new chat URL for fresh conversation
+        console.log(`Columbus: Navigating ${platform} tab to fresh chat: ${newChatUrl}`)
+        await chrome.tabs.update(existingTab.id, { url: newChatUrl })
+        return existingTab
+      }
+    } catch {
+      // Window was closed, reset
+      scanWindowId = null
+    }
   }
 
-  // Create new tab (in background)
-  return await chrome.tabs.create({ url, active: false })
+  // Create a new window for scanning if we don't have one
+  if (!scanWindowId) {
+    const newWindow = await chrome.windows.create({
+      url: newChatUrl,
+      type: 'normal',
+      focused: false,
+      width: 1200,
+      height: 800
+    })
+    scanWindowId = newWindow.id
+    return newWindow.tabs[0]
+  }
+
+  // Create new tab in the scan window with new chat URL
+  return await chrome.tabs.create({
+    url: newChatUrl,
+    windowId: scanWindowId,
+    active: true
+  })
 }
 
 // Wait for tab to be ready
@@ -325,8 +403,9 @@ async function waitForTabReady(tabId, timeout = 30000) {
     try {
       const tab = await chrome.tabs.get(tabId)
       if (tab.status === 'complete') {
-        // Additional wait for page scripts to load
-        await delay(1000)
+        // Additional wait for page scripts to load - SPA apps need more time
+        console.log('Columbus: Tab loaded, waiting for page scripts...')
+        await delay(2500)
         return true
       }
     } catch {
@@ -338,17 +417,56 @@ async function waitForTabReady(tabId, timeout = 30000) {
   throw new Error('Tab load timeout')
 }
 
-// Send message to content script
-async function sendToTab(tabId, message) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message))
+// Send message to content script with retry and injection fallback
+async function sendToTab(tabId, message, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, message, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message))
+          } else {
+            resolve(response)
+          }
+        })
+      })
+      return response
+    } catch (error) {
+      console.log(`Columbus: sendToTab attempt ${attempt + 1} failed:`, error.message)
+
+      if (attempt < retries - 1) {
+        // Try to inject the content script manually
+        try {
+          const tab = await chrome.tabs.get(tabId)
+          const url = new URL(tab.url)
+
+          let scriptFile = null
+          if (url.hostname.includes('chatgpt.com') || url.hostname.includes('chat.openai.com')) {
+            scriptFile = 'content-scripts/chatgpt.js'
+          } else if (url.hostname.includes('claude.ai')) {
+            scriptFile = 'content-scripts/claude.js'
+          } else if (url.hostname.includes('gemini.google.com')) {
+            scriptFile = 'content-scripts/gemini.js'
+          } else if (url.hostname.includes('perplexity.ai')) {
+            scriptFile = 'content-scripts/perplexity.js'
+          }
+
+          if (scriptFile) {
+            console.log(`Columbus: Injecting ${scriptFile} into tab ${tabId}`)
+            await chrome.scripting.executeScript({
+              target: { tabId },
+              files: [scriptFile]
+            })
+            await delay(1000) // Wait for script to initialize
+          }
+        } catch (injectError) {
+          console.log('Columbus: Script injection failed:', injectError.message)
+        }
       } else {
-        resolve(response)
+        throw error
       }
-    })
-  })
+    }
+  }
 }
 
 // Notify popup

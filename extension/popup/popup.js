@@ -58,7 +58,17 @@ async function init() {
 
     if (isAuth) {
       await loadUserData()
-      showView('main')
+
+      // Check if there's an ongoing scan
+      const scanStatus = await getScanStatus()
+      if (scanStatus && scanStatus.status === 'running') {
+        // Restore scanning view
+        currentState.isScanning = true
+        showView('scanning')
+        restoreScanProgress(scanStatus.progress)
+      } else {
+        showView('main')
+      }
     } else {
       showView('login')
     }
@@ -68,6 +78,31 @@ async function init() {
   }
 
   setupEventListeners()
+}
+
+// Get scan status from service worker
+function getScanStatus() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'GET_SCAN_STATUS' }, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve(null)
+      } else {
+        resolve(response)
+      }
+    })
+  })
+}
+
+// Restore scan progress UI when popup reopens
+function restoreScanProgress(progress) {
+  if (!progress) return
+
+  const { current, total, percentage } = progress
+  elements.progressFill.style.width = `${percentage}%`
+  elements.progressText.textContent = `${percentage}%`
+  elements.scanningPlatform.textContent = `Scanning in progress...`
+  elements.scanningPrompt.textContent = `${current} of ${total} prompts`
+  elements.scanningResults.innerHTML = ''
 }
 
 // Show a specific view

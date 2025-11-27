@@ -40,9 +40,11 @@ Deno.serve(async (req) => {
     // Get user's profile to find organization
     let { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_organization_id')
       .eq('id', user.id)
       .single()
+
+    console.log('Profile:', profile)
 
     // If user has no organization, create one automatically
     // This handles users who signed up before the trigger existed
@@ -79,14 +81,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    const organizationId = profile.organization_id
+    // Use active_organization_id if set, otherwise fall back to organization_id
+    const organizationId = profile.active_organization_id || profile.organization_id
+    console.log('Organization ID:', organizationId, '(active:', profile.active_organization_id, ', default:', profile.organization_id, ')')
 
-    // Get user's products
-    const { data: products } = await supabaseAdmin
+    // Get user's products (only active ones)
+    const { data: products, error: productsError } = await supabaseAdmin
       .from('products')
-      .select('id, name, brand_name, domain, is_active')
+      .select('id, name, domain, is_active')
       .eq('organization_id', organizationId)
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
+
+    console.log('Products query result:', { products, error: productsError })
 
     // Get extension session for this user
     const { data: session } = await supabaseAdmin
@@ -135,7 +142,7 @@ Deno.serve(async (req) => {
         return {
           id: product.id,
           name: product.name,
-          brand: product.brand_name,
+          brand: product.name, // Use name as brand since brand_name column doesn't exist
           domain: product.domain,
           isActive: product.is_active,
           promptCount,

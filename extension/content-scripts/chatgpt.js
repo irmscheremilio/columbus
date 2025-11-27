@@ -33,11 +33,21 @@ class ChatGPTCapture {
     // Check for presence of chat interface elements
     const hasPromptInput = !!document.querySelector('#prompt-textarea') ||
                            !!document.querySelector('textarea[data-id]') ||
-                           !!document.querySelector('[contenteditable="true"]')
-    const hasNewChatBtn = !!document.querySelector('[data-testid="new-chat-button"]') ||
-                          !!document.querySelector('nav a[href="/"]')
+                           !!document.querySelector('textarea[placeholder*="Message"]') ||
+                           !!document.querySelector('textarea[placeholder*="Send a message"]') ||
+                           !!document.querySelector('[contenteditable="true"][data-placeholder]')
 
-    return hasPromptInput || hasNewChatBtn
+    const hasNewChatBtn = !!document.querySelector('[data-testid="new-chat-button"]') ||
+                          !!document.querySelector('nav a[href="/"]') ||
+                          !!document.querySelector('a[href="/"]')
+
+    // Check for user profile elements (indicates logged in)
+    const hasUserProfile = !!document.querySelector('[data-testid="profile-button"]') ||
+                           !!document.querySelector('[aria-label*="Profile"]') ||
+                           !!document.querySelector('img[alt*="User"]')
+
+    console.log('Columbus ChatGPT: Login check -', { hasPromptInput, hasNewChatBtn, hasUserProfile })
+    return hasPromptInput || hasNewChatBtn || hasUserProfile
   }
 
   async executePrompt(promptText, brand, competitors) {
@@ -104,12 +114,28 @@ class ChatGPTCapture {
   }
 
   async startNewChat() {
-    const newChatBtn = document.querySelector('[data-testid="new-chat-button"]') ||
-                       document.querySelector('nav a[href="/"]')
+    // Service worker navigates us to home, so we should already be on fresh chat
+    console.log('Columbus ChatGPT: Waiting for new chat page to be ready')
+    await this.delay(500)
 
-    if (newChatBtn) {
-      newChatBtn.click()
-      await this.delay(1000)
+    // If there's an existing conversation, try clicking new chat button
+    if (document.querySelector('[data-message-author-role]')) {
+      const newChatSelectors = [
+        '[data-testid="new-chat-button"]',
+        'nav a[href="/"]',
+        'a[href="/"]',
+        'button[aria-label="New chat"]'
+      ]
+
+      for (const selector of newChatSelectors) {
+        const btn = document.querySelector(selector)
+        if (btn) {
+          console.log('Columbus ChatGPT: Clicking new chat button')
+          btn.click()
+          await this.delay(1500)
+          return
+        }
+      }
     }
   }
 
