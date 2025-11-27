@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <!-- Upsell Modal -->
     <UpsellModal
       v-model="showUpsellModal"
@@ -21,82 +21,98 @@
       recommended-plan-desc="$29/month"
     />
 
-    <div class="p-4 lg:p-6">
+    <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
           <p class="text-sm text-gray-500">AI visibility overview</p>
         </div>
         <button
           @click="runScan"
           :disabled="loading"
-          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 disabled:opacity-50 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 disabled:opacity-50 transition-all duration-200"
         >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg v-if="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          Run Scan
+          {{ loading ? 'Scanning...' : 'Run Scan' }}
         </button>
       </div>
 
-      <!-- Stats Row - Compact -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-        <!-- Overall Score -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[10px] font-medium text-gray-400 uppercase">Overall</span>
+      <!-- Stats Row - Modern Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <!-- Overall Score - Featured -->
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Overall</span>
             <span
               v-if="visibilityScore?.trend && visibilityScore?.trend !== 'stable'"
-              class="text-[10px] font-medium"
-              :class="visibilityScore?.trend === 'up' ? 'text-green-600' : 'text-red-600'"
+              class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+              :class="visibilityScore?.trend === 'up' ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'"
             >
               {{ visibilityScore?.trend === 'up' ? '+' : '' }}{{ visibilityScore?.percentChange || 0 }}%
             </span>
           </div>
-          <div class="text-lg font-bold text-gray-900">{{ visibilityScore?.overall || 0 }}<span class="text-xs font-normal text-gray-400">/100</span></div>
+          <div class="text-2xl font-bold text-gray-900">{{ visibilityScore?.overall || 0 }}<span class="text-sm font-medium text-gray-300 ml-0.5">/100</span></div>
         </div>
 
         <!-- ChatGPT -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">ChatGPT</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-lg font-bold text-gray-900">{{ visibilityScore?.byModel?.chatgpt || 0 }}</span>
-            <span v-if="modelStats.chatgpt.mentions" class="text-[10px] text-gray-400">{{ modelStats.chatgpt.mentions }} mentions</span>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-[#10a37f]"></div>
+            ChatGPT
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.chatgpt || 0 }}</span>
+            <span v-if="modelStats.chatgpt.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.chatgpt.mentions }} hits</span>
           </div>
         </div>
 
         <!-- Claude -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Claude</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-lg font-bold text-gray-900">{{ visibilityScore?.byModel?.claude || 0 }}</span>
-            <span v-if="modelStats.claude.mentions" class="text-[10px] text-gray-400">{{ modelStats.claude.mentions }} mentions</span>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-[#d97757]"></div>
+            Claude
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.claude || 0 }}</span>
+            <span v-if="modelStats.claude.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.claude.mentions }} hits</span>
           </div>
         </div>
 
         <!-- Gemini -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Gemini</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-lg font-bold text-gray-900">{{ visibilityScore?.byModel?.gemini || 0 }}</span>
-            <span v-if="modelStats.gemini.mentions" class="text-[10px] text-gray-400">{{ modelStats.gemini.mentions }} mentions</span>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-[#4285f4]"></div>
+            Gemini
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.gemini || 0 }}</span>
+            <span v-if="modelStats.gemini.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.gemini.mentions }} hits</span>
           </div>
         </div>
 
         <!-- Perplexity -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Perplexity</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-lg font-bold text-gray-900">{{ visibilityScore?.byModel?.perplexity || 0 }}</span>
-            <span v-if="modelStats.perplexity.mentions" class="text-[10px] text-gray-400">{{ modelStats.perplexity.mentions }} mentions</span>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-[#20b8cd]"></div>
+            Perplexity
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.perplexity || 0 }}</span>
+            <span v-if="modelStats.perplexity.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.perplexity.mentions }} hits</span>
           </div>
         </div>
 
         <!-- Mention Rate -->
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Mention Rate</div>
-          <div class="text-lg font-bold text-brand">{{ totalMentionRate }}%</div>
+        <div class="bg-gradient-to-br from-brand/5 to-brand/10 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-brand/10">
+          <div class="text-[11px] font-semibold text-brand/70 uppercase tracking-wider mb-1">Mention Rate</div>
+          <div class="text-2xl font-bold text-brand">{{ totalMentionRate }}%</div>
         </div>
       </div>
 
@@ -108,40 +124,46 @@
         </div>
 
         <!-- Granularity Stats -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold text-gray-900">By Granularity</h2>
-            <NuxtLink to="/dashboard/prompts" class="text-xs text-brand hover:underline">Manage</NuxtLink>
+            <NuxtLink to="/dashboard/prompts" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">Manage →</NuxtLink>
           </div>
-          <div class="space-y-3">
+          <div class="space-y-4">
             <div v-for="(level, idx) in [
-              { label: 'Broad', key: 'level1', color: 'bg-green-500' },
-              { label: 'Specific', key: 'level2', color: 'bg-yellow-500' },
-              { label: 'Detailed', key: 'level3', color: 'bg-orange-500' }
-            ]" :key="idx" class="flex items-center gap-3">
-              <div class="w-16 text-xs text-gray-600">{{ level.label }}</div>
-              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              { label: 'Broad', key: 'level1', color: 'bg-gradient-to-r from-emerald-400 to-emerald-500', dotColor: 'bg-emerald-500' },
+              { label: 'Specific', key: 'level2', color: 'bg-gradient-to-r from-amber-400 to-amber-500', dotColor: 'bg-amber-500' },
+              { label: 'Detailed', key: 'level3', color: 'bg-gradient-to-r from-orange-400 to-orange-500', dotColor: 'bg-orange-500' }
+            ]" :key="idx" class="group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2">
+                  <div :class="level.dotColor" class="w-2 h-2 rounded-full"></div>
+                  <span class="text-xs font-medium text-gray-700">{{ level.label }}</span>
+                </div>
+                <span class="text-xs font-semibold text-gray-900">{{ granularityStats[level.key].citationRate }}%</span>
+              </div>
+              <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   :class="level.color"
-                  class="h-full rounded-full transition-all"
+                  class="h-full rounded-full transition-all duration-500 ease-out"
                   :style="{ width: `${granularityStats[level.key].citationRate}%` }"
                 ></div>
               </div>
-              <div class="w-10 text-xs font-medium text-gray-900 text-right">{{ granularityStats[level.key].citationRate }}%</div>
             </div>
           </div>
-          <div v-if="!granularityStats.hasData" class="mt-3 text-xs text-gray-500 text-center py-2 bg-gray-50 rounded">
+          <div v-if="!granularityStats.hasData" class="mt-4 text-xs text-gray-500 text-center py-3 bg-gray-50/50 rounded-lg border border-gray-100">
             No scan data yet
           </div>
         </div>
       </div>
 
       <!-- Tables Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-1">
         <!-- Recent Scans Table -->
-        <div class="bg-white rounded-lg border border-gray-200">
-          <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
             <h2 class="text-sm font-semibold text-gray-900">Recent Scans</h2>
+            <div class="w-2 h-2 rounded-full bg-gray-300 animate-pulse"></div>
           </div>
           <div v-if="loading" class="flex items-center justify-center py-8">
             <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
@@ -149,67 +171,54 @@
           <div v-else-if="!jobs.length" class="text-center py-8 text-sm text-gray-500">
             No scans yet
           </div>
-          <table v-else class="w-full">
-            <thead>
-              <tr class="text-xs text-gray-500 uppercase tracking-wide">
-                <th class="text-left px-4 py-2 font-medium">Type</th>
-                <th class="text-left px-4 py-2 font-medium">Date</th>
-                <th class="text-right px-4 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="job in jobs" :key="job.id" class="text-sm">
-                <td class="px-4 py-2.5 text-gray-900">{{ formatJobType(job.job_type) }}</td>
-                <td class="px-4 py-2.5 text-gray-500">{{ formatDate(job.created_at) }}</td>
-                <td class="px-4 py-2.5 text-right">
-                  <span
-                    class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
-                    :class="getStatusClass(job.status)"
-                  >
-                    {{ job.status }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else class="divide-y divide-gray-100/80">
+            <div v-for="job in jobs" :key="job.id" class="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900">{{ formatJobType(job.job_type) }}</div>
+                  <div class="text-xs text-gray-500">{{ formatDate(job.created_at) }}</div>
+                </div>
+              </div>
+              <span
+                class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium"
+                :class="getStatusClass(job.status)"
+              >
+                {{ job.status }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <!-- Recommendations Table -->
-        <div class="bg-white rounded-lg border border-gray-200">
-          <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
             <h2 class="text-sm font-semibold text-gray-900">Top Recommendations</h2>
-            <NuxtLink v-if="recommendations.length" to="/dashboard/recommendations" class="text-xs text-brand hover:underline">View all</NuxtLink>
+            <NuxtLink v-if="recommendations.length" to="/dashboard/recommendations" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
           </div>
           <div v-if="!recommendations.length" class="text-center py-8 text-sm text-gray-500">
             No recommendations yet
           </div>
-          <table v-else class="w-full">
-            <thead>
-              <tr class="text-xs text-gray-500 uppercase tracking-wide">
-                <th class="text-left px-4 py-2 font-medium">Recommendation</th>
-                <th class="text-left px-4 py-2 font-medium">Category</th>
-                <th class="text-right px-4 py-2 font-medium">Impact</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="rec in recommendations.slice(0, 5)" :key="rec.id" class="text-sm">
-                <td class="px-4 py-2.5">
-                  <div class="text-gray-900 truncate max-w-xs">{{ rec.title }}</div>
-                </td>
-                <td class="px-4 py-2.5">
-                  <span class="text-gray-500">{{ rec.category }}</span>
-                </td>
-                <td class="px-4 py-2.5 text-right">
-                  <span
-                    class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
-                    :class="rec.estimated_impact === 'high' ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-600'"
-                  >
-                    {{ rec.estimated_impact }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else class="divide-y divide-gray-100/80">
+            <div v-for="rec in recommendations.slice(0, 5)" :key="rec.id" class="px-4 py-3 hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-gray-900 truncate">{{ rec.title }}</div>
+                  <div class="text-xs text-gray-500 mt-0.5">{{ rec.category }}</div>
+                </div>
+                <span
+                  class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium shrink-0"
+                  :class="rec.estimated_impact === 'high' ? 'bg-brand/10 text-brand' : rec.estimated_impact === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'"
+                >
+                  {{ rec.estimated_impact }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -529,9 +538,10 @@ const formatDate = (date: string) => {
 
 const getStatusClass = (status: string) => {
   switch (status) {
-    case 'completed': return 'bg-green-100 text-green-700'
-    case 'processing': return 'bg-blue-100 text-blue-700'
-    case 'failed': return 'bg-red-100 text-red-700'
+    case 'completed': return 'bg-emerald-50 text-emerald-700'
+    case 'processing': return 'bg-blue-50 text-blue-700'
+    case 'failed': return 'bg-red-50 text-red-700'
+    case 'queued': return 'bg-amber-50 text-amber-700'
     default: return 'bg-gray-100 text-gray-600'
   }
 }

@@ -5,6 +5,8 @@ import { checkRateLimit, trackCost, waitForRateLimit } from '../utils/rate-limit
 import { sendScanCompletedEmail } from '../services/email.js'
 import { createRedisConnection } from '../utils/redis.js'
 import { competitorDetector } from '../services/competitor-detector.js'
+import { citationExtractor } from '../services/citation-extractor.js'
+import { improvementAnalyzer } from '../services/improvement-analyzer.js'
 import type { AIModel, AIResponse, ScanJobData, ScanJobResult } from '../types/ai.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -29,6 +31,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
     // Support both product (new) and brand (legacy) naming
     const productId = job.data.productId || job.data.brandId
     const productName = job.data.productName || job.data.brandName || 'Unknown'
+    const domain = job.data.domain
 
     console.log(`[Visibility Scanner] Starting scan for org ${organizationId}, product ${productId}`)
 
@@ -58,20 +61,52 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       }
     }
 
-    // Fetch prompts from database
+    // Fetch prompts from database (now with location info)
     const { data: prompts, error: promptError } = await supabase
       .from('prompts')
-      .select('*')
+      .select('*, target_location, target_country, target_language')
       .in('id', promptIds)
 
     if (promptError || !prompts) {
       throw new Error(`Failed to fetch prompts: ${promptError?.message}`)
     }
 
+    // Fetch current tracking competitors for competitor visibility tracking
+    const { data: trackingCompetitors } = await supabase
+      .from('competitors')
+      .select('id, name')
+      .eq('product_id', productId)
+      .eq('status', 'tracking')
+
+    const competitorIdMap = new Map<string, string>()
+    const trackingCompetitorNames: string[] = []
+    if (trackingCompetitors) {
+      for (const c of trackingCompetitors) {
+        competitorIdMap.set(c.name.toLowerCase(), c.id)
+        trackingCompetitorNames.push(c.name)
+      }
+    }
+
+    // Combine provided competitors with tracking competitors
+    const allCompetitors = [...new Set([...competitors, ...trackingCompetitorNames])]
+
     // AI models to test with
     const models: AIModel[] = ['chatgpt', 'claude', 'gemini', 'perplexity']
 
     const allResults: AIResponse[] = []
+
+    // Track competitor visibility data
+    const competitorMentionData: Map<string, {
+      model: AIModel
+      mentioned: number
+      tested: number
+      positions: number[]
+    }[]> = new Map()
+
+    // Initialize competitor tracking for each tracking competitor
+    for (const c of trackingCompetitorNames) {
+      competitorMentionData.set(c.toLowerCase(), [])
+    }
 
     // Run prompts across all AI models
     for (const prompt of prompts) {
@@ -90,7 +125,7 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
           const responseText = await client.testPrompt(prompt.prompt_text)
 
           // Format into full response with product/brand analysis
-          const clientResult = client.formatResponse(responseText, productName, competitors)
+          const clientResult = client.formatResponse(responseText, productName, allCompetitors)
 
           // Construct compatible AIResponse
           const result: AIResponse = {
@@ -124,15 +159,110 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
             sentiment: result.sentiment,
             competitor_mentions: result.competitorMentions,
             metadata: result.metadata,
-            tested_at: result.testedAt
+            tested_at: result.testedAt,
+            request_location: prompt.target_location,
+            request_country: prompt.target_country
           }).select('id').single()
+
+          const promptResultId = promptResult?.id
+
+          // === NEW: Extract and save citations ===
+          if (promptResultId) {
+            try {
+              const citationResult = citationExtractor.extractCitations(result.responseText, domain)
+              if (citationResult.citations.length > 0) {
+                await citationExtractor.saveCitations(
+                  promptResultId,
+                  organizationId,
+                  productId,
+                  citationResult.citations
+                )
+                console.log(`[Visibility Scanner] Saved ${citationResult.citations.length} citations for ${model}`)
+              }
+            } catch (citationError) {
+              console.error('[Visibility Scanner] Citation extraction error:', citationError)
+            }
+          }
+
+          // === NEW: Analyze for improvement suggestions ===
+          if (promptResultId) {
+            try {
+              const analysisResult = await improvementAnalyzer.analyzeResponse(
+                result.responseText,
+                productName,
+                result.brandMentioned,
+                result.position,
+                result.citationPresent,
+                allCompetitors
+              )
+              if (analysisResult.suggestions.length > 0) {
+                await improvementAnalyzer.saveSuggestions(
+                  organizationId,
+                  productId,
+                  promptResultId,
+                  model,
+                  analysisResult.suggestions,
+                  competitorIdMap
+                )
+                console.log(`[Visibility Scanner] Saved ${analysisResult.suggestions.length} improvement suggestions for ${model}`)
+              }
+            } catch (analysisError) {
+              console.error('[Visibility Scanner] Improvement analysis error:', analysisError)
+            }
+          }
+
+          // === Track competitor visibility ===
+          for (const competitorName of trackingCompetitorNames) {
+            const key = competitorName.toLowerCase()
+            const mentioned = result.competitorMentions.some(
+              m => m.toLowerCase() === key
+            )
+
+            let modelData = competitorMentionData.get(key)?.find(d => d.model === model)
+            if (!modelData) {
+              modelData = { model, mentioned: 0, tested: 0, positions: [] }
+              competitorMentionData.get(key)?.push(modelData)
+            }
+
+            modelData.tested++
+            if (mentioned) {
+              modelData.mentioned++
+              // Calculate competitor position
+              const competitorPosition = calculateCompetitorPosition(
+                result.responseText,
+                competitorName,
+                allCompetitors
+              )
+              if (competitorPosition !== null) {
+                modelData.positions.push(competitorPosition)
+              }
+            }
+
+            // Save competitor mention record
+            if (mentioned && promptResultId) {
+              const competitorId = competitorIdMap.get(key)
+              if (competitorId) {
+                await supabase.from('competitor_mentions').insert({
+                  organization_id: organizationId,
+                  product_id: productId,
+                  competitor_id: competitorId,
+                  prompt_result_id: promptResultId,
+                  ai_model: model,
+                  mention_context: getCompetitorContext(result.responseText, competitorName),
+                  position: calculateCompetitorPosition(result.responseText, competitorName, allCompetitors),
+                  sentiment: analyzeCompetitorSentiment(result.responseText, competitorName),
+                  detected_at: new Date().toISOString()
+                })
+              }
+            }
+          }
 
           // Auto-detect competitors from response
           try {
             const detection = await competitorDetector.detectCompetitors(
               result.responseText,
               productName,
-              competitors
+              allCompetitors
             )
 
             if (detection.competitors.length > 0 && productId) {
@@ -211,6 +341,14 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
       }
     }
 
+    // === NEW: Store competitor visibility scores ===
+    await storeCompetitorVisibilityScores(
+      organizationId,
+      productId,
+      competitorMentionData,
+      competitorIdMap
+    )
+
     console.log(`[Visibility Scanner] Scan complete. Visibility score: ${visibilityScore}`)
 
     return {
@@ -224,6 +362,209 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
   },
   { connection }
 )
+
+/**
+ * Store competitor visibility scores
+ */
+async function storeCompetitorVisibilityScores(
+  organizationId: string,
+  productId: string,
+  mentionData: Map<string, { model: AIModel; mentioned: number; tested: number; positions: number[] }[]>,
+  competitorIdMap: Map<string, string>
+): Promise<void> {
+  const now = new Date()
+
+  for (const [competitorName, modelDataArray] of mentionData) {
+    const competitorId = competitorIdMap.get(competitorName)
+    if (!competitorId) continue
+
+    // Calculate overall stats
+    let totalMentioned = 0
+    let totalTested = 0
+    const allPositions: number[] = []
+
+    for (const data of modelDataArray) {
+      totalMentioned += data.mentioned
+      totalTested += data.tested
+      allPositions.push(...data.positions)
+
+      // Store per-model score
+      if (data.tested > 0) {
+        const mentionRate = (data.mentioned / data.tested) * 100
+        const avgPosition = data.positions.length > 0
+          ? data.positions.reduce((a, b) => a + b, 0) / data.positions.length
+          : null
+
+        const score = calculateCompetitorScore(data.mentioned, data.tested, data.positions)
+
+        await supabase.from('competitor_visibility_scores').upsert({
+          organization_id: organizationId,
+          product_id: productId,
+          competitor_id: competitorId,
+          ai_model: data.model,
+          score,
+          mention_rate: Math.round(mentionRate * 100) / 100,
+          avg_position: avgPosition ? Math.round(avgPosition * 10) / 10 : null,
+          prompts_tested: data.tested,
+          prompts_mentioned: data.mentioned,
+          period_start: now,
+          period_end: now
+        }, {
+          onConflict: 'competitor_id,ai_model',
+          ignoreDuplicates: false
+        })
+
+        // Also store in history for trends
+        await supabase.from('competitor_visibility_history').insert({
+          organization_id: organizationId,
+          product_id: productId,
+          competitor_id: competitorId,
+          ai_model: data.model,
+          score,
+          mention_rate: Math.round(mentionRate * 100) / 100,
+          avg_position: avgPosition ? Math.round(avgPosition * 10) / 10 : null,
+          prompts_tested: data.tested,
+          prompts_mentioned: data.mentioned,
+          recorded_at: now.toISOString()
+        })
+      }
+    }
+
+    // Store overall score
+    if (totalTested > 0) {
+      const overallMentionRate = (totalMentioned / totalTested) * 100
+      const overallAvgPosition = allPositions.length > 0
+        ? allPositions.reduce((a, b) => a + b, 0) / allPositions.length
+        : null
+      const overallScore = calculateCompetitorScore(totalMentioned, totalTested, allPositions)
+
+      await supabase.from('competitor_visibility_scores').upsert({
+        organization_id: organizationId,
+        product_id: productId,
+        competitor_id: competitorId,
+        ai_model: 'overall',
+        score: overallScore,
+        mention_rate: Math.round(overallMentionRate * 100) / 100,
+        avg_position: overallAvgPosition ? Math.round(overallAvgPosition * 10) / 10 : null,
+        prompts_tested: totalTested,
+        prompts_mentioned: totalMentioned,
+        period_start: now,
+        period_end: now
+      }, {
+        onConflict: 'competitor_id,ai_model',
+        ignoreDuplicates: false
+      })
+    }
+  }
+}
+
+/**
+ * Calculate competitor visibility score (0-100)
+ */
+function calculateCompetitorScore(mentioned: number, tested: number, positions: number[]): number {
+  if (tested === 0) return 0
+
+  // Base score from mention rate (0-50 points)
+  const mentionRate = mentioned / tested
+  let score = mentionRate * 50
+
+  // Bonus for early positions (0-30 points)
+  if (positions.length > 0) {
+    const avgPosition = positions.reduce((a, b) => a + b, 0) / positions.length
+    // Position 1 = 30 points, Position 5+ = 0 points
+    const positionBonus = Math.max(0, 30 - (avgPosition - 1) * 7.5)
+    score += positionBonus
+  }
+
+  // Consistency bonus (0-20 points) - mentioned in multiple tests
+  if (tested >= 4) {
+    const consistencyBonus = (mentioned / tested) * 20
+    score += consistencyBonus
+  }
+
+  return Math.min(100, Math.round(score))
+}
+
+/**
+ * Calculate competitor position in response
+ */
+function calculateCompetitorPosition(
+  responseText: string,
+  competitorName: string,
+  allBrands: string[]
+): number | null {
+  const lowerResponse = responseText.toLowerCase()
+  const lowerCompetitor = competitorName.toLowerCase()
+
+  if (!lowerResponse.includes(lowerCompetitor)) return null
+
+  // Find positions of all brands
+  const brandPositions: { name: string; index: number }[] = []
+
+  for (const brand of allBrands) {
+    const index = lowerResponse.indexOf(brand.toLowerCase())
+    if (index !== -1) {
+      brandPositions.push({ name: brand, index })
+    }
+  }
+
+  // Sort by position
+  brandPositions.sort((a, b) => a.index - b.index)
+
+  // Find competitor's rank
+  const rank = brandPositions.findIndex(b => b.name.toLowerCase() === lowerCompetitor)
+  return rank !== -1 ? rank + 1 : null
+}
+
+/**
+ * Get context around competitor mention
+ */
+function getCompetitorContext(text: string, competitorName: string): string {
+  const lowerText = text.toLowerCase()
+  const lowerName = competitorName.toLowerCase()
+  const index = lowerText.indexOf(lowerName)
+
+  if (index === -1) return ''
+
+  const start = Math.max(0, index - 100)
+  const end = Math.min(text.length, index + competitorName.length + 100)
+  return text.substring(start, end).trim()
+}
+
+/**
+ * Analyze sentiment for competitor mention
+ */
+function analyzeCompetitorSentiment(text: string, competitorName: string): 'positive' | 'neutral' | 'negative' {
+  const lowerText = text.toLowerCase()
+  const lowerName = competitorName.toLowerCase()
+
+  // Find sentences containing the competitor
+  const sentences = text.split(/[.!?]+/).filter(s =>
+    s.toLowerCase().includes(lowerName)
+  )
+
+  if (sentences.length === 0) return 'neutral'
+
+  const positiveWords = ['best', 'great', 'excellent', 'top', 'leading', 'recommended', 'popular', 'trusted', 'innovative', 'powerful']
+  const negativeWords = ['worst', 'bad', 'poor', 'limited', 'expensive', 'difficult', 'complicated', 'lacking']
+
+  let positiveCount = 0
+  let negativeCount = 0
+
+  sentences.forEach(sentence => {
+    const lowerSentence = sentence.toLowerCase()
+    positiveWords.forEach(word => {
+      if (lowerSentence.includes(word)) positiveCount++
+    })
+    negativeWords.forEach(word => {
+      if (lowerSentence.includes(word)) negativeCount++
+    })
+  })
+
+  if (positiveCount > negativeCount) return 'positive'
+  if (negativeCount > positiveCount) return 'negative'
+  return 'neutral'
+}
 
 interface ModelStats {
   model: AIModel

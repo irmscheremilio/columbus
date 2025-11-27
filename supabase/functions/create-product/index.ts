@@ -37,6 +37,10 @@ serve(async (req) => {
     const industry = body.industry
     // Accept both 'triggerAnalysis' and 'runInitialAnalysis' for backwards compatibility
     const triggerAnalysis = body.triggerAnalysis ?? body.runInitialAnalysis ?? true
+    // Location/region fields
+    const primaryLocation = body.primaryLocation
+    const primaryCountry = body.primaryCountry
+    const primaryLanguage = body.primaryLanguage || 'en'
 
     // Validate input
     if (!name || !website) {
@@ -170,6 +174,9 @@ serve(async (req) => {
         domain,
         description: description?.trim() || null,
         industry: industry?.trim() || null,
+        primary_location: primaryLocation?.trim() || null,
+        primary_country: primaryCountry?.trim() || null,
+        primary_language: primaryLanguage || 'en',
         is_active: true,
       }])
       .select()

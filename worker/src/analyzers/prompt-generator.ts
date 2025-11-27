@@ -6,6 +6,15 @@ export interface GeneratedPrompt {
   promptText: string
   category: string
   granularityLevel: 1 | 2 | 3
+  targetLocation?: string
+  targetCountry?: string
+  targetLanguage?: string
+}
+
+export interface LocationContext {
+  location?: string
+  country?: string
+  language?: string
 }
 
 export interface ProductAnalysis {
@@ -82,12 +91,24 @@ Return ONLY valid JSON, no markdown or explanation.`
    */
   async generatePrompts(
     productAnalysis: ProductAnalysis,
-    websiteAnalysis: WebsiteAnalysis
+    websiteAnalysis: WebsiteAnalysis,
+    locationContext?: LocationContext
   ): Promise<GeneratedPrompt[]> {
+    // Build location-specific instructions
+    const locationInstruction = locationContext?.country && locationContext.country !== 'GLOBAL'
+      ? `
+
+TARGET REGION: ${locationContext.location || locationContext.country}
+${locationContext.language && locationContext.language !== 'en'
+  ? `IMPORTANT: Generate ALL prompts in ${this.getLanguageName(locationContext.language)} language. The prompts should be written as a native ${locationContext.location || locationContext.country} speaker would naturally search.`
+  : `The prompts should be written as someone from ${locationContext.location || locationContext.country} would naturally search - use region-appropriate terminology and context.`}
+`
+      : ''
+
     const prompt = `You are an expert at understanding how real users search for solutions using AI assistants like ChatGPT, Claude, and Perplexity.
 
 Your task: Generate 3 realistic search prompts that a user might type when looking for a solution that this product provides.
-
+${locationInstruction}
 CRITICAL RULES:
 1. NEVER include the product name "${productAnalysis.productName}" in any prompt
 2. Each prompt must be completely unique - no templates, no patterns, no repeated structures
@@ -140,7 +161,10 @@ No markdown, no explanation, just the JSON array.`
       return prompts.map((p: any) => ({
         promptText: p.promptText,
         category: 'discovery', // Category determined by granularity for now
-        granularityLevel: this.normalizeGranularity(p.granularityLevel)
+        granularityLevel: this.normalizeGranularity(p.granularityLevel),
+        targetLocation: locationContext?.location,
+        targetCountry: locationContext?.country,
+        targetLanguage: locationContext?.language || 'en'
       }))
     } catch (error) {
       console.error('[Prompt Generator] Error generating prompts:', error)
@@ -220,6 +244,22 @@ Return a JSON array of 3 strings, each being a specific recommendation. Return O
     const num = parseInt(level)
     if (num >= 1 && num <= 3) return num as 1 | 2 | 3
     return 1
+  }
+
+  private getLanguageName(code: string): string {
+    const languages: Record<string, string> = {
+      en: 'English',
+      de: 'German',
+      fr: 'French',
+      es: 'Spanish',
+      it: 'Italian',
+      nl: 'Dutch',
+      pt: 'Portuguese',
+      ja: 'Japanese',
+      ko: 'Korean',
+      zh: 'Chinese'
+    }
+    return languages[code] || 'English'
   }
 
   private getFallbackProductAnalysis(websiteAnalysis: WebsiteAnalysis): ProductAnalysis {

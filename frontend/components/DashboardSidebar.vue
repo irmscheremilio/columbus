@@ -1,13 +1,13 @@
 <template>
   <div>
     <!-- Mobile header bar -->
-    <div class="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 lg:hidden flex items-center justify-between px-4">
+    <div class="fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md border-b border-gray-200/50 z-50 lg:hidden flex items-center justify-between px-4">
       <NuxtLink to="/dashboard" class="flex items-center">
         <img src="/brand/logo_text.png" alt="Columbus" class="h-8" />
       </NuxtLink>
       <button
         @click="mobileMenuOpen = !mobileMenuOpen"
-        class="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+        class="p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 transition-all duration-200"
       >
         <svg v-if="!mobileMenuOpen" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -37,25 +37,25 @@
     <!-- Sidebar -->
     <aside
       :class="[
-        'fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0',
+        'fixed inset-y-0 left-0 z-40 w-64 bg-white/95 backdrop-blur-md border-r border-gray-200/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0',
         'top-16 lg:top-0',
         mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
       <div class="flex flex-col h-full">
         <!-- Logo (hidden on mobile, visible on desktop) -->
-        <div class="hidden lg:flex items-center h-16 px-6 border-b border-gray-200">
+        <div class="hidden lg:flex items-center h-16 px-6 border-b border-gray-200/50">
           <NuxtLink to="/dashboard" class="flex items-center gap-2">
             <img src="/brand/logo_text.png" alt="Columbus" class="h-8" />
           </NuxtLink>
         </div>
 
         <!-- Organization Switcher -->
-        <div v-if="organizations.length > 1" class="px-3 py-3 border-b border-gray-200" data-org-switcher>
+        <div v-if="organizations.length > 1" class="px-3 py-3 border-b border-gray-200/50" data-org-switcher>
           <div class="relative">
             <button
               @click.stop="showOrgSwitcher = !showOrgSwitcher"
-              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center flex-shrink-0">
@@ -88,7 +88,7 @@
             >
               <div
                 v-if="showOrgSwitcher"
-                class="absolute left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10"
+                class="absolute left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200/50 shadow-lg py-1 z-10"
               >
                 <button
                   v-for="org in organizations"
@@ -123,11 +123,11 @@
         </div>
 
         <!-- Product Selector - Always show when there's at least one product -->
-        <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200" data-product-switcher>
+        <div v-if="products.length > 0" class="px-3 py-3 border-b border-gray-200/50" data-product-switcher>
           <div class="relative">
             <button
               @click.stop="showProductSwitcher = !showProductSwitcher"
-              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0">
@@ -167,7 +167,7 @@
             >
               <div
                 v-if="showProductSwitcher"
-                class="absolute left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10 max-h-64 overflow-y-auto"
+                class="absolute left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200/50 shadow-lg py-1 z-10 max-h-64 overflow-y-auto"
               >
                 <button
                   v-for="product in products"
@@ -211,15 +211,15 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           <NuxtLink
             v-for="item in navItems"
             :key="item.path"
             :to="item.path"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group"
             :class="isActive(item.path)
-              ? 'bg-brand/10 text-brand'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+              ? 'bg-brand/10 text-brand shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'"
             @click="mobileMenuOpen = false"
           >
             <component
@@ -239,24 +239,24 @@
         </nav>
 
         <!-- User section -->
-        <div class="border-t border-gray-200 p-4">
+        <div class="border-t border-gray-200/50 p-4">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-9 h-9 rounded-full bg-brand/10 flex items-center justify-center">
-              <span class="text-sm font-medium text-brand">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center">
+              <span class="text-sm font-semibold text-brand">
                 {{ userInitials }}
               </span>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-900 truncate">{{ user?.email }}</p>
               <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                 <span class="text-xs text-gray-500">Online</span>
               </div>
             </div>
           </div>
           <button
             @click="handleLogout"
-            class="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-colors"
+            class="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100/80 rounded-xl hover:bg-gray-200/80 hover:text-gray-900 transition-all duration-200"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -389,10 +389,15 @@ const ProductIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke:
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' })
 ])
 
+const LinkIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' })
+])
+
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
   { name: 'Products', path: '/dashboard/products', icon: ProductIcon },
   { name: 'Visibility', path: '/dashboard/visibility', icon: ChartIcon },
+  { name: 'Sources', path: '/dashboard/sources', icon: LinkIcon },
   { name: 'Recommendations', path: '/dashboard/recommendations', icon: LightbulbIcon },
   { name: 'Freshness', path: '/dashboard/freshness', icon: ClockIcon },
   { name: 'Competitors', path: '/dashboard/competitors', icon: UsersIcon },

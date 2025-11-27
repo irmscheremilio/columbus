@@ -25,26 +25,32 @@ serve(async (req) => {
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
 
+    console.log('Webhook secret configured:', webhookSecret ? `${webhookSecret.substring(0, 10)}...` : 'NOT SET')
+    console.log('Signature header:', signature ? `${signature.substring(0, 30)}...` : 'NOT SET')
+
     if (!stripeSecretKey || !webhookSecret) {
+      console.error('Missing config - stripeSecretKey:', !!stripeSecretKey, 'webhookSecret:', !!webhookSecret)
       throw new Error('Missing Stripe configuration')
     }
 
     const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-11-17.clover',
+      apiVersion: '2023-10-16',
       httpClient: Stripe.createFetchHttpClient(),
     })
 
     // Get raw body for signature verification
     const body = await req.text()
+    console.log('Body length:', body.length)
 
     // Verify webhook signature
     let event: Stripe.Event
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message)
+      console.error('Full error:', err)
       return new Response(
-        JSON.stringify({ error: 'Webhook signature verification failed' }),
+        JSON.stringify({ error: 'Webhook signature verification failed', details: err.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -60,16 +66,22 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
 
-        // Get organization_id from metadata
-        const organizationId = session.metadata?.organization_id
+        console.log('Checkout session completed:', session.id)
+        console.log('Session metadata:', JSON.stringify(session.metadata))
+
+        // Get organization_id from metadata (check both camelCase and snake_case)
+        const organizationId = session.metadata?.organizationId || session.metadata?.organization_id
 
         if (!organizationId) {
-          console.error('Missing organization_id in session metadata')
+          console.error('Missing organizationId in session metadata')
+          console.error('Available metadata keys:', Object.keys(session.metadata || {}))
           break
         }
 
+        console.log('Updating organization:', organizationId, 'to plan:', session.metadata?.plan || 'pro')
+
         // Update organization with subscription info
-        const { error: updateError } = await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('organizations')
           .update({
             plan: session.metadata?.plan || 'pro',
@@ -77,9 +89,12 @@ serve(async (req) => {
             stripe_subscription_id: session.subscription as string,
           })
           .eq('id', organizationId)
+          .select()
 
         if (updateError) {
           console.error('Failed to update organization:', updateError)
+        } else {
+          console.log('Organization updated successfully:', updateData)
         }
 
         break

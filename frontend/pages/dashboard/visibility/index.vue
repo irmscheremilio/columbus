@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="p-4 lg:p-6">
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
+    <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900">Visibility</h1>
+          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Visibility</h1>
           <p class="text-sm text-gray-500">Track brand presence across AI platforms</p>
         </div>
         <button
-          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
           @click="refreshData"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -19,77 +19,79 @@
       </div>
 
       <!-- Stats Row -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Score</div>
-          <div class="text-lg font-bold text-gray-900">{{ overallScore }}<span class="text-xs font-normal text-gray-400">/100</span></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Score</div>
+          <div class="text-2xl font-bold text-gray-900">{{ overallScore }}<span class="text-sm font-medium text-gray-300 ml-0.5">/100</span></div>
         </div>
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Tests Run</div>
-          <div class="text-lg font-bold text-gray-900">{{ totalTests }}</div>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Tests Run</div>
+          <div class="text-xl font-bold text-gray-900">{{ totalTests }}</div>
         </div>
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Mention Rate</div>
-          <div class="text-lg font-bold text-brand">{{ mentionRate }}%</div>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Mention Rate</div>
+          <div class="text-xl font-bold text-brand">{{ mentionRate }}%</div>
         </div>
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Citation Rate</div>
-          <div class="text-lg font-bold text-gray-900">{{ citationRate }}%</div>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Citation Rate</div>
+          <div class="text-xl font-bold text-gray-900">{{ citationRate }}%</div>
         </div>
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Avg Position</div>
-          <div class="text-lg font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Avg Position</div>
+          <div class="text-xl font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
         </div>
-        <div class="bg-white rounded border border-gray-200 px-3 py-2">
-          <div class="text-[10px] font-medium text-gray-400 uppercase">Positive</div>
-          <div class="text-lg font-bold text-green-600">{{ positiveSentiment }}%</div>
+        <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/50 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-emerald-100/50">
+          <div class="text-[11px] font-semibold text-emerald-600/70 uppercase tracking-wider mb-1">Positive</div>
+          <div class="text-xl font-bold text-emerald-600">{{ positiveSentiment }}%</div>
         </div>
       </div>
 
       <!-- Main Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Chart Section -->
         <div class="lg:col-span-2">
           <VisibilityChart :product-id="activeProductId" />
         </div>
 
         <!-- Platform Stats -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <h2 class="text-sm font-semibold text-gray-900 mb-3">By Platform</h2>
-          <div class="space-y-3">
-            <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-3">
-              <div class="w-6 h-6 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                <span class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xs text-gray-600 truncate">{{ platform.name }}</span>
-                  <span class="text-xs font-medium text-gray-900">{{ platform.score }}%</span>
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
+          <h2 class="text-sm font-semibold text-gray-900 mb-4">By Platform</h2>
+          <div class="space-y-4">
+            <div v-for="platform in platforms" :key="platform.name" class="group">
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg bg-gray-100/80 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200/80 transition-colors">
+                  <span class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
                 </div>
-                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div class="h-full bg-brand rounded-full transition-all" :style="{ width: `${platform.score}%` }"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium text-gray-700">{{ platform.name }}</span>
+                    <span class="text-xs font-semibold text-gray-900">{{ platform.score }}%</span>
+                  </div>
+                  <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-brand to-brand/80 rounded-full transition-all duration-500" :style="{ width: `${platform.score}%` }"></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+          <div class="mt-4 pt-3 border-t border-gray-100/80 text-xs text-gray-500">
             <div class="flex justify-between mb-1">
               <span>Best performer:</span>
-              <span class="font-medium text-gray-900">{{ bestPlatform }}</span>
+              <span class="font-semibold text-gray-900">{{ bestPlatform }}</span>
             </div>
             <div class="flex justify-between">
               <span>Total mentions:</span>
-              <span class="font-medium text-gray-900">{{ totalMentions }}</span>
+              <span class="font-semibold text-gray-900">{{ totalMentions }}</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Recent Results Table -->
-      <div class="bg-white rounded-lg border border-gray-200">
-        <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
           <h2 class="text-sm font-semibold text-gray-900">Recent Scan Results</h2>
-          <span class="text-xs text-gray-500">{{ results.length }} results</span>
+          <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">{{ results.length }} results</span>
         </div>
         <div v-if="loading" class="flex items-center justify-center py-8">
           <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
@@ -100,54 +102,59 @@
         <div v-else class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="text-xs text-gray-500 uppercase tracking-wide">
-                <th class="text-left px-4 py-2 font-medium">Platform</th>
-                <th class="text-left px-4 py-2 font-medium">Prompt</th>
-                <th class="text-center px-4 py-2 font-medium">Mentioned</th>
-                <th class="text-center px-4 py-2 font-medium hidden sm:table-cell">Cited</th>
-                <th class="text-center px-4 py-2 font-medium hidden md:table-cell">Position</th>
-                <th class="text-center px-4 py-2 font-medium hidden lg:table-cell">Sentiment</th>
-                <th class="text-right px-4 py-2 font-medium">Date</th>
+              <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
+                <th class="text-left px-4 py-3 font-medium">Platform</th>
+                <th class="text-left px-4 py-3 font-medium">Prompt</th>
+                <th class="text-center px-4 py-3 font-medium">Mentioned</th>
+                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell">Cited</th>
+                <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Position</th>
+                <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Sentiment</th>
+                <th class="text-right px-4 py-3 font-medium">Date</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="result in results" :key="result.id" class="text-sm hover:bg-gray-50">
-                <td class="px-4 py-2.5">
-                  <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+            <tbody class="divide-y divide-gray-100/80">
+              <tr
+                v-for="result in results"
+                :key="result.id"
+                class="text-sm hover:bg-gray-50/80 transition-colors cursor-pointer"
+                @click="openResultDetail(result)"
+              >
+                <td class="px-4 py-3">
+                  <span class="inline-flex px-2 py-1 rounded-lg text-xs font-medium bg-gray-100/80 text-gray-700">
                     {{ formatModelName(result.ai_model) }}
                   </span>
                 </td>
-                <td class="px-4 py-2.5">
+                <td class="px-4 py-3">
                   <div class="text-gray-900 truncate max-w-xs" :title="result.prompt">{{ result.prompt }}</div>
                 </td>
-                <td class="px-4 py-2.5 text-center">
+                <td class="px-4 py-3 text-center">
                   <span
-                    class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
-                    :class="result.brand_mentioned ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'"
+                    class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs"
+                    :class="result.brand_mentioned ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'"
                   >
                     {{ result.brand_mentioned ? '✓' : '−' }}
                   </span>
                 </td>
-                <td class="px-4 py-2.5 text-center hidden sm:table-cell">
+                <td class="px-4 py-3 text-center hidden sm:table-cell">
                   <span
-                    class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
+                    class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs"
                     :class="result.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
                   >
                     {{ result.citation_present ? '✓' : '−' }}
                   </span>
                 </td>
-                <td class="px-4 py-2.5 text-center hidden md:table-cell text-gray-600">
+                <td class="px-4 py-3 text-center hidden md:table-cell text-gray-600 font-medium">
                   {{ result.position || '−' }}
                 </td>
-                <td class="px-4 py-2.5 text-center hidden lg:table-cell">
+                <td class="px-4 py-3 text-center hidden lg:table-cell">
                   <span
-                    class="text-xs"
-                    :class="result.sentiment === 'positive' ? 'text-green-600' : result.sentiment === 'negative' ? 'text-red-600' : 'text-gray-500'"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    :class="result.sentiment === 'positive' ? 'bg-emerald-50 text-emerald-600' : result.sentiment === 'negative' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'"
                   >
                     {{ result.sentiment || 'neutral' }}
                   </span>
                 </td>
-                <td class="px-4 py-2.5 text-right text-gray-500 text-xs">
+                <td class="px-4 py-3 text-right text-gray-500 text-xs">
                   {{ formatDate(result.tested_at) }}
                 </td>
               </tr>

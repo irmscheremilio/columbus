@@ -1,30 +1,30 @@
 <template>
-  <div class="bg-white rounded-lg border border-gray-200 p-4">
+  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
         <button
           v-for="period in periods"
           :key="period.value"
           @click="selectPeriod(period.value)"
-          class="px-2 py-1 text-xs font-medium rounded transition-colors"
-          :class="selectedPeriod === period.value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
+          class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
+          :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
         >
           {{ period.label }}
         </button>
       </div>
     </div>
     <div class="relative" :style="{ height: chartHeight }">
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-gray-50/50 z-10">
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10 rounded-lg">
         <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
       </div>
       <canvas ref="chartCanvas"></canvas>
     </div>
     <!-- Compact Legend -->
-    <div class="flex flex-wrap justify-center gap-3 mt-3 pt-3 border-t border-gray-100">
-      <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-1.5">
-        <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: platform.color }"></div>
-        <span class="text-xs text-gray-500">{{ platform.label }}</span>
+    <div class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
+      <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-1.5 group cursor-default">
+        <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125" :style="{ backgroundColor: platform.color }"></div>
+        <span class="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{{ platform.label }}</span>
       </div>
     </div>
   </div>
@@ -145,28 +145,52 @@ const processHistoryForChart = (historyData: any[], daysAgo: number) => {
     }
   })
 
-  return { labels, platformData }
+  // Find the first index where at least one platform has data
+  let firstDataIndex = -1
+  for (let i = 0; i < labels.length; i++) {
+    const hasData = Object.values(platformData).some(data => data[i] !== null)
+    if (hasData) {
+      firstDataIndex = i
+      break
+    }
+  }
+
+  // If no data at all, return minimal chart data (just today)
+  if (firstDataIndex === -1) {
+    return {
+      labels: [labels[labels.length - 1]],
+      platformData: {
+        chatgpt: [null],
+        claude: [null],
+        gemini: [null],
+        perplexity: [null]
+      }
+    }
+  }
+
+  // Trim leading days with no data
+  const trimmedLabels = labels.slice(firstDataIndex)
+  const trimmedPlatformData: Record<string, (number | null)[]> = {}
+  for (const platform of Object.keys(platformData)) {
+    trimmedPlatformData[platform] = platformData[platform].slice(firstDataIndex)
+  }
+
+  return { labels: trimmedLabels, platformData: trimmedPlatformData }
 }
 
 const generateEmptyChartData = () => {
-  const daysAgo = parseInt(selectedPeriod.value)
-  const labels: string[] = []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const todayLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-  for (let i = daysAgo - 1; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-  }
-
+  // Return minimal chart with just today's date when there's no data
   return {
-    labels,
+    labels: [todayLabel],
     platformData: {
-      chatgpt: new Array(daysAgo).fill(null),
-      claude: new Array(daysAgo).fill(null),
-      gemini: new Array(daysAgo).fill(null),
-      perplexity: new Array(daysAgo).fill(null)
+      chatgpt: [null],
+      claude: [null],
+      gemini: [null],
+      perplexity: [null]
     }
   }
 }
@@ -187,10 +211,10 @@ const renderChart = (chartData: { labels: string[], platformData: Record<string,
     borderColor: platform.color,
     backgroundColor: platform.color + '20',
     borderWidth: 2,
-    fill: false,
+    fill: true,
     tension: 0.3,
-    pointRadius: 3,
-    pointHoverRadius: 5,
+    pointRadius: 1,
+    pointHoverRadius: 3,
     pointBackgroundColor: platform.color,
     spanGaps: true
   }))
