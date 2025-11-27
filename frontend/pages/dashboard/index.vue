@@ -460,40 +460,47 @@ const runScan = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Not authenticated')
 
-    const response = await fetch(
-      `${useRuntimeConfig().public.supabaseUrl}/functions/v1/trigger-visibility-scan`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ productId: activeProductId.value })
+    const { data, error } = await supabase.functions.invoke('trigger-visibility-scan', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: { productId: activeProductId.value }
+    })
+
+    // Handle error responses
+    if (error) {
+      // Try to parse error context for upgrade/redirect info
+      let errorData: any = null
+      try {
+        // The error.context contains the response
+        if (error.context) {
+          const response = error.context as Response
+          errorData = await response.json()
+        }
+      } catch {
+        // If parsing fails, check if error message contains JSON
+        try {
+          const match = error.message?.match(/\{.*\}/)
+          if (match) errorData = JSON.parse(match[0])
+        } catch {}
       }
-    )
 
-    const data = await response.json()
-
-    // Handle non-2xx responses
-    if (!response.ok) {
-      // Handle plan limit reached (403)
-      if (data?.upgradeRequired) {
+      // Handle plan limit reached
+      if (errorData?.upgradeRequired) {
         upsellData.value = {
-          current: data.current || 0,
-          limit: data.limit || 0,
-          message: data.message || 'You have reached your plan limit'
+          current: errorData.current || 0,
+          limit: errorData.limit || 0,
+          message: errorData.message || 'You have reached your plan limit'
         }
         showUpsellModal.value = true
         return
       }
 
-      // Handle redirect response (e.g., onboarding needed)
-      if (data?.redirectTo) {
-        navigateTo(data.redirectTo)
+      // Handle redirect response
+      if (errorData?.redirectTo) {
+        navigateTo(errorData.redirectTo)
         return
       }
 
-      throw new Error(data?.error || data?.message || 'Request failed')
+      throw new Error(errorData?.error || errorData?.message || error.message || 'Request failed')
     }
 
     // Handle success with redirect
