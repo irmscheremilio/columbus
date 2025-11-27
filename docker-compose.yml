@@ -19,8 +19,8 @@ services:
   # Worker service
   worker:
     build:
-      context: .
-      dockerfile: worker/Dockerfile
+      context: ./worker
+      dockerfile: Dockerfile
     container_name: columbus-worker
     ports:
       - "3001:3001"
