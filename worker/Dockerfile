@@ -3,15 +3,15 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+# Copy package files (support both root and worker context)
+COPY worker/package*.json ./
+COPY worker/tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
 RUN npm ci || npm install
 
 # Copy source code
-COPY src ./src
+COPY worker/src ./src
 
 # Build TypeScript
 RUN npm run build
@@ -22,7 +22,7 @@ FROM node:20-slim
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY worker/package*.json ./
 
 # Install production dependencies only
 RUN npm ci --omit=dev || npm install --omit=dev
