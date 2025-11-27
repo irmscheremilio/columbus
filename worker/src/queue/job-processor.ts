@@ -103,7 +103,6 @@ class JobProcessor {
           productId: job.metadata.productId || job.product_id,
           domain: job.metadata.domain,
           includeCompetitorGaps: job.metadata.includeCompetitorGaps ?? true,
-          triggerVisibilityScan: job.metadata.triggerVisibilityScan ?? false,
           jobId: job.id
         })
         break

@@ -234,7 +234,7 @@
                 type="checkbox"
                 class="w-4 h-4 rounded border-gray-300 text-brand focus:ring-brand"
               />
-              <label for="runAnalysis" class="text-sm text-gray-700">Run initial AEO analysis</label>
+              <label for="runAnalysis" class="text-sm text-gray-700">Analyze website & generate recommendations</label>
             </div>
             <div class="flex gap-3 justify-end pt-3 border-t border-gray-100/80">
               <button
