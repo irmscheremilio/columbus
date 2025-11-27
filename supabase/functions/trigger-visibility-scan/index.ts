@@ -1,11 +1,21 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { checkUsageLimit, incrementUsage } from '../_shared/plan-limits.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * DEPRECATED: Server-side visibility scanning has been replaced by the browser extension.
+ *
+ * This endpoint now returns a deprecation notice directing users to install the
+ * Columbus AEO Monitor Chrome extension for visibility scanning.
+ *
+ * The extension approach is:
+ * - 100% ToS compliant (uses user's own AI platform sessions)
+ * - More reliable (no rate limiting or bot detection)
+ * - Higher quality results (authentic responses)
+ */
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -31,133 +41,29 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Parse request body to get productId
-    const body = await req.json().catch(() => ({}))
-    const { productId } = body
-
-    if (!productId) {
-      return new Response(
-        JSON.stringify({ error: 'productId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get product details
-    const { data: product } = await supabaseClient
-      .from('products')
-      .select('*, organizations(*)')
-      .eq('id', productId)
-      .single()
-
-    if (!product) {
-      return new Response(
-        JSON.stringify({ error: 'Product not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const organizationId = product.organization_id
-
-    // Check plan limits using organization
-    const usageCheck = await checkUsageLimit(supabaseClient, organizationId, 'scansPerMonth')
-    if (!usageCheck.allowed) {
-      return new Response(
-        JSON.stringify({
-          error: 'Plan limit reached',
-          message: usageCheck.message,
-          current: usageCheck.current,
-          limit: usageCheck.limit,
-          upgradeRequired: true
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check if product has a domain
-    if (!product.domain) {
-      return new Response(
-        JSON.stringify({
-          error: 'Product has no domain',
-          message: 'Please set a domain for this product first.',
-          redirectTo: '/dashboard/products'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get prompts for this product
-    const { data: prompts } = await supabaseClient
-      .from('prompts')
-      .select('id')
-      .eq('product_id', productId)
-
-    if (!prompts || prompts.length === 0) {
-      return new Response(
-        JSON.stringify({
-          error: 'No prompts found',
-          message: 'Please add prompts for this product first.',
-          redirectTo: '/dashboard/prompts'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const promptIds = prompts.map(p => p.id)
-
-    // Get active competitors for this product
-    const { data: competitors } = await supabaseClient
-      .from('competitors')
-      .select('name')
-      .eq('product_id', productId)
-      .eq('is_active', true)
-
-    const competitorNames = competitors?.map(c => c.name) || []
-
-    // Create job record (worker will pick it up via job processor)
-    const { data: job, error: jobError } = await supabaseClient
-      .from('jobs')
-      .insert({
-        organization_id: organizationId,
-        product_id: productId,
-        job_type: 'visibility_scan',
-        status: 'queued',
-        metadata: {
-          productId,
-          productName: product.name,
-          domain: product.domain,
-          promptIds,
-          competitors: competitorNames,
-          promptCount: promptIds.length,
-          competitorCount: competitorNames.length,
-          isScheduled: false
-        }
-      })
-      .select()
-      .single()
-
-    if (jobError) {
-      console.error('Error creating job:', jobError)
-      throw new Error(`Failed to create job: ${jobError.message}`)
-    }
-
-    if (!job) {
-      throw new Error('Failed to create job')
-    }
-
-    // Increment usage counter using organization id
-    await incrementUsage(supabaseClient, organizationId, 'scans')
-
+    // Return deprecation notice
     return new Response(
       JSON.stringify({
-        success: true,
-        jobId: job.id,
-        message: 'Visibility scan started. This may take 5-10 minutes.',
-        promptCount: promptIds.length
+        deprecated: true,
+        error: 'Server-side scanning has been replaced',
+        message: 'Visibility scanning is now performed via the Columbus browser extension. This provides more reliable, ToS-compliant scans using your own AI platform sessions.',
+        action: 'install_extension',
+        redirectTo: '/dashboard/extension',
+        extensionUrl: 'https://chrome.google.com/webstore/detail/columbus-aeo-monitor',
+        benefits: [
+          '100% ToS compliant - uses your own browser sessions',
+          'No rate limiting or bot detection issues',
+          'Higher quality, authentic AI responses',
+          'Real-time scanning from your browser'
+        ]
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 410, // Gone - indicates resource is no longer available
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     )
   } catch (error) {
-    console.error('Error triggering scan:', error)
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

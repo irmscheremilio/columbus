@@ -198,7 +198,7 @@ serve(async (req) => {
     // Trigger website analysis if requested
     let jobId: string | null = null
     if (triggerAnalysis) {
-      // Create a job record
+      // Create a job record for website analysis only (no visibility scan - that's done via extension now)
       const { data: job, error: jobError } = await supabaseAdmin
         .from('jobs')
         .insert({
@@ -206,7 +206,7 @@ serve(async (req) => {
           product_id: product.id,
           job_type: 'website_analysis',
           status: 'queued',
-          metadata: { domain, productId: product.id, triggerVisibilityScan: true }
+          metadata: { domain, productId: product.id }
         })
         .select()
         .single()
@@ -228,8 +228,7 @@ serve(async (req) => {
                 organizationId,
                 productId: product.id,
                 domain,
-                jobId: job.id,
-                triggerVisibilityScan: true
+                jobId: job.id
               })
             })
           } catch (err) {

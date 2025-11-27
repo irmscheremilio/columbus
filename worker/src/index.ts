@@ -20,7 +20,7 @@ app.get('/health', (req, res) => {
     workers: {
       initialized: workersInitialized,
       jobProcessor: workersInitialized ? 'running' : 'initializing',
-      visibilityScanner: workersInitialized ? 'running' : 'initializing',
+      // visibilityScanner: DEPRECATED - Now handled by browser extension
       competitorAnalysis: workersInitialized ? 'running' : 'initializing',
       websiteAnalysis: workersInitialized ? 'running' : 'initializing',
       scanScheduler: workersInitialized ? 'running' : 'initializing',
@@ -40,7 +40,7 @@ app.listen(PORT, async () => {
   // Initialize workers after HTTP server is up
   try {
     console.log('Initializing workers...')
-    const { visibilityScanWorker } = await import('./queue/visibility-scanner.js')
+    // NOTE: visibilityScanWorker is DEPRECATED - Now handled by browser extension
     const { competitorAnalysisWorker } = await import('./queue/competitor-analysis.js')
     const { websiteAnalysisWorker } = await import('./queue/website-analysis.js')
     const { scanSchedulerWorker } = await import('./queue/scan-scheduler.js')
@@ -54,7 +54,7 @@ app.listen(PORT, async () => {
     workersInitialized = true
     console.log('Workers initialized:')
     console.log('- Job Processor: Running (polls database every 5 seconds)')
-    console.log('- Visibility Scanner Worker: Running')
+    console.log('- Visibility Scanner: DEPRECATED (now handled by browser extension)')
     console.log('- Competitor Analysis Worker: Running')
     console.log('- Website Analysis Worker: Running')
     console.log('- Scan Scheduler Worker: Running (checks every 6 hours)')
@@ -66,7 +66,6 @@ app.listen(PORT, async () => {
       console.log('Shutting down workers...')
       await jobProcessor.stop()
       await Promise.all([
-        visibilityScanWorker.close(),
         competitorAnalysisWorker.close(),
         websiteAnalysisWorker.close(),
         scanSchedulerWorker.close(),

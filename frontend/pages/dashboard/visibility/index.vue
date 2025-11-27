@@ -163,6 +163,102 @@
         </div>
       </div>
     </div>
+
+    <!-- Scan Result Detail Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDetailModal && selectedResult"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        @click.self="closeDetailModal"
+      >
+        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-white/50">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100/80">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold" :class="getPlatformClass(selectedResult.ai_model)">
+                {{ formatModelName(selectedResult.ai_model) }}
+              </span>
+              <span class="text-sm text-gray-500">{{ formatDateTime(selectedResult.tested_at) }}</span>
+            </div>
+            <button
+              @click="closeDetailModal"
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-xl transition-all duration-200"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="flex-1 overflow-y-auto p-6 space-y-5">
+            <!-- Status Indicators -->
+            <div class="flex flex-wrap gap-3">
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="selectedResult.brand_mentioned ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path v-if="selectedResult.brand_mentioned" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span class="text-xs font-medium">{{ selectedResult.brand_mentioned ? 'Brand Mentioned' : 'Not Mentioned' }}</span>
+              </div>
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="selectedResult.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-500'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span class="text-xs font-medium">{{ selectedResult.citation_present ? 'Citation Found' : 'No Citation' }}</span>
+              </div>
+              <div v-if="selectedResult.position" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700">
+                <span class="text-xs font-medium">Position #{{ selectedResult.position }}</span>
+              </div>
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="getSentimentClass(selectedResult.sentiment)">
+                <span class="text-xs font-medium capitalize">{{ selectedResult.sentiment || 'neutral' }}</span>
+              </div>
+            </div>
+
+            <!-- Prompt Section -->
+            <div>
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Prompt</h3>
+              <div class="bg-gray-50/80 rounded-xl p-4 border border-gray-100">
+                <p class="text-sm text-gray-800 leading-relaxed">{{ selectedResult.prompt }}</p>
+              </div>
+            </div>
+
+            <!-- Response Section -->
+            <div>
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">AI Response</h3>
+              <div class="bg-gray-50/80 rounded-xl p-4 border border-gray-100 max-h-[400px] overflow-y-auto">
+                <p v-if="selectedResult.response_text" class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ selectedResult.response_text }}</p>
+                <p v-else class="text-sm text-gray-400 italic">Response not available</p>
+              </div>
+            </div>
+
+            <!-- Competitor Mentions -->
+            <div v-if="selectedResult.competitor_mentions?.length">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Competitor Mentions</h3>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="competitor in selectedResult.competitor_mentions"
+                  :key="competitor"
+                  class="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-lg"
+                >
+                  {{ competitor }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="px-6 py-4 border-t border-gray-100/80 bg-gray-50/50 rounded-b-2xl">
+            <button
+              @click="closeDetailModal"
+              class="w-full px-4 py-2.5 bg-gray-100/80 text-gray-700 rounded-xl font-medium hover:bg-gray-200/80 transition-all duration-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -191,6 +287,8 @@ const platforms = ref([
 ])
 
 const results = ref<any[]>([])
+const showDetailModal = ref(false)
+const selectedResult = ref<any>(null)
 
 const bestPlatform = computed(() => {
   const sorted = [...platforms.value].sort((a, b) => b.score - a.score)
@@ -296,5 +394,43 @@ const formatModelName = (model: string) => {
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const formatDateTime = (date: string) => {
+  return new Date(date).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+const openResultDetail = (result: any) => {
+  selectedResult.value = result
+  showDetailModal.value = true
+}
+
+const closeDetailModal = () => {
+  showDetailModal.value = false
+  selectedResult.value = null
+}
+
+const getPlatformClass = (model: string) => {
+  switch (model?.toLowerCase()) {
+    case 'chatgpt': return 'bg-emerald-100 text-emerald-700'
+    case 'claude': return 'bg-orange-100 text-orange-700'
+    case 'gemini': return 'bg-blue-100 text-blue-700'
+    case 'perplexity': return 'bg-cyan-100 text-cyan-700'
+    default: return 'bg-gray-100 text-gray-700'
+  }
+}
+
+const getSentimentClass = (sentiment: string) => {
+  switch (sentiment) {
+    case 'positive': return 'bg-emerald-50 text-emerald-700'
+    case 'negative': return 'bg-red-50 text-red-700'
+    default: return 'bg-gray-100 text-gray-500'
+  }
 }
 </script>

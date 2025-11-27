@@ -21,7 +21,7 @@ export interface WebsiteAnalysisJobData {
   domain: string
   includeCompetitorGaps?: boolean
   multiPageAnalysis?: boolean // New option for multi-page crawling
-  triggerVisibilityScan?: boolean // Trigger visibility scan after analysis completes
+  // NOTE: triggerVisibilityScan is DEPRECATED - visibility scans are now done via browser extension
   jobId?: string
 }
 
@@ -461,79 +461,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           .eq('id', productId)
       }
 
-      // Trigger visibility scan if requested (after prompts are generated)
-      let visibilityScanJobId: string | null = null
-      if (job.data.triggerVisibilityScan) {
-        console.log(`[Website Analysis] Triggering visibility scan for ${domain}...`)
-
-        // Get the prompts we just created
-        let promptQuery = supabase
-          .from('prompts')
-          .select('id')
-          .eq('organization_id', organizationId)
-
-        if (productId) {
-          promptQuery = promptQuery.eq('product_id', productId)
-        }
-
-        const { data: prompts } = await promptQuery
-
-        if (prompts && prompts.length > 0) {
-          const promptIds = prompts.map(p => p.id)
-
-          // Get competitors for this organization
-          const { data: competitors } = await supabase
-            .from('competitors')
-            .select('name')
-            .eq('organization_id', organizationId)
-            .eq('is_active', true)
-
-          const competitorNames = competitors?.map(c => c.name) || []
-
-          // Get product name for the scan
-          let productName = domain
-          if (productId) {
-            const { data: product } = await supabase
-              .from('products')
-              .select('name')
-              .eq('id', productId)
-              .single()
-            productName = product?.name || domain
-          }
-
-          // Create visibility scan job
-          const { data: visibilityScanJob, error: scanJobError } = await supabase
-            .from('jobs')
-            .insert({
-              organization_id: organizationId,
-              product_id: productId || null,
-              job_type: 'visibility_scan',
-              status: 'queued',
-              metadata: {
-                productId,
-                productName,
-                domain,
-                promptIds,
-                competitors: competitorNames,
-                promptCount: promptIds.length,
-                competitorCount: competitorNames.length,
-                isScheduled: false,
-                triggeredByAnalysis: true
-              }
-            })
-            .select()
-            .single()
-
-          if (!scanJobError && visibilityScanJob) {
-            visibilityScanJobId = visibilityScanJob.id
-            console.log(`[Website Analysis] Created visibility scan job ${visibilityScanJobId} with ${promptIds.length} prompts`)
-          } else if (scanJobError) {
-            console.error('[Website Analysis] Failed to create visibility scan job:', scanJobError)
-          }
-        } else {
-          console.log('[Website Analysis] No prompts found, skipping visibility scan')
-        }
-      }
+      // NOTE: Visibility scans are now done via the browser extension, not server-side
+      // Users should install the Columbus extension to run visibility scans
 
       return {
         success: true,
@@ -542,8 +471,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         aeoReadiness: websiteAnalysis.aeoReadiness.score,
         recommendationsCount: totalRecommendations,
         pagesAnalyzed,
-        analysisId: analysisRecord.id,
-        visibilityScanJobId
+        analysisId: analysisRecord.id
       }
     } catch (error) {
       console.error('[Website Analysis] Error:', error)

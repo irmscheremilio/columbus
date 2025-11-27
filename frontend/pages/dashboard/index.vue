@@ -503,6 +503,13 @@ const runScan = async () => {
         return
       }
 
+      // Handle deprecated server-side scanning - redirect to extension
+      if (errorData?.deprecated) {
+        alert('Visibility scanning has moved to the browser extension! Redirecting you to the extension page.')
+        navigateTo('/dashboard/extension')
+        return
+      }
+
       // Handle redirect response
       if (errorData?.redirectTo) {
         navigateTo(errorData.redirectTo)
