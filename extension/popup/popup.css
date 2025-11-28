@@ -360,6 +360,73 @@ body {
   color: #f59e0b;
 }
 
+/* Settings Section */
+.settings-section {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-label {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.setting-hint {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.input-small {
+  width: 60px;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.input-small:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.setting-warning {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #92400e;
+}
+
+.setting-warning.hidden {
+  display: none;
+}
+
+.select-small {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
 /* Scan Section */
 .scan-section {
   margin-bottom: 16px;
@@ -415,6 +482,24 @@ body {
 .scanning-header h3 {
   font-size: 16px;
   font-weight: 600;
+}
+
+.scanning-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scanning-actions .text-btn {
+  white-space: nowrap;
+}
+
+#collectNowBtn {
+  color: #10b981;
+  font-weight: 500;
+}
+
+#collectNowBtn:hover {
+  color: #059669;
 }
 
 .progress-container {
@@ -487,6 +572,110 @@ body {
   border-left: 3px solid #ef4444;
 }
 
+/* Per-Platform Progress Grid */
+.platform-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.platform-progress-item {
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: left;
+}
+
+.platform-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.platform-progress-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.platform-progress-icon.chatgpt { background: #10a37f; }
+.platform-progress-icon.claude { background: #d97757; }
+.platform-progress-icon.gemini { background: #4285f4; }
+.platform-progress-icon.perplexity { background: #20b8cd; }
+
+.platform-progress-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  flex: 1;
+}
+
+.platform-progress-status {
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.platform-progress-status.pending {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.platform-progress-status.running {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.platform-progress-status.complete {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.platform-progress-status.skipped {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.platform-progress-status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.platform-progress-bar {
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.platform-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.platform-progress-fill.complete {
+  background: #10b981;
+}
+
+.platform-progress-count {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.scanning-note {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 8px;
+}
+
 /* Complete View */
 .complete-container {
   text-align: center;
@@ -526,6 +715,40 @@ body {
   font-size: 11px;
   color: #6b7280;
   text-transform: uppercase;
+}
+
+.stat-item.full-width {
+  grid-column: 1 / -1;
+  padding: 10px;
+}
+
+.platform-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.platform-stat {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.platform-stat.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.platform-stat.skipped {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.platform-stat.error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .complete-container .btn {

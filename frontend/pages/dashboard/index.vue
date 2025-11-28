@@ -1,26 +1,5 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
-    <!-- Upsell Modal -->
-    <UpsellModal
-      v-model="showUpsellModal"
-      title="Scan Limit Reached"
-      subtitle="Upgrade to continue scanning"
-      usage-label="Scans this month"
-      :current="upsellData.current"
-      :limit="upsellData.limit"
-      :features="[
-        'Unlimited visibility scans per month',
-        'Track up to 10 competitors',
-        'Advanced AI model analysis',
-        'Weekly automated reports',
-        'Priority email support'
-      ]"
-      current-plan="Free"
-      current-plan-desc="2 scans/month"
-      recommended-plan="Pro"
-      recommended-plan-desc="$29/month"
-    />
-
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
       <div class="flex items-center justify-between">
@@ -28,20 +7,15 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
           <p class="text-sm text-gray-500">AI visibility overview</p>
         </div>
-        <button
-          @click="runScan"
-          :disabled="loading"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 disabled:opacity-50 transition-all duration-200"
+        <NuxtLink
+          to="/dashboard/extension"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
         >
-          <svg v-if="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          {{ loading ? 'Scanning...' : 'Run Scan' }}
-        </button>
+          Run Scan via Extension
+        </NuxtLink>
       </div>
 
       <!-- Stats Row - Modern Cards -->
@@ -240,14 +214,6 @@ const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
 const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
-
-// Upsell modal state
-const showUpsellModal = ref(false)
-const upsellData = ref({
-  current: 0,
-  limit: 0,
-  message: ''
-})
 
 const granularityStats = ref({
   hasData: false,
@@ -459,79 +425,6 @@ const loadModelStats = async (productId: string) => {
     modelStats.value = stats as any
   } catch (error) {
     console.error('Error loading model stats:', error)
-  }
-}
-
-const runScan = async () => {
-  if (loading.value || !activeProductId.value) return
-  loading.value = true
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
-
-    const { data, error } = await supabase.functions.invoke('trigger-visibility-scan', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: { productId: activeProductId.value }
-    })
-
-    // Handle error responses
-    if (error) {
-      // Try to parse error context for upgrade/redirect info
-      let errorData: any = null
-      try {
-        // The error.context contains the response
-        if (error.context) {
-          const response = error.context as Response
-          errorData = await response.json()
-        }
-      } catch {
-        // If parsing fails, check if error message contains JSON
-        try {
-          const match = error.message?.match(/\{.*\}/)
-          if (match) errorData = JSON.parse(match[0])
-        } catch {}
-      }
-
-      // Handle plan limit reached
-      if (errorData?.upgradeRequired) {
-        upsellData.value = {
-          current: errorData.current || 0,
-          limit: errorData.limit || 0,
-          message: errorData.message || 'You have reached your plan limit'
-        }
-        showUpsellModal.value = true
-        return
-      }
-
-      // Handle deprecated server-side scanning - redirect to extension
-      if (errorData?.deprecated) {
-        alert('Visibility scanning has moved to the browser extension! Redirecting you to the extension page.')
-        navigateTo('/dashboard/extension')
-        return
-      }
-
-      // Handle redirect response
-      if (errorData?.redirectTo) {
-        navigateTo(errorData.redirectTo)
-        return
-      }
-
-      throw new Error(errorData?.error || errorData?.message || error.message || 'Request failed')
-    }
-
-    // Handle success with redirect
-    if (data?.redirectTo) {
-      navigateTo(data.redirectTo)
-      return
-    }
-
-    alert(`Scan started! Testing ${data.promptCount} prompts.`)
-    await loadDashboardData()
-  } catch (error: any) {
-    console.error('Error starting scan:', error)
-    alert(`Failed: ${error.message || 'Unknown error'}`)
-  } finally {
-    loading.value = false
   }
 }
 

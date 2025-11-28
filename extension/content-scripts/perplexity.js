@@ -24,6 +24,12 @@ class PerplexityCapture {
       case 'EXECUTE_PROMPT':
         return await this.executePrompt(message.prompt, message.brand, message.competitors)
 
+      case 'SUBMIT_PROMPT':
+        return await this.submitPromptOnly(message.prompt)
+
+      case 'COLLECT_RESPONSE':
+        return await this.collectResponse(message.brand, message.competitors)
+
       default:
         return { error: 'Unknown message type' }
     }
@@ -164,6 +170,93 @@ class PerplexityCapture {
       }
     } finally {
       this.isExecuting = false
+    }
+  }
+
+  // Submit prompt without waiting for response (for batch mode)
+  async submitPromptOnly(promptText) {
+    try {
+      console.log('Columbus Perplexity: Submitting prompt (batch mode)')
+
+      // Find search input
+      let input = await this.waitForElement([
+        '#ask-input',
+        '[data-lexical-editor="true"]',
+        '[role="textbox"][contenteditable="true"]',
+        'textarea[placeholder*="Ask"]'
+      ], 10000)
+
+      if (!input) {
+        // Fallback: scan for contenteditable elements
+        const editables = document.querySelectorAll('[contenteditable="true"]')
+        for (const ed of editables) {
+          if (ed.offsetParent !== null && (ed.hasAttribute('data-lexical-editor') || ed.id === 'ask-input')) {
+            input = ed
+            break
+          }
+        }
+      }
+
+      if (!input) {
+        return { success: false, error: 'Could not find search input' }
+      }
+
+      // Type the prompt
+      await this.typeIntoInput(input, promptText)
+      await this.delay(500)
+
+      // Submit
+      await this.submitSearch(input)
+
+      console.log('Columbus Perplexity: Prompt submitted')
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  // Collect response that's already been generated (for batch mode)
+  async collectResponse(brand, competitors) {
+    try {
+      console.log('Columbus Perplexity: Collecting response (batch mode)')
+
+      // Check if still generating
+      const stopBtn = document.querySelector('button[aria-label="Stop"]') ||
+                      document.querySelector('[data-testid="stop-generating"]')
+
+      if (stopBtn) {
+        console.log('Columbus Perplexity: Still generating, waiting...')
+        await this.delay(5000)
+      }
+
+      // Get the response text
+      const responseText = this.getCurrentResponseText()
+
+      if (!responseText || responseText.length < 50) {
+        return { success: false, error: 'No response found or response too short' }
+      }
+
+      // Extract data
+      const brandMentioned = this.checkBrandMention(responseText, brand)
+      const citations = this.extractCitations()
+      const competitorMentions = this.findCompetitorMentions(responseText, competitors)
+      const position = this.findBrandPosition(responseText, brand)
+      const sentiment = this.analyzeSentiment(responseText, brand)
+
+      return {
+        success: true,
+        responseText,
+        brandMentioned,
+        citations,
+        competitorMentions,
+        position,
+        sentiment,
+        modelUsed: 'Perplexity',
+        hadWebSearch: true,
+        sourcesFound: citations.length
+      }
+    } catch (error) {
+      return { success: false, error: error.message }
     }
   }
 
@@ -562,6 +655,23 @@ class PerplexityCapture {
 
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  // Visibility-aware delay - waits longer if page is hidden (throttled)
+  async visibilityAwareDelay(ms) {
+    const startTime = Date.now()
+    const targetTime = startTime + ms
+
+    while (Date.now() < targetTime) {
+      const remaining = targetTime - Date.now()
+      if (remaining <= 0) break
+
+      if (document.visibilityState === 'visible') {
+        await new Promise(resolve => setTimeout(resolve, Math.min(remaining, 100)))
+      } else {
+        await new Promise(resolve => setTimeout(resolve, Math.min(remaining, 500)))
+      }
+    }
   }
 }
 

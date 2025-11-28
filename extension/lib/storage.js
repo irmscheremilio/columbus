@@ -104,13 +104,23 @@ export const settings = {
     return settings || {
       remindersEnabled: true,
       preferredTimeWindow: { start: 9, end: 18 },
-      autoStartScan: false
+      autoStartScan: false,
+      samplesPerPrompt: 1 // How many times to run each prompt per scan
     }
   },
 
   async set(newSettings) {
     const current = await this.get()
     await set({ settings: { ...current, ...newSettings } })
+  },
+
+  async getSamplesPerPrompt() {
+    const settings = await this.get()
+    return settings.samplesPerPrompt || 1
+  },
+
+  async setSamplesPerPrompt(count) {
+    await this.set({ samplesPerPrompt: Math.max(1, count) }) // Minimum 1, no upper limit
   }
 }
 

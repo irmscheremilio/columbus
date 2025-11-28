@@ -1,10 +1,28 @@
-// Columbus Extension Service Worker
+// Columbus Extension Service Worker - Batch Parallel Scanning
 import { CONFIG } from '../lib/config.js'
 import * as api from '../lib/api-client.js'
 import * as storage from '../lib/storage.js'
 
 // Scan state
 let currentScan = null
+let scanWindowId = null
+
+// Platform URLs for fresh chats
+const PLATFORM_URLS = {
+  chatgpt: 'https://chatgpt.com/',
+  claude: 'https://claude.ai/new',
+  gemini: 'https://gemini.google.com/app',
+  perplexity: 'https://www.perplexity.ai/'
+}
+
+// Max retries per prompt
+const MAX_RETRIES = 3
+
+// Time to wait for responses (ms)
+const RESPONSE_WAIT_TIME = 45000 // 45 seconds
+
+// Flag to skip waiting
+let skipWaiting = false
 
 // Generate UUID for scan sessions
 function generateUUID() {
@@ -34,8 +52,12 @@ async function handleMessage(message, sender) {
     case 'CANCEL_SCAN':
       return await cancelScan()
 
+    case 'COLLECT_NOW':
+      skipWaiting = true
+      return { success: true }
+
     case 'PROMPT_RESULT':
-      return await handlePromptResult(message.result, sender.tab?.id)
+      return { success: true }
 
     case 'CHECK_LOGIN':
       return { loggedIn: message.loggedIn }
@@ -45,7 +67,7 @@ async function handleMessage(message, sender) {
   }
 }
 
-// Start a new scan
+// Start a new batch parallel scan
 async function startScan(productId) {
   if (currentScan) {
     return { error: 'Scan already in progress' }
@@ -59,141 +81,411 @@ async function startScan(productId) {
       return { error: 'No prompts found for this product' }
     }
 
-    // Build scan queue - each prompt for each platform
-    const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity']
-    const queue = []
+    // Get samples per prompt setting
+    const samplesPerPrompt = await storage.settings.getSamplesPerPrompt()
 
-    for (const prompt of promptData.prompts) {
-      for (const platform of platforms) {
-        // Skip if already tested today
-        if (!prompt.testedToday || !prompt.testedToday[platform]) {
+    // Build platform-specific queues with all prompts
+    const platformNames = ['chatgpt', 'claude', 'gemini', 'perplexity']
+    const platforms = {}
+
+    for (const platform of platformNames) {
+      const queue = []
+      for (const prompt of promptData.prompts) {
+        for (let sample = 1; sample <= samplesPerPrompt; sample++) {
           queue.push({
+            id: `${prompt.id}-${platform}-${sample}`,
             promptId: prompt.id,
             promptText: prompt.text,
             platform,
-            category: prompt.category
+            category: prompt.category,
+            sampleNumber: sample,
+            tabId: null,
+            status: 'pending', // pending, submitted, collected, failed
+            retryCount: 0,
+            result: null
           })
         }
       }
+
+      platforms[platform] = {
+        queue,
+        status: 'pending' // pending, submitting, waiting, collecting, complete, skipped
+      }
     }
 
-    if (queue.length === 0) {
-      return { error: 'All prompts have been tested today' }
-    }
+    const totalPrompts = Object.values(platforms).reduce((sum, p) => sum + p.queue.length, 0)
 
     currentScan = {
       productId,
       product: promptData.product,
       competitors: promptData.competitors,
-      queue,
-      results: [],
-      currentIndex: 0,
+      platforms,
       status: 'running',
+      phase: 'initializing', // initializing, submitting, waiting, collecting, complete
       startedAt: Date.now(),
-      scanSessionId: generateUUID() // Unique ID for this scan session
+      scanSessionId: generateUUID()
     }
 
     await updateBadge('running')
 
-    // Start executing prompts
-    executeNextPrompt()
+    // Start the batch scan process
+    runBatchScan()
 
-    return { success: true, totalPrompts: queue.length }
+    return { success: true, totalPrompts }
   } catch (error) {
     console.error('Error starting scan:', error)
     return { error: error.message }
   }
 }
 
-// Execute the next prompt in the queue
-async function executeNextPrompt() {
-  if (!currentScan || currentScan.status !== 'running') {
-    return
-  }
-
-  if (currentScan.currentIndex >= currentScan.queue.length) {
-    await completeScan()
-    return
-  }
-
-  const item = currentScan.queue[currentScan.currentIndex]
-
-  // Notify popup of progress
-  notifyPopup({
-    type: 'SCAN_PROGRESS',
-    current: currentScan.currentIndex,
-    total: currentScan.queue.length,
-    platform: CONFIG.PLATFORMS[item.platform]?.name || item.platform,
-    prompt: item.promptText
-  })
+// Main batch scan orchestrator
+async function runBatchScan() {
+  if (!currentScan) return
 
   try {
-    // Find or open tab for this platform
-    const tab = await getOrCreatePlatformTab(item.platform)
+    // Phase 1: Create window and check logins
+    currentScan.phase = 'initializing'
+    notifyProgress()
+    await createScanWindow()
 
-    if (!tab) {
-      throw new Error(`Could not open ${item.platform} tab`)
+    // Phase 2: Submit all prompts (open tabs and submit without waiting)
+    currentScan.phase = 'submitting'
+    notifyProgress()
+
+    for (const platform of ['chatgpt', 'claude', 'gemini', 'perplexity']) {
+      if (currentScan.status !== 'running') break
+      await submitPlatformPrompts(platform)
     }
 
-    // Wait for tab to be ready
-    await waitForTabReady(tab.id)
+    if (currentScan.status !== 'running') return
 
-    // Check if logged in
-    const loginCheck = await sendToTab(tab.id, { type: 'CHECK_LOGIN' })
+    // Phase 3: Wait for responses (can be skipped with COLLECT_NOW)
+    currentScan.phase = 'waiting'
+    skipWaiting = false
+    notifyProgress()
+    console.log(`Columbus: Waiting ${RESPONSE_WAIT_TIME / 1000}s for responses (or click Collect Now)...`)
 
-    if (!loginCheck?.loggedIn) {
-      // User not logged in - skip this platform
-      console.log(`User not logged in to ${item.platform}, skipping`)
-      currentScan.results.push({
-        ...item,
-        success: false,
-        error: 'Not logged in',
-        skipped: true
-      })
-      currentScan.currentIndex++
-      await delay(1000)
-      executeNextPrompt()
-      return
+    // Wait in small increments so we can check skipWaiting
+    const waitStart = Date.now()
+    while (Date.now() - waitStart < RESPONSE_WAIT_TIME) {
+      if (skipWaiting || currentScan.status !== 'running') break
+      await delay(500)
+    }
+    skipWaiting = false
+
+    if (currentScan.status !== 'running') return
+
+    // Phase 4: Collect all responses
+    currentScan.phase = 'collecting'
+    notifyProgress()
+
+    for (const platform of ['chatgpt', 'claude', 'gemini', 'perplexity']) {
+      if (currentScan.status !== 'running') break
+      await collectPlatformResponses(platform)
     }
 
-    // Execute the prompt
-    const result = await sendToTab(tab.id, {
-      type: 'EXECUTE_PROMPT',
-      prompt: item.promptText,
-      brand: currentScan.product.brand,
-      competitors: currentScan.competitors
-    })
-
-    if (result?.error) {
-      throw new Error(result.error)
-    }
-
-    // Process and save result
-    await processResult(item, result)
+    // Phase 5: Complete
+    await completeScan()
 
   } catch (error) {
-    console.error(`Error executing prompt on ${item.platform}:`, error)
-    currentScan.results.push({
-      ...item,
-      success: false,
-      error: error.message
-    })
+    console.error('Batch scan error:', error)
+    currentScan.status = 'error'
+    notifyProgress()
+  }
+}
+
+// Helper to exit any fullscreen state (both window and document level)
+async function exitFullscreen() {
+  // Exit window-level fullscreen
+  try {
+    const windows = await chrome.windows.getAll()
+    for (const win of windows) {
+      if (win.state === 'fullscreen') {
+        console.log(`Columbus: Exiting window fullscreen on ${win.id}`)
+        await chrome.windows.update(win.id, { state: 'normal' })
+      }
+    }
+  } catch (e) {}
+
+  // Exit document-level fullscreen (from webpages like videos)
+  try {
+    const tabs = await chrome.tabs.query({ active: true })
+    for (const tab of tabs) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch(() => {})
+            }
+          }
+        })
+      } catch (e) {}
+    }
+  } catch (e) {}
+
+  await delay(500)
+}
+
+// Helper to create a tab with fullscreen retry logic
+async function createTabWithRetry(url, windowId, active = false) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const tab = await chrome.tabs.create({
+        url,
+        windowId,
+        active
+      })
+      return tab
+    } catch (tabError) {
+      if (tabError.message?.includes('fullscreen') && attempt < 4) {
+        console.log(`Columbus: Fullscreen error on tab create, retrying (attempt ${attempt + 1})`)
+        await exitFullscreen()
+        await delay(500)
+        continue
+      }
+      throw tabError
+    }
+  }
+  throw new Error('Failed to create tab after retries')
+}
+
+// Create initial scan window with one tab per platform to check logins
+async function createScanWindow() {
+  const platformNames = ['chatgpt', 'claude', 'gemini', 'perplexity']
+
+  // Exit any fullscreen state first
+  await exitFullscreen()
+
+  // Create window with first platform - explicitly NOT fullscreen
+  let newWindow
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      newWindow = await chrome.windows.create({
+        url: PLATFORM_URLS[platformNames[0]],
+        type: 'normal',
+        state: 'normal',
+        focused: true,
+        width: 1400,
+        height: 900
+      })
+      break
+    } catch (winError) {
+      if (winError.message?.includes('fullscreen') && attempt < 4) {
+        console.log(`Columbus: Fullscreen error on window create, retrying (attempt ${attempt + 1})`)
+        await exitFullscreen()
+        await delay(1000)
+        continue
+      }
+      throw winError
+    }
   }
 
-  currentScan.currentIndex++
+  if (!newWindow) {
+    throw new Error('Failed to create scan window')
+  }
 
-  // Delay before next prompt
-  const nextItem = currentScan.queue[currentScan.currentIndex]
-  const delayMs = nextItem && nextItem.platform !== item.platform
-    ? CONFIG.SCAN.DELAY_BETWEEN_PLATFORMS_MS
-    : CONFIG.SCAN.DELAY_BETWEEN_PROMPTS_MS
+  scanWindowId = newWindow.id
+  const firstTabId = newWindow.tabs[0].id
 
-  await delay(delayMs)
-  executeNextPrompt()
+  // Wait for first tab to load
+  await waitForTabReady(firstTabId)
+
+  // Check login for first platform
+  const firstLoginCheck = await sendToTab(firstTabId, { type: 'CHECK_LOGIN' })
+  if (!firstLoginCheck?.loggedIn) {
+    console.log(`Columbus: Not logged in to ${platformNames[0]}, skipping`)
+    currentScan.platforms[platformNames[0]].status = 'skipped'
+  }
+
+  // Check logins for other platforms (keep first tab open to prevent window from closing)
+  for (let i = 1; i < platformNames.length; i++) {
+    const platform = platformNames[i]
+    const tab = await createTabWithRetry(PLATFORM_URLS[platform], scanWindowId, false)
+
+    await waitForTabReady(tab.id)
+
+    const loginCheck = await sendToTab(tab.id, { type: 'CHECK_LOGIN' })
+    if (!loginCheck?.loggedIn) {
+      console.log(`Columbus: Not logged in to ${platform}, skipping`)
+      currentScan.platforms[platform].status = 'skipped'
+    }
+
+    // Close the tab after checking
+    await chrome.tabs.remove(tab.id)
+  }
+
+  // Now close the first tab (window stays open because we'll create new tabs in submitPlatformPrompts)
+  // Actually, we need to keep at least one tab. Create a blank placeholder first.
+  const placeholderTab = await chrome.tabs.create({
+    url: 'about:blank',
+    windowId: scanWindowId,
+    active: false
+  })
+
+  // Now we can safely close the first tab
+  await chrome.tabs.remove(firstTabId)
+
+  // Store placeholder tab id to close later
+  currentScan.placeholderTabId = placeholderTab.id
+}
+
+// Submit all prompts for a platform (open tabs and submit without waiting)
+async function submitPlatformPrompts(platform) {
+  const platformState = currentScan.platforms[platform]
+
+  if (platformState.status === 'skipped') {
+    console.log(`Columbus: Skipping ${platform} (not logged in)`)
+    return
+  }
+
+  platformState.status = 'submitting'
+  console.log(`Columbus: Submitting ${platformState.queue.length} prompts to ${platform}...`)
+
+  for (let i = 0; i < platformState.queue.length; i++) {
+    if (currentScan.status !== 'running') break
+
+    const item = platformState.queue[i]
+
+    try {
+      // Create a new tab for this prompt
+      const tab = await createTabWithRetry(PLATFORM_URLS[platform], scanWindowId, false)
+      item.tabId = tab.id
+
+      // Close placeholder tab after first real tab is created
+      if (currentScan.placeholderTabId) {
+        try {
+          await chrome.tabs.remove(currentScan.placeholderTabId)
+        } catch (e) {}
+        currentScan.placeholderTabId = null
+      }
+
+      // Wait for tab to load
+      await waitForTabReady(tab.id)
+
+      // Focus briefly for submit
+      await chrome.tabs.update(tab.id, { active: true })
+      await delay(300)
+
+      // Submit the prompt (don't wait for response)
+      const submitResult = await sendToTab(tab.id, {
+        type: 'SUBMIT_PROMPT',
+        prompt: item.promptText
+      })
+
+      if (submitResult?.success) {
+        item.status = 'submitted'
+        console.log(`Columbus: Submitted prompt ${i + 1}/${platformState.queue.length} to ${platform}`)
+      } else {
+        item.status = 'failed'
+        item.error = submitResult?.error || 'Submit failed'
+        console.log(`Columbus: Failed to submit prompt ${i + 1} to ${platform}:`, item.error)
+      }
+
+    } catch (error) {
+      console.error(`Columbus: Error submitting to ${platform}:`, error)
+      item.status = 'failed'
+      item.error = error.message
+    }
+
+    // Notify progress after each submission
+    notifyProgress()
+
+    // Small delay between opening tabs to avoid overwhelming the browser
+    await delay(500)
+  }
+
+  platformState.status = 'waiting'
+}
+
+// Collect responses from all tabs for a platform
+async function collectPlatformResponses(platform) {
+  const platformState = currentScan.platforms[platform]
+
+  if (platformState.status === 'skipped') return
+
+  platformState.status = 'collecting'
+  console.log(`Columbus: Collecting responses from ${platform}...`)
+
+  for (let i = 0; i < platformState.queue.length; i++) {
+    if (currentScan.status !== 'running') break
+
+    const item = platformState.queue[i]
+
+    if (item.status !== 'submitted' || !item.tabId) {
+      continue // Skip failed or non-submitted items
+    }
+
+    try {
+      // Focus the tab
+      await chrome.tabs.update(item.tabId, { active: true })
+      await delay(300)
+
+      // Collect the response
+      const collectResult = await sendToTab(item.tabId, {
+        type: 'COLLECT_RESPONSE',
+        brand: currentScan.product.brand,
+        competitors: currentScan.competitors
+      })
+
+      if (collectResult?.success && collectResult.responseText) {
+        item.status = 'collected'
+        item.result = collectResult
+
+        // Process and save result
+        await processResult(item)
+        console.log(`Columbus: Collected response ${i + 1}/${platformState.queue.length} from ${platform}`)
+      } else {
+        // Retry logic
+        if (item.retryCount < MAX_RETRIES) {
+          item.retryCount++
+          console.log(`Columbus: No response yet for prompt ${i + 1} on ${platform}, retry ${item.retryCount}/${MAX_RETRIES}`)
+
+          // Wait a bit more and try again
+          await delay(10000)
+
+          const retryResult = await sendToTab(item.tabId, {
+            type: 'COLLECT_RESPONSE',
+            brand: currentScan.product.brand,
+            competitors: currentScan.competitors
+          })
+
+          if (retryResult?.success && retryResult.responseText) {
+            item.status = 'collected'
+            item.result = retryResult
+            await processResult(item)
+          } else {
+            item.status = 'failed'
+            item.error = 'No response received'
+          }
+        } else {
+          item.status = 'failed'
+          item.error = collectResult?.error || 'No response received'
+        }
+      }
+
+      // Close the tab after collecting
+      try {
+        await chrome.tabs.remove(item.tabId)
+      } catch {}
+
+    } catch (error) {
+      console.error(`Columbus: Error collecting from ${platform}:`, error)
+      item.status = 'failed'
+      item.error = error.message
+    }
+
+    // Notify progress
+    notifyProgress()
+  }
+
+  platformState.status = 'complete'
 }
 
 // Process a successful prompt result
-async function processResult(item, result) {
+async function processResult(item) {
+  const result = item.result
+
   const scanResult = {
     productId: currentScan.productId,
     scanSessionId: currentScan.scanSessionId,
@@ -215,40 +507,58 @@ async function processResult(item, result) {
   }
 
   try {
-    // Submit to backend
     await api.submitScanResult(scanResult)
-
-    currentScan.results.push({
-      ...item,
-      success: true,
-      brandMentioned: result.brandMentioned,
-      citationPresent: result.citations?.length > 0
-    })
-
-    // Notify popup
-    notifyPopup({
-      type: 'SCAN_RESULT',
-      result: {
-        platform: item.platform,
-        success: true,
-        brandMentioned: result.brandMentioned
-      }
-    })
   } catch (error) {
     console.error('Error submitting result:', error)
-    currentScan.results.push({
-      ...item,
-      success: false,
-      error: 'Failed to save result'
-    })
   }
+}
+
+// Notify popup of progress
+function notifyProgress() {
+  if (!currentScan) return
+
+  const platformProgress = {}
+  let totalSubmitted = 0
+  let totalCollected = 0
+  let totalPrompts = 0
+
+  for (const [platform, state] of Object.entries(currentScan.platforms)) {
+    const submitted = state.queue.filter(q => q.status === 'submitted' || q.status === 'collected').length
+    const collected = state.queue.filter(q => q.status === 'collected').length
+    const failed = state.queue.filter(q => q.status === 'failed').length
+
+    platformProgress[platform] = {
+      current: currentScan.phase === 'collecting' ? collected : submitted,
+      total: state.queue.length,
+      status: state.status,
+      submitted,
+      collected,
+      failed
+    }
+
+    totalSubmitted += submitted
+    totalCollected += collected
+    totalPrompts += state.queue.length
+  }
+
+  const current = currentScan.phase === 'collecting' ? totalCollected : totalSubmitted
+
+  notifyPopup({
+    type: 'SCAN_PROGRESS',
+    current,
+    total: totalPrompts,
+    phase: currentScan.phase,
+    platforms: platformProgress
+  })
 }
 
 // Complete the scan
 async function completeScan() {
   if (!currentScan) return
 
-  // Finalize the scan session to trigger visibility history update
+  currentScan.phase = 'complete'
+
+  // Finalize the scan session
   try {
     await api.finalizeScanSession(currentScan.scanSessionId, currentScan.productId)
   } catch (error) {
@@ -259,22 +569,43 @@ async function completeScan() {
   if (scanWindowId) {
     try {
       await chrome.windows.remove(scanWindowId)
-    } catch {
-      // Window might already be closed
-    }
+    } catch {}
     scanWindowId = null
   }
 
-  const results = currentScan.results
-  const successful = results.filter(r => r.success)
-  const mentioned = successful.filter(r => r.brandMentioned)
-  const cited = successful.filter(r => r.citationPresent)
-
+  // Calculate stats
   const stats = {
-    totalPrompts: results.length,
-    successfulPrompts: successful.length,
-    mentionRate: successful.length > 0 ? Math.round((mentioned.length / successful.length) * 100) : 0,
-    citationRate: successful.length > 0 ? Math.round((cited.length / successful.length) * 100) : 0
+    totalPrompts: 0,
+    successfulPrompts: 0,
+    mentionRate: 0,
+    citationRate: 0,
+    byPlatform: {}
+  }
+
+  let totalMentioned = 0
+  let totalCited = 0
+
+  for (const [platform, state] of Object.entries(currentScan.platforms)) {
+    const collected = state.queue.filter(q => q.status === 'collected')
+    const mentioned = collected.filter(q => q.result?.brandMentioned)
+    const cited = collected.filter(q => q.result?.citations?.length > 0)
+
+    stats.byPlatform[platform] = {
+      total: state.queue.length,
+      successful: collected.length,
+      mentioned: mentioned.length,
+      status: state.status
+    }
+
+    stats.totalPrompts += state.queue.length
+    stats.successfulPrompts += collected.length
+    totalMentioned += mentioned.length
+    totalCited += cited.length
+  }
+
+  if (stats.successfulPrompts > 0) {
+    stats.mentionRate = Math.round((totalMentioned / stats.successfulPrompts) * 100)
+    stats.citationRate = Math.round((totalCited / stats.successfulPrompts) * 100)
   }
 
   // Save last scan date
@@ -304,6 +635,25 @@ async function completeScan() {
 async function cancelScan() {
   if (currentScan) {
     currentScan.status = 'cancelled'
+
+    // Close placeholder tab if exists
+    if (currentScan.placeholderTabId) {
+      try {
+        await chrome.tabs.remove(currentScan.placeholderTabId)
+      } catch {}
+    }
+
+    // Close all tabs
+    for (const state of Object.values(currentScan.platforms)) {
+      for (const item of state.queue) {
+        if (item.tabId) {
+          try {
+            await chrome.tabs.remove(item.tabId)
+          } catch {}
+        }
+      }
+    }
+
     currentScan = null
     updateBadge('pending')
   }
@@ -312,9 +662,7 @@ async function cancelScan() {
   if (scanWindowId) {
     try {
       await chrome.windows.remove(scanWindowId)
-    } catch {
-      // Window might already be closed
-    }
+    } catch {}
     scanWindowId = null
   }
 
@@ -327,72 +675,31 @@ function getScanStatus() {
     return { status: 'idle' }
   }
 
+  const platformProgress = {}
+  let totalCompleted = 0
+  let totalPrompts = 0
+
+  for (const [platform, state] of Object.entries(currentScan.platforms)) {
+    const completed = state.queue.filter(q => q.status === 'collected' || q.status === 'failed').length
+    platformProgress[platform] = {
+      current: completed,
+      total: state.queue.length,
+      status: state.status
+    }
+    totalCompleted += completed
+    totalPrompts += state.queue.length
+  }
+
   return {
     status: currentScan.status,
+    phase: currentScan.phase,
     progress: {
-      current: currentScan.currentIndex,
-      total: currentScan.queue.length,
-      percentage: Math.round((currentScan.currentIndex / currentScan.queue.length) * 100)
-    }
+      current: totalCompleted,
+      total: totalPrompts,
+      percentage: totalPrompts > 0 ? Math.round((totalCompleted / totalPrompts) * 100) : 0
+    },
+    platforms: platformProgress
   }
-}
-
-// Scan window ID - track the window we create for scanning
-let scanWindowId = null
-
-// Platform-specific new chat URLs
-const PLATFORM_NEW_CHAT_URLS = {
-  chatgpt: 'https://chatgpt.com/',
-  claude: 'https://claude.ai/new',
-  gemini: 'https://gemini.google.com/app',
-  perplexity: 'https://www.perplexity.ai/'
-}
-
-// Get or create a tab for the given platform, navigating to fresh chat
-async function getOrCreatePlatformTab(platform) {
-  const platformConfig = CONFIG.PLATFORMS[platform]
-  if (!platformConfig) return null
-
-  // Always use the new chat URL to ensure fresh conversation
-  const newChatUrl = PLATFORM_NEW_CHAT_URLS[platform] || platformConfig.url
-
-  // Check for existing tab in the scan window
-  if (scanWindowId) {
-    try {
-      const window = await chrome.windows.get(scanWindowId, { populate: true })
-      const existingTab = window.tabs?.find(tab => tab.url?.includes(platformConfig.url.replace('https://', '')))
-
-      if (existingTab) {
-        // Navigate existing tab to new chat URL for fresh conversation
-        console.log(`Columbus: Navigating ${platform} tab to fresh chat: ${newChatUrl}`)
-        await chrome.tabs.update(existingTab.id, { url: newChatUrl })
-        return existingTab
-      }
-    } catch {
-      // Window was closed, reset
-      scanWindowId = null
-    }
-  }
-
-  // Create a new window for scanning if we don't have one
-  if (!scanWindowId) {
-    const newWindow = await chrome.windows.create({
-      url: newChatUrl,
-      type: 'normal',
-      focused: false,
-      width: 1200,
-      height: 800
-    })
-    scanWindowId = newWindow.id
-    return newWindow.tabs[0]
-  }
-
-  // Create new tab in the scan window with new chat URL
-  return await chrome.tabs.create({
-    url: newChatUrl,
-    windowId: scanWindowId,
-    active: true
-  })
 }
 
 // Wait for tab to be ready
@@ -403,9 +710,7 @@ async function waitForTabReady(tabId, timeout = 30000) {
     try {
       const tab = await chrome.tabs.get(tabId)
       if (tab.status === 'complete') {
-        // Additional wait for page scripts to load - SPA apps need more time
-        console.log('Columbus: Tab loaded, waiting for page scripts...')
-        await delay(2500)
+        await delay(2000) // Wait for SPA to initialize
         return true
       }
     } catch {
@@ -435,7 +740,6 @@ async function sendToTab(tabId, message, retries = 3) {
       console.log(`Columbus: sendToTab attempt ${attempt + 1} failed:`, error.message)
 
       if (attempt < retries - 1) {
-        // Try to inject the content script manually
         try {
           const tab = await chrome.tabs.get(tabId)
           const url = new URL(tab.url)
@@ -457,7 +761,7 @@ async function sendToTab(tabId, message, retries = 3) {
               target: { tabId },
               files: [scriptFile]
             })
-            await delay(1000) // Wait for script to initialize
+            await delay(1000)
           }
         } catch (injectError) {
           console.log('Columbus: Script injection failed:', injectError.message)
@@ -471,9 +775,7 @@ async function sendToTab(tabId, message, retries = 3) {
 
 // Notify popup
 function notifyPopup(message) {
-  chrome.runtime.sendMessage(message).catch(() => {
-    // Popup might be closed, ignore error
-  })
+  chrome.runtime.sendMessage(message).catch(() => {})
 }
 
 // Update extension badge
@@ -496,4 +798,4 @@ function delay(ms) {
 }
 
 // Initialize
-console.log('Columbus Extension Service Worker initialized')
+console.log('Columbus Extension Service Worker initialized (batch parallel mode)')

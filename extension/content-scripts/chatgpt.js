@@ -24,6 +24,12 @@ class ChatGPTCapture {
       case 'EXECUTE_PROMPT':
         return await this.executePrompt(message.prompt, message.brand, message.competitors)
 
+      case 'SUBMIT_PROMPT':
+        return await this.submitPrompt(message.prompt)
+
+      case 'COLLECT_RESPONSE':
+        return await this.collectResponse(message.brand, message.competitors)
+
       default:
         return { error: 'Unknown message type' }
     }
@@ -112,6 +118,88 @@ class ChatGPTCapture {
       }
     } finally {
       this.isExecuting = false
+    }
+  }
+
+  // Submit prompt without waiting for response (for batch mode)
+  async submitPrompt(promptText) {
+    try {
+      console.log('Columbus ChatGPT: Submitting prompt (batch mode)')
+
+      // Find and fill input
+      const input = await this.waitForElement([
+        '#prompt-textarea',
+        'textarea[data-id]',
+        '[contenteditable="true"][data-placeholder]'
+      ], 10000)
+
+      if (!input) {
+        return { success: false, error: 'Could not find input field' }
+      }
+
+      // Type the prompt
+      await this.typeIntoInput(input, promptText)
+      await this.delay(500)
+
+      // Click send button
+      const sendBtn = await this.findSendButton()
+      if (!sendBtn) {
+        return { success: false, error: 'Could not find send button' }
+      }
+
+      sendBtn.click()
+      console.log('Columbus ChatGPT: Prompt submitted')
+
+      // Return immediately without waiting for response
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  // Collect response that's already been generated (for batch mode)
+  async collectResponse(brand, competitors) {
+    try {
+      console.log('Columbus ChatGPT: Collecting response (batch mode)')
+
+      // Check if response is ready (no stop button, text is stable)
+      const stopBtn = document.querySelector('[data-testid="stop-button"]') ||
+                      document.querySelector('[aria-label="Stop generating"]')
+
+      if (stopBtn) {
+        // Still generating, wait a bit more
+        console.log('Columbus ChatGPT: Still generating, waiting...')
+        await this.delay(5000)
+      }
+
+      // Get the response text
+      const responseText = this.getCurrentResponseText()
+
+      if (!responseText || responseText.length < 50) {
+        return { success: false, error: 'No response found or response too short' }
+      }
+
+      // Extract data from response
+      const brandMentioned = this.checkBrandMention(responseText, brand)
+      const citations = this.extractCitations()
+      const competitorMentions = this.findCompetitorMentions(responseText, competitors)
+      const position = this.findBrandPosition(responseText, brand)
+      const sentiment = this.analyzeSentiment(responseText, brand)
+      const hadWebSearch = this.detectWebSearch(citations)
+
+      return {
+        success: true,
+        responseText,
+        brandMentioned,
+        citations,
+        competitorMentions,
+        position,
+        sentiment,
+        modelUsed: this.detectModel(),
+        hadWebSearch
+      }
+    } catch (error) {
+      return { success: false, error: error.message }
     }
   }
 
@@ -469,6 +557,27 @@ class ChatGPTCapture {
 
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  // Visibility-aware delay - waits longer if page is hidden (throttled)
+  async visibilityAwareDelay(ms) {
+    const startTime = Date.now()
+    const targetTime = startTime + ms
+
+    while (Date.now() < targetTime) {
+      // If page is hidden, timers are throttled to ~1000ms minimum
+      // Use shorter intervals and check elapsed time
+      const remaining = targetTime - Date.now()
+      if (remaining <= 0) break
+
+      // Use requestAnimationFrame when visible for accuracy, setTimeout when hidden
+      if (document.visibilityState === 'visible') {
+        await new Promise(resolve => setTimeout(resolve, Math.min(remaining, 100)))
+      } else {
+        // When hidden, just wait and let the browser throttle
+        await new Promise(resolve => setTimeout(resolve, Math.min(remaining, 500)))
+      }
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createRedisConnection } from '../utils/redis.js'
 import { websiteAnalysisQueue } from './website-analysis.js'
 import { competitorAnalysisQueue } from './competitor-analysis.js'
-import { visibilityScanQueue } from './visibility-scanner.js'
+// NOTE: visibilityScanQueue import removed - visibility scanning is now handled by the browser extension
 import { freshnessCheckQueue } from './freshness-checker.js'
 import { reportGenerationQueue } from './report-generator.js'
 import { promptEvaluationQueue } from './prompt-evaluation.js'
@@ -120,16 +120,18 @@ class JobProcessor {
         break
 
       case 'visibility_scan':
-        await visibilityScanQueue.add('scan', {
-          organizationId: job.organization_id,
-          productId: job.metadata.productId || job.metadata.brandId,
-          productName: job.metadata.productName || job.metadata.brandName,
-          domain: job.metadata.domain,
-          promptIds: job.metadata.promptIds,
-          competitors: job.metadata.competitors || [],
-          isScheduled: job.metadata.isScheduled ?? false,
-          jobId: job.id
-        })
+        // DEPRECATED: Server-side visibility scanning has been replaced by the browser extension.
+        // Reject any queued visibility_scan jobs with an appropriate message.
+        console.log(`[Job Processor] Rejecting deprecated visibility_scan job ${job.id} - use browser extension instead`)
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: 'Server-side visibility scanning is deprecated. Please use the Columbus browser extension for visibility scans.'
+          })
+          .eq('id', job.id)
+        return // Don't proceed with dispatching
         break
 
       case 'freshness_check':

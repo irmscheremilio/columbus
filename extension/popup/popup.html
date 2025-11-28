@@ -119,6 +119,26 @@
         </div>
       </div>
 
+      <!-- Scan Settings -->
+      <div class="settings-section">
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="samplesPerPrompt">Samples per prompt</label>
+            <span class="setting-hint">Times each prompt is tested per platform</span>
+          </div>
+          <input
+            type="number"
+            id="samplesPerPrompt"
+            class="input-small"
+            min="1"
+            value="1"
+          >
+        </div>
+        <div id="samplesWarning" class="setting-warning hidden">
+          ⚠️ High values will significantly increase scan duration
+        </div>
+      </div>
+
       <!-- Scan Controls -->
       <div class="scan-section">
         <button id="scanBtn" class="btn btn-primary btn-large" disabled>
@@ -152,9 +172,13 @@
       <div class="scanning-container">
         <div class="scanning-header">
           <h3>Scanning in Progress</h3>
-          <button id="cancelScanBtn" class="text-btn">Cancel</button>
+          <div class="scanning-actions">
+            <button id="collectNowBtn" class="text-btn hidden">Collect Now</button>
+            <button id="cancelScanBtn" class="text-btn">Cancel</button>
+          </div>
         </div>
 
+        <!-- Overall Progress -->
         <div class="progress-container">
           <div class="progress-bar">
             <div class="progress-fill" id="progressFill" style="width: 0%"></div>
@@ -162,14 +186,55 @@
           <span class="progress-text" id="progressText">0%</span>
         </div>
 
-        <div class="scanning-status">
-          <p id="scanningPlatform">Preparing scan...</p>
-          <p id="scanningPrompt" class="scanning-prompt"></p>
+        <!-- Per-Platform Progress -->
+        <div class="platform-progress-grid" id="platformProgressGrid">
+          <div class="platform-progress-item" data-platform="chatgpt">
+            <div class="platform-progress-header">
+              <span class="platform-progress-icon chatgpt"></span>
+              <span class="platform-progress-name">ChatGPT</span>
+              <span class="platform-progress-status" id="progress-chatgpt-status">waiting</span>
+            </div>
+            <div class="platform-progress-bar">
+              <div class="platform-progress-fill" id="progress-chatgpt-fill" style="width: 0%"></div>
+            </div>
+            <span class="platform-progress-count" id="progress-chatgpt-count">0/0</span>
+          </div>
+          <div class="platform-progress-item" data-platform="claude">
+            <div class="platform-progress-header">
+              <span class="platform-progress-icon claude"></span>
+              <span class="platform-progress-name">Claude</span>
+              <span class="platform-progress-status" id="progress-claude-status">waiting</span>
+            </div>
+            <div class="platform-progress-bar">
+              <div class="platform-progress-fill" id="progress-claude-fill" style="width: 0%"></div>
+            </div>
+            <span class="platform-progress-count" id="progress-claude-count">0/0</span>
+          </div>
+          <div class="platform-progress-item" data-platform="gemini">
+            <div class="platform-progress-header">
+              <span class="platform-progress-icon gemini"></span>
+              <span class="platform-progress-name">Gemini</span>
+              <span class="platform-progress-status" id="progress-gemini-status">waiting</span>
+            </div>
+            <div class="platform-progress-bar">
+              <div class="platform-progress-fill" id="progress-gemini-fill" style="width: 0%"></div>
+            </div>
+            <span class="platform-progress-count" id="progress-gemini-count">0/0</span>
+          </div>
+          <div class="platform-progress-item" data-platform="perplexity">
+            <div class="platform-progress-header">
+              <span class="platform-progress-icon perplexity"></span>
+              <span class="platform-progress-name">Perplexity</span>
+              <span class="platform-progress-status" id="progress-perplexity-status">waiting</span>
+            </div>
+            <div class="platform-progress-bar">
+              <div class="platform-progress-fill" id="progress-perplexity-fill" style="width: 0%"></div>
+            </div>
+            <span class="platform-progress-count" id="progress-perplexity-count">0/0</span>
+          </div>
         </div>
 
-        <div class="scanning-results" id="scanningResults">
-          <!-- Results will be added here dynamically -->
-        </div>
+        <p class="scanning-note">All platforms running in parallel</p>
       </div>
     </div>
 

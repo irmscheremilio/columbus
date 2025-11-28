@@ -24,12 +24,15 @@ const elements = {
   logoutBtn: document.getElementById('logoutBtn'),
   productSelect: document.getElementById('productSelect'),
   platformsGrid: document.getElementById('platformsGrid'),
+  samplesPerPrompt: document.getElementById('samplesPerPrompt'),
+  samplesWarning: document.getElementById('samplesWarning'),
   scanBtn: document.getElementById('scanBtn'),
   scanInfo: document.getElementById('scanInfo'),
   lastScanTime: document.getElementById('lastScanTime'),
 
   // Scanning
   cancelScanBtn: document.getElementById('cancelScanBtn'),
+  collectNowBtn: document.getElementById('collectNowBtn'),
   progressFill: document.getElementById('progressFill'),
   progressText: document.getElementById('progressText'),
   scanningPlatform: document.getElementById('scanningPlatform'),
@@ -65,7 +68,7 @@ async function init() {
         // Restore scanning view
         currentState.isScanning = true
         showView('scanning')
-        restoreScanProgress(scanStatus.progress)
+        restoreScanProgress(scanStatus.progress, scanStatus.platforms)
       } else {
         showView('main')
       }
@@ -94,15 +97,17 @@ function getScanStatus() {
 }
 
 // Restore scan progress UI when popup reopens
-function restoreScanProgress(progress) {
+function restoreScanProgress(progress, platforms) {
   if (!progress) return
 
   const { current, total, percentage } = progress
   elements.progressFill.style.width = `${percentage}%`
   elements.progressText.textContent = `${percentage}%`
-  elements.scanningPlatform.textContent = `Scanning in progress...`
-  elements.scanningPrompt.textContent = `${current} of ${total} prompts`
-  elements.scanningResults.innerHTML = ''
+
+  // Update per-platform progress if available
+  if (platforms) {
+    updatePlatformProgress(platforms)
+  }
 }
 
 // Show a specific view
@@ -127,11 +132,18 @@ function setupEventListeners() {
   // Product selection
   elements.productSelect.addEventListener('change', handleProductChange)
 
+  // Samples per prompt setting
+  elements.samplesPerPrompt.addEventListener('change', handleSamplesChange)
+  elements.samplesPerPrompt.addEventListener('input', handleSamplesChange)
+
   // Scan button
   elements.scanBtn.addEventListener('click', handleStartScan)
 
   // Cancel scan
   elements.cancelScanBtn.addEventListener('click', handleCancelScan)
+
+  // Collect now (skip waiting)
+  elements.collectNowBtn.addEventListener('click', handleCollectNow)
 
   // View results
   elements.viewResultsBtn.addEventListener('click', () => {
@@ -143,6 +155,26 @@ function setupEventListeners() {
     showView('main')
     updateUI()
   })
+}
+
+// Handle samples per prompt change
+async function handleSamplesChange(e) {
+  let count = parseInt(e.target.value, 10)
+
+  // Ensure minimum of 1
+  if (isNaN(count) || count < 1) {
+    count = 1
+    e.target.value = '1'
+  }
+
+  // Show/hide warning for high values
+  if (count > 10) {
+    elements.samplesWarning.classList.remove('hidden')
+  } else {
+    elements.samplesWarning.classList.add('hidden')
+  }
+
+  await storage.settings.setSamplesPerPrompt(count)
 }
 
 // Handle login
@@ -214,6 +246,17 @@ async function loadUserData() {
       currentState.activeProduct = status.products.find(p => p.id === savedProduct.id)
     } else if (status.activeProduct) {
       currentState.activeProduct = status.activeProduct
+    }
+
+    // Load samples per prompt setting
+    const samplesCount = await storage.settings.getSamplesPerPrompt()
+    elements.samplesPerPrompt.value = samplesCount.toString()
+
+    // Show warning if value is high
+    if (samplesCount > 10) {
+      elements.samplesWarning.classList.remove('hidden')
+    } else {
+      elements.samplesWarning.classList.add('hidden')
     }
 
     updateUI()
@@ -316,10 +359,29 @@ async function handleStartScan() {
   currentState.scanResults = []
   showView('scanning')
 
-  // Reset progress
+  // Reset overall progress
   elements.progressFill.style.width = '0%'
   elements.progressText.textContent = '0%'
-  elements.scanningResults.innerHTML = ''
+
+  // Reset per-platform progress
+  const platformNames = ['chatgpt', 'claude', 'gemini', 'perplexity']
+  for (const platform of platformNames) {
+    const statusEl = document.getElementById(`progress-${platform}-status`)
+    const fillEl = document.getElementById(`progress-${platform}-fill`)
+    const countEl = document.getElementById(`progress-${platform}-count`)
+
+    if (statusEl) {
+      statusEl.textContent = 'pending'
+      statusEl.className = 'platform-progress-status pending'
+    }
+    if (fillEl) {
+      fillEl.style.width = '0%'
+      fillEl.classList.remove('complete')
+    }
+    if (countEl) {
+      countEl.textContent = '0/0'
+    }
+  }
 
   try {
     // Send message to service worker to start scan
@@ -346,6 +408,12 @@ function handleCancelScan() {
   showView('main')
 }
 
+// Handle collect now (skip waiting)
+function handleCollectNow() {
+  chrome.runtime.sendMessage({ type: 'COLLECT_NOW' })
+  elements.collectNowBtn.classList.add('hidden')
+}
+
 // Listen for messages from service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -367,15 +435,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 })
 
-// Update scan progress
+// Update scan progress (parallel mode)
 function updateScanProgress(data) {
-  const { current, total, platform, prompt } = data
-  const percentage = Math.round((current / total) * 100)
+  const { current, total, phase, platforms } = data
+  const percentage = total > 0 ? Math.round((current / total) * 100) : 0
 
+  // Update overall progress
   elements.progressFill.style.width = `${percentage}%`
   elements.progressText.textContent = `${percentage}%`
-  elements.scanningPlatform.textContent = `Testing on ${platform}...`
-  elements.scanningPrompt.textContent = prompt ? `"${truncate(prompt, 50)}"` : ''
+
+  // Show/hide Collect Now button based on phase
+  if (phase === 'waiting') {
+    elements.collectNowBtn.classList.remove('hidden')
+  } else {
+    elements.collectNowBtn.classList.add('hidden')
+  }
+
+  // Update per-platform progress
+  if (platforms) {
+    updatePlatformProgress(platforms)
+  }
+}
+
+// Update per-platform progress UI
+function updatePlatformProgress(platforms) {
+  const platformNames = ['chatgpt', 'claude', 'gemini', 'perplexity']
+
+  for (const platform of platformNames) {
+    const state = platforms[platform]
+    if (!state) continue
+
+    const statusEl = document.getElementById(`progress-${platform}-status`)
+    const fillEl = document.getElementById(`progress-${platform}-fill`)
+    const countEl = document.getElementById(`progress-${platform}-count`)
+
+    if (statusEl) {
+      // Update status badge
+      statusEl.textContent = state.status
+      statusEl.className = `platform-progress-status ${state.status}`
+    }
+
+    if (fillEl) {
+      // Update progress bar
+      const pct = state.total > 0 ? Math.round((state.current / state.total) * 100) : 0
+      fillEl.style.width = `${pct}%`
+
+      // Add complete class for green color
+      if (state.status === 'complete') {
+        fillEl.classList.add('complete')
+      } else {
+        fillEl.classList.remove('complete')
+      }
+    }
+
+    if (countEl) {
+      // Update count text
+      countEl.textContent = `${state.current}/${state.total}`
+    }
+  }
 }
 
 // Add scan result to UI
@@ -398,22 +515,33 @@ function handleScanComplete(data) {
 
   // Show stats
   const stats = data.stats || {}
+  const byPlatform = stats.byPlatform || {}
+
+  // Build per-platform summary
+  let platformSummary = ''
+  const platformNames = ['chatgpt', 'claude', 'gemini', 'perplexity']
+  const platformLabels = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', perplexity: 'Perplexity' }
+
+  for (const platform of platformNames) {
+    const ps = byPlatform[platform]
+    if (ps) {
+      const statusIcon = ps.status === 'complete' ? '✓' : ps.status === 'skipped' ? '○' : '✗'
+      const statusClass = ps.status === 'complete' ? 'success' : ps.status === 'skipped' ? 'skipped' : 'error'
+      platformSummary += `<span class="platform-stat ${statusClass}">${statusIcon} ${platformLabels[platform]}: ${ps.mentioned}/${ps.successful}</span>`
+    }
+  }
+
   elements.completeStats.innerHTML = `
     <div class="stat-item">
-      <div class="stat-value">${stats.totalPrompts || 0}</div>
+      <div class="stat-value">${stats.successfulPrompts || 0}</div>
       <div class="stat-label">Prompts Tested</div>
     </div>
     <div class="stat-item">
       <div class="stat-value">${stats.mentionRate || 0}%</div>
       <div class="stat-label">Mention Rate</div>
     </div>
-    <div class="stat-item">
-      <div class="stat-value">${stats.citationRate || 0}%</div>
-      <div class="stat-label">Citation Rate</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-value">${stats.avgPosition || '—'}</div>
-      <div class="stat-label">Avg Position</div>
+    <div class="stat-item full-width">
+      <div class="platform-stats-row">${platformSummary}</div>
     </div>
   `
 

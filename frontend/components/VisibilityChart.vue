@@ -2,16 +2,28 @@
   <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
-      <div class="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
-        <button
-          v-for="period in periods"
-          :key="period.value"
-          @click="selectPeriod(period.value)"
-          class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
-          :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+      <div class="flex items-center gap-2">
+        <!-- Grouping Toggle -->
+        <select
+          v-model="groupingMode"
+          @change="loadData"
+          class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
         >
-          {{ period.label }}
-        </button>
+          <option value="session">By Scan</option>
+          <option value="day">By Day</option>
+        </select>
+        <!-- Period Toggle -->
+        <div class="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
+          <button
+            v-for="period in periods"
+            :key="period.value"
+            @click="selectPeriod(period.value)"
+            class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
+            :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+          >
+            {{ period.label }}
+          </button>
+        </div>
       </div>
     </div>
     <div class="relative" :style="{ height: chartHeight }">
@@ -46,6 +58,7 @@ const supabase = useSupabaseClient()
 
 const loading = ref(false)
 const selectedPeriod = ref('30')
+const groupingMode = ref<'session' | 'day'>('session')
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 
@@ -79,7 +92,9 @@ const loadData = async () => {
       .gte('recorded_at', startDate.toISOString())
       .order('recorded_at', { ascending: true })
 
-    const chartData = processHistoryForChart(historyData || [], daysAgo)
+    const chartData = groupingMode.value === 'session'
+      ? processHistoryBySession(historyData || [])
+      : processHistoryByDay(historyData || [], daysAgo)
     await nextTick()
     renderChart(chartData)
   } catch (error) {
@@ -91,10 +106,79 @@ const loadData = async () => {
   }
 }
 
-const processHistoryForChart = (historyData: any[], daysAgo: number) => {
+// Group by scan session - each scan appears as a separate point
+const processHistoryBySession = (historyData: any[]) => {
+  if (!historyData || historyData.length === 0) {
+    return generateEmptyChartData()
+  }
+
+  // Group entries by recorded_at timestamp to identify scan sessions
+  const scanSessions: { timestamp: Date, platforms: Record<string, number | null> }[] = []
+
+  // Sort by recorded_at
+  const sortedData = [...historyData].sort((a, b) =>
+    new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+  )
+
+  // Group entries that are within 5 minutes of each other as same scan session
+  let currentSession: { timestamp: Date, platforms: Record<string, number | null> } | null = null
+
+  for (const entry of sortedData) {
+    const entryTime = new Date(entry.recorded_at)
+    const platform = entry.ai_model?.toLowerCase()
+
+    if (!platform) continue
+
+    // Check if this belongs to current session (within 5 minutes)
+    if (currentSession && (entryTime.getTime() - currentSession.timestamp.getTime()) < 5 * 60 * 1000) {
+      currentSession.platforms[platform] = entry.score
+    } else {
+      if (currentSession) {
+        scanSessions.push(currentSession)
+      }
+      currentSession = {
+        timestamp: entryTime,
+        platforms: {
+          chatgpt: null,
+          claude: null,
+          gemini: null,
+          perplexity: null,
+          [platform]: entry.score
+        }
+      }
+    }
+  }
+
+  if (currentSession) {
+    scanSessions.push(currentSession)
+  }
+
+  if (scanSessions.length === 0) {
+    return generateEmptyChartData()
+  }
+
+  const labels = scanSessions.map(session => {
+    const date = session.timestamp
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return `${dateStr} ${timeStr}`
+  })
+
+  const platformData: Record<string, (number | null)[]> = {
+    chatgpt: scanSessions.map(s => s.platforms.chatgpt),
+    claude: scanSessions.map(s => s.platforms.claude),
+    gemini: scanSessions.map(s => s.platforms.gemini),
+    perplexity: scanSessions.map(s => s.platforms.perplexity)
+  }
+
+  return { labels, platformData }
+}
+
+// Group by day - shows latest score per day per platform
+const processHistoryByDay = (historyData: any[], daysAgo: number) => {
   const labels: string[] = []
   const today = new Date()
-  today.setHours(0, 0, 0, 0) // Normalize to midnight
+  today.setHours(0, 0, 0, 0)
 
   // Generate labels for each day
   for (let i = daysAgo - 1; i >= 0; i--) {
@@ -116,7 +200,6 @@ const processHistoryForChart = (historyData: any[], daysAgo: number) => {
 
   for (const entry of historyData) {
     const entryDate = new Date(entry.recorded_at)
-    // Normalize entry date to midnight in local timezone
     const dateKey = entryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const platform = entry.ai_model?.toLowerCase()
 
@@ -155,7 +238,6 @@ const processHistoryForChart = (historyData: any[], daysAgo: number) => {
     }
   }
 
-  // If no data at all, return minimal chart data (just today)
   if (firstDataIndex === -1) {
     return {
       labels: [labels[labels.length - 1]],
@@ -211,7 +293,7 @@ const renderChart = (chartData: { labels: string[], platformData: Record<string,
     borderColor: platform.color,
     backgroundColor: platform.color + '20',
     borderWidth: 2,
-    fill: true,
+    fill: false,
     tension: 0.3,
     pointRadius: 1,
     pointHoverRadius: 3,
