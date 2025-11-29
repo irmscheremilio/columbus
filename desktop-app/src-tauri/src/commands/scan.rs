@@ -1,0 +1,482 @@
+use crate::{
+    webview::WebviewManager, AppState, PlatformState, Prompt, ScanComplete, ScanProgress,
+    ScanResult, PLATFORM_URLS,
+};
+use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
+use uuid::Uuid;
+
+#[derive(Clone, Serialize)]
+pub struct ScanProgressEvent {
+    pub phase: String,
+    pub current: usize,
+    pub total: usize,
+    pub platforms: HashMap<String, PlatformState>,
+}
+
+#[tauri::command]
+pub async fn start_scan(
+    product_id: String,
+    samples_per_prompt: Option<usize>,
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    // Check if scan is already running
+    {
+        let scan = state.scan.lock();
+        if scan.is_running {
+            return Err("Scan already in progress".to_string());
+        }
+    }
+
+    // Get prompts from API
+    let prompts_response: crate::commands::api::PromptsResponse = {
+        let token = {
+            let auth = state.auth.lock();
+            auth.access_token.clone().ok_or("Not authenticated")?
+        };
+
+        let client = reqwest::Client::new();
+        let url = format!(
+            "{}/functions/v1/extension-prompts?productId={}",
+            crate::SUPABASE_URL,
+            product_id
+        );
+
+        let response = client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", token))
+            .header("apikey", crate::SUPABASE_ANON_KEY)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch prompts: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err("Failed to fetch prompts".to_string());
+        }
+
+        response.json().await.map_err(|e| format!("Parse error: {}", e))?
+    };
+
+    if prompts_response.prompts.is_empty() {
+        return Err("No prompts found for this product".to_string());
+    }
+
+    let samples = samples_per_prompt.unwrap_or(1);
+    let scan_session_id = Uuid::new_v4().to_string();
+
+    // Initialize scan state
+    {
+        let mut scan = state.scan.lock();
+        scan.is_running = true;
+        scan.phase = "initializing".to_string();
+        scan.scan_session_id = Some(scan_session_id.clone());
+        scan.product_id = Some(product_id.clone());
+        scan.total_prompts = prompts_response.prompts.len() * samples * 4; // 4 platforms
+        scan.completed_prompts = 0;
+
+        // Initialize platform states
+        scan.platforms.clear();
+        for (platform, _) in PLATFORM_URLS {
+            scan.platforms.insert(
+                platform.to_string(),
+                PlatformState {
+                    status: "pending".to_string(),
+                    total: prompts_response.prompts.len() * samples,
+                    submitted: 0,
+                    collected: 0,
+                    failed: 0,
+                },
+            );
+        }
+    }
+
+    // Emit initial progress
+    emit_progress(&app, &state);
+
+    // Clone necessary data for async task
+    let state_clone = state.inner().clone();
+    let app_clone = app.clone();
+    let prompts = prompts_response.prompts.clone();
+    let brand = prompts_response.product.brand.clone();
+    let competitors = prompts_response.competitors.clone();
+
+    // Spawn scan task
+    tokio::spawn(async move {
+        let result = run_scan(
+            app_clone.clone(),
+            state_clone.clone(),
+            prompts,
+            samples,
+            scan_session_id.clone(),
+            product_id.clone(),
+            brand,
+            competitors,
+        )
+        .await;
+
+        // Handle completion or error
+        match result {
+            Ok(stats) => {
+                let _ = app_clone.emit("scan:complete", stats);
+            }
+            Err(e) => {
+                let _ = app_clone.emit("scan:error", e.clone());
+                eprintln!("Scan error: {}", e);
+            }
+        }
+
+        // Reset scan state
+        let mut scan = state_clone.scan.lock();
+        scan.is_running = false;
+        scan.phase = "complete".to_string();
+    });
+
+    Ok(())
+}
+
+async fn run_scan(
+    app: AppHandle,
+    state: Arc<AppState>,
+    prompts: Vec<Prompt>,
+    samples: usize,
+    scan_session_id: String,
+    product_id: String,
+    brand: String,
+    competitors: Vec<String>,
+) -> Result<ScanComplete, String> {
+    let mut manager = WebviewManager::new();
+
+    // Update phase
+    {
+        let mut scan = state.scan.lock();
+        scan.phase = "submitting".to_string();
+    }
+    emit_progress_with_state(&app, &state);
+
+    let mut total_collected = 0;
+    let mut total_mentioned = 0;
+    let mut total_cited = 0;
+
+    // Process each platform
+    for (platform, url) in PLATFORM_URLS {
+        let platform_str = platform.to_string();
+
+        // Update platform status
+        {
+            let mut scan = state.scan.lock();
+            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                ps.status = "submitting".to_string();
+            }
+        }
+        emit_progress_with_state(&app, &state);
+
+        // Check if user is logged in by creating a test webview
+        let webview_label = format!("scan-{}-check", platform);
+        let login_check = manager
+            .create_webview(&app, &webview_label, url, true)
+            .await;
+
+        if login_check.is_err() {
+            // Mark platform as skipped
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                    ps.status = "skipped".to_string();
+                }
+            }
+            emit_progress_with_state(&app, &state);
+            continue;
+        }
+
+        // Wait for page to load
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+        // Check login status
+        let is_logged_in = manager
+            .check_login(&app, &webview_label, platform)
+            .await
+            .unwrap_or(false);
+
+        // Close check webview
+        manager.close_webview(&app, &webview_label);
+
+        if !is_logged_in {
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                    ps.status = "skipped".to_string();
+                }
+            }
+            emit_progress_with_state(&app, &state);
+            continue;
+        }
+
+        // Process prompts for this platform
+        for (prompt_idx, prompt) in prompts.iter().enumerate() {
+            for sample in 0..samples {
+                // Check if scan was cancelled
+                {
+                    let scan = state.scan.lock();
+                    if !scan.is_running {
+                        return Err("Scan cancelled".to_string());
+                    }
+                }
+
+                let webview_label = format!("scan-{}-{}-{}", platform, prompt_idx, sample);
+
+                // Create webview for this prompt
+                if let Err(e) = manager.create_webview(&app, &webview_label, url, false).await {
+                    eprintln!("Failed to create webview: {}", e);
+                    {
+                        let mut scan = state.scan.lock();
+                        if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                            ps.failed += 1;
+                        }
+                    }
+                    continue;
+                }
+
+                // Wait for page load
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+                // Submit prompt
+                let submit_result = manager
+                    .submit_prompt(&app, &webview_label, platform, &prompt.text)
+                    .await;
+
+                if submit_result.is_ok() {
+                    {
+                        let mut scan = state.scan.lock();
+                        if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                            ps.submitted += 1;
+                        }
+                    }
+                    emit_progress_with_state(&app, &state);
+                }
+            }
+        }
+
+        // Update to waiting phase
+        {
+            let mut scan = state.scan.lock();
+            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                ps.status = "waiting".to_string();
+            }
+        }
+        emit_progress_with_state(&app, &state);
+    }
+
+    // Wait for responses
+    {
+        let mut scan = state.scan.lock();
+        scan.phase = "waiting".to_string();
+    }
+    emit_progress_with_state(&app, &state);
+
+    tokio::time::sleep(tokio::time::Duration::from_secs(45)).await;
+
+    // Collection phase
+    {
+        let mut scan = state.scan.lock();
+        scan.phase = "collecting".to_string();
+    }
+    emit_progress_with_state(&app, &state);
+
+    // Collect responses from all webviews
+    for (platform, _) in PLATFORM_URLS {
+        let platform_str = platform.to_string();
+
+        {
+            let mut scan = state.scan.lock();
+            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                if ps.status == "skipped" {
+                    continue;
+                }
+                ps.status = "collecting".to_string();
+            }
+        }
+        emit_progress_with_state(&app, &state);
+
+        for (prompt_idx, prompt) in prompts.iter().enumerate() {
+            for sample in 0..samples {
+                let webview_label = format!("scan-{}-{}-{}", platform, prompt_idx, sample);
+
+                // Collect response
+                let collect_result = manager
+                    .collect_response(&app, &webview_label, platform, &brand, &competitors)
+                    .await;
+
+                match collect_result {
+                    Ok(response) => {
+                        total_collected += 1;
+                        if response.brand_mentioned {
+                            total_mentioned += 1;
+                        }
+                        if response.citation_present {
+                            total_cited += 1;
+                        }
+
+                        // Submit result to API
+                        let scan_result = ScanResult {
+                            product_id: product_id.clone(),
+                            scan_session_id: scan_session_id.clone(),
+                            platform: platform_str.clone(),
+                            prompt_id: prompt.id.clone(),
+                            prompt_text: prompt.text.clone(),
+                            response_text: response.response_text,
+                            brand_mentioned: response.brand_mentioned,
+                            citation_present: response.citation_present,
+                            position: response.position,
+                            sentiment: response.sentiment,
+                            competitor_mentions: response.competitor_mentions,
+                            citations: response.citations,
+                        };
+
+                        // Submit to API (fire and forget)
+                        let token = {
+                            let auth = state.auth.lock();
+                            auth.access_token.clone()
+                        };
+
+                        if let Some(token) = token {
+                            let client = reqwest::Client::new();
+                            let _ = client
+                                .post(format!(
+                                    "{}/functions/v1/extension-scan-results",
+                                    crate::SUPABASE_URL
+                                ))
+                                .header("Authorization", format!("Bearer {}", token))
+                                .header("apikey", crate::SUPABASE_ANON_KEY)
+                                .json(&scan_result)
+                                .send()
+                                .await;
+                        }
+
+                        {
+                            let mut scan = state.scan.lock();
+                            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                                ps.collected += 1;
+                            }
+                            scan.completed_prompts += 1;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to collect response: {}", e);
+                        {
+                            let mut scan = state.scan.lock();
+                            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                                ps.failed += 1;
+                            }
+                        }
+                    }
+                }
+
+                emit_progress_with_state(&app, &state);
+
+                // Close webview
+                manager.close_webview(&app, &webview_label);
+            }
+        }
+
+        // Mark platform complete
+        {
+            let mut scan = state.scan.lock();
+            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                ps.status = "complete".to_string();
+            }
+        }
+        emit_progress_with_state(&app, &state);
+    }
+
+    // Finalize scan
+    {
+        let token = {
+            let auth = state.auth.lock();
+            auth.access_token.clone()
+        };
+
+        if let Some(token) = token {
+            let client = reqwest::Client::new();
+            let _ = client
+                .post(format!(
+                    "{}/functions/v1/extension-finalize-scan",
+                    crate::SUPABASE_URL
+                ))
+                .header("Authorization", format!("Bearer {}", token))
+                .header("apikey", crate::SUPABASE_ANON_KEY)
+                .json(&serde_json::json!({
+                    "scanSessionId": scan_session_id,
+                    "productId": product_id
+                }))
+                .send()
+                .await;
+        }
+    }
+
+    let mention_rate = if total_collected > 0 {
+        (total_mentioned as f64 / total_collected as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let citation_rate = if total_collected > 0 {
+        (total_cited as f64 / total_collected as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    Ok(ScanComplete {
+        total_prompts: prompts.len() * samples * 4,
+        successful_prompts: total_collected,
+        mention_rate,
+        citation_rate,
+    })
+}
+
+#[tauri::command]
+pub async fn cancel_scan(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let mut scan = state.scan.lock();
+    scan.is_running = false;
+    scan.phase = "cancelled".to_string();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_scan_progress(state: State<'_, Arc<AppState>>) -> Result<ScanProgress, String> {
+    let scan = state.scan.lock();
+    Ok(ScanProgress {
+        phase: scan.phase.clone(),
+        current: scan.completed_prompts,
+        total: scan.total_prompts,
+        platforms: scan.platforms.clone(),
+    })
+}
+
+fn emit_progress(app: &AppHandle, state: &State<'_, Arc<AppState>>) {
+    let scan = state.scan.lock();
+    let _ = app.emit(
+        "scan:progress",
+        ScanProgressEvent {
+            phase: scan.phase.clone(),
+            current: scan.completed_prompts,
+            total: scan.total_prompts,
+            platforms: scan.platforms.clone(),
+        },
+    );
+}
+
+fn emit_progress_with_state(app: &AppHandle, state: &Arc<AppState>) {
+    let scan = state.scan.lock();
+    let _ = app.emit(
+        "scan:progress",
+        ScanProgressEvent {
+            phase: scan.phase.clone(),
+            current: scan.completed_prompts,
+            total: scan.total_prompts,
+            platforms: scan.platforms.clone(),
+        },
+    );
+}

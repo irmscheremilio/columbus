@@ -24,6 +24,37 @@ const RESPONSE_WAIT_TIME = 45000 // 45 seconds
 // Flag to skip waiting
 let skipWaiting = false
 
+// Keepalive alarm name
+const KEEPALIVE_ALARM = 'columbus-keepalive'
+
+// Start keepalive to prevent service worker from going inactive during scan
+async function startKeepalive() {
+  try {
+    await chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 }) // Every 24 seconds
+    console.log('Columbus: Keepalive alarm started')
+  } catch (e) {
+    console.log('Columbus: Could not create keepalive alarm:', e.message)
+  }
+}
+
+// Stop keepalive
+async function stopKeepalive() {
+  try {
+    await chrome.alarms.clear(KEEPALIVE_ALARM)
+    console.log('Columbus: Keepalive alarm stopped')
+  } catch (e) {}
+}
+
+// Handle keepalive alarm
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === KEEPALIVE_ALARM) {
+    // Just log to keep service worker alive
+    if (currentScan) {
+      console.log(`Columbus: Keepalive ping - scan phase: ${currentScan.phase}, status: ${currentScan.status}`)
+    }
+  }
+})
+
 // Generate UUID for scan sessions
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -142,6 +173,9 @@ async function startScan(productId) {
 async function runBatchScan() {
   if (!currentScan) return
 
+  // Start keepalive to prevent service worker from sleeping
+  await startKeepalive()
+
   try {
     // Phase 1: Create window and check logins
     currentScan.phase = 'initializing'
@@ -178,6 +212,10 @@ async function runBatchScan() {
     // Phase 4: Collect all responses
     currentScan.phase = 'collecting'
     notifyProgress()
+    console.log('Columbus: Starting collection phase...')
+
+    // IMPORTANT: Bring scan window to foreground before collecting
+    await bringWindowToForeground()
 
     for (const platform of ['chatgpt', 'claude', 'gemini', 'perplexity']) {
       if (currentScan.status !== 'running') break
@@ -191,7 +229,67 @@ async function runBatchScan() {
     console.error('Batch scan error:', error)
     currentScan.status = 'error'
     notifyProgress()
+    await stopKeepalive()
   }
+}
+
+// Helper to bring the scan window to foreground with retry
+async function bringWindowToForeground() {
+  if (!scanWindowId) {
+    console.log('Columbus: No scan window to bring to foreground')
+    return false
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      // Check if window still exists
+      const win = await chrome.windows.get(scanWindowId).catch(() => null)
+      if (!win) {
+        console.error('Columbus: Scan window no longer exists!')
+        return false
+      }
+
+      // Focus the window
+      await chrome.windows.update(scanWindowId, { focused: true })
+      console.log('Columbus: Brought scan window to foreground')
+      await delay(300)
+      return true
+    } catch (error) {
+      // "Tabs cannot be edited right now" error - retry after delay
+      if (error.message?.includes('cannot be edited') || error.message?.includes('dragging')) {
+        console.log(`Columbus: Window busy, retrying (${attempt + 1}/5)...`)
+        await delay(500)
+        continue
+      }
+      console.error('Columbus: Failed to bring window to foreground:', error)
+      return false
+    }
+  }
+  return false
+}
+
+// Helper to safely update a tab with retry
+async function safeTabUpdate(tabId, updateProperties, maxRetries = 5) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await chrome.tabs.update(tabId, updateProperties)
+      return true
+    } catch (error) {
+      if (error.message?.includes('cannot be edited') || error.message?.includes('dragging')) {
+        console.log(`Columbus: Tab busy, retrying update (${attempt + 1}/${maxRetries})...`)
+        await delay(500)
+        continue
+      }
+      // Tab might not exist anymore
+      if (error.message?.includes('No tab')) {
+        console.log('Columbus: Tab no longer exists')
+        return false
+      }
+      throw error
+    }
+  }
+  console.log('Columbus: Failed to update tab after retries')
+  return false
 }
 
 // Helper to exit any fullscreen state (both window and document level)
@@ -227,9 +325,9 @@ async function exitFullscreen() {
   await delay(500)
 }
 
-// Helper to create a tab with fullscreen retry logic
+// Helper to create a tab with retry logic for various errors
 async function createTabWithRetry(url, windowId, active = false) {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     try {
       const tab = await chrome.tabs.create({
         url,
@@ -238,10 +336,14 @@ async function createTabWithRetry(url, windowId, active = false) {
       })
       return tab
     } catch (tabError) {
-      if (tabError.message?.includes('fullscreen') && attempt < 4) {
-        console.log(`Columbus: Fullscreen error on tab create, retrying (attempt ${attempt + 1})`)
-        await exitFullscreen()
-        await delay(500)
+      const msg = tabError.message || ''
+      // Retryable errors
+      if (msg.includes('fullscreen') || msg.includes('cannot be edited') || msg.includes('dragging')) {
+        console.log(`Columbus: Tab create error "${msg.substring(0, 50)}", retrying (attempt ${attempt + 1}/10)`)
+        if (msg.includes('fullscreen')) {
+          await exitFullscreen()
+        }
+        await delay(500 + attempt * 200) // Increasing delay
         continue
       }
       throw tabError
@@ -259,7 +361,7 @@ async function createScanWindow() {
 
   // Create window with first platform - explicitly NOT fullscreen
   let newWindow
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     try {
       newWindow = await chrome.windows.create({
         url: PLATFORM_URLS[platformNames[0]],
@@ -271,8 +373,9 @@ async function createScanWindow() {
       })
       break
     } catch (winError) {
-      if (winError.message?.includes('fullscreen') && attempt < 4) {
-        console.log(`Columbus: Fullscreen error on window create, retrying (attempt ${attempt + 1})`)
+      const msg = winError.message || ''
+      if ((msg.includes('fullscreen') || msg.includes('cannot be edited') || msg.includes('dragging')) && attempt < 9) {
+        console.log(`Columbus: Window create error "${msg.substring(0, 50)}", retrying (attempt ${attempt + 1}/10)`)
         await exitFullscreen()
         await delay(1000)
         continue
@@ -363,9 +466,17 @@ async function submitPlatformPrompts(platform) {
       // Wait for tab to load
       await waitForTabReady(tab.id)
 
-      // Focus briefly for submit
-      await chrome.tabs.update(tab.id, { active: true })
-      await delay(300)
+      // IMPORTANT: Bring window to foreground AND focus tab for reliable submission
+      await bringWindowToForeground()
+      const tabFocused = await safeTabUpdate(tab.id, { active: true })
+      if (!tabFocused) {
+        console.log(`Columbus: Could not focus tab for ${platform}, skipping prompt ${i + 1}`)
+        item.status = 'failed'
+        item.error = 'Could not focus tab'
+        notifyProgress()
+        continue
+      }
+      await delay(500) // Give more time for tab to become fully active
 
       // Submit the prompt (don't wait for response)
       const submitResult = await sendToTab(tab.id, {
@@ -406,6 +517,13 @@ async function collectPlatformResponses(platform) {
 
   platformState.status = 'collecting'
   console.log(`Columbus: Collecting responses from ${platform}...`)
+  notifyProgress()
+
+  // Ensure window is in foreground before starting platform collection
+  await bringWindowToForeground()
+
+  const submittedItems = platformState.queue.filter(item => item.status === 'submitted' && item.tabId)
+  console.log(`Columbus: ${platform} has ${submittedItems.length} items to collect`)
 
   for (let i = 0; i < platformState.queue.length; i++) {
     if (currentScan.status !== 'running') break
@@ -416,55 +534,69 @@ async function collectPlatformResponses(platform) {
       continue // Skip failed or non-submitted items
     }
 
+    console.log(`Columbus: Collecting ${platform} prompt ${i + 1}/${platformState.queue.length} (tab ${item.tabId})`)
+
     try {
-      // Focus the tab
-      await chrome.tabs.update(item.tabId, { active: true })
-      await delay(300)
+      // Check if tab still exists
+      const tabExists = await chrome.tabs.get(item.tabId).catch(() => null)
+      if (!tabExists) {
+        console.error(`Columbus: Tab ${item.tabId} no longer exists for ${platform}`)
+        item.status = 'failed'
+        item.error = 'Tab was closed'
+        notifyProgress()
+        continue
+      }
 
-      // Collect the response
-      const collectResult = await sendToTab(item.tabId, {
-        type: 'COLLECT_RESPONSE',
-        brand: currentScan.product.brand,
-        competitors: currentScan.competitors
-      })
+      // Bring window to foreground again (in case user clicked away)
+      await bringWindowToForeground()
 
-      if (collectResult?.success && collectResult.responseText) {
-        item.status = 'collected'
-        item.result = collectResult
+      // Focus the tab with retry
+      const tabFocused = await safeTabUpdate(item.tabId, { active: true })
+      if (!tabFocused) {
+        console.log(`Columbus: Could not focus tab for collection, marking as failed`)
+        item.status = 'failed'
+        item.error = 'Could not focus tab for collection'
+        notifyProgress()
+        continue
+      }
+      await delay(500) // Give more time for tab to become active
 
-        // Process and save result
-        await processResult(item)
-        console.log(`Columbus: Collected response ${i + 1}/${platformState.queue.length} from ${platform}`)
-      } else {
-        // Retry logic
-        if (item.retryCount < MAX_RETRIES) {
-          item.retryCount++
-          console.log(`Columbus: No response yet for prompt ${i + 1} on ${platform}, retry ${item.retryCount}/${MAX_RETRIES}`)
+      // Collect the response with retries
+      let collected = false
+      for (let attempt = 0; attempt <= MAX_RETRIES && !collected; attempt++) {
+        if (attempt > 0) {
+          console.log(`Columbus: Retry ${attempt}/${MAX_RETRIES} for ${platform} prompt ${i + 1}`)
+          await delay(5000) // Wait 5s between retries
+        }
 
-          // Wait a bit more and try again
-          await delay(10000)
-
-          const retryResult = await sendToTab(item.tabId, {
+        try {
+          const collectResult = await sendToTab(item.tabId, {
             type: 'COLLECT_RESPONSE',
             brand: currentScan.product.brand,
             competitors: currentScan.competitors
           })
 
-          if (retryResult?.success && retryResult.responseText) {
+          if (collectResult?.success && collectResult.responseText) {
             item.status = 'collected'
-            item.result = retryResult
+            item.result = collectResult
             await processResult(item)
-          } else {
+            console.log(`Columbus: ✓ Collected ${platform} prompt ${i + 1}/${platformState.queue.length}`)
+            collected = true
+          } else if (attempt === MAX_RETRIES) {
             item.status = 'failed'
-            item.error = 'No response received'
+            item.error = collectResult?.error || 'No response received after retries'
+            console.log(`Columbus: ✗ Failed to collect ${platform} prompt ${i + 1}: ${item.error}`)
           }
-        } else {
-          item.status = 'failed'
-          item.error = collectResult?.error || 'No response received'
+        } catch (sendError) {
+          console.error(`Columbus: Send error on attempt ${attempt}:`, sendError.message)
+          if (attempt === MAX_RETRIES) {
+            item.status = 'failed'
+            item.error = sendError.message
+          }
         }
       }
 
-      // Close the tab after collecting
+      // Close the tab after collecting (success or fail)
       try {
         await chrome.tabs.remove(item.tabId)
       } catch {}
@@ -475,11 +607,12 @@ async function collectPlatformResponses(platform) {
       item.error = error.message
     }
 
-    // Notify progress
+    // Notify progress after each item
     notifyProgress()
   }
 
   platformState.status = 'complete'
+  console.log(`Columbus: Finished collecting from ${platform}`)
 }
 
 // Process a successful prompt result
@@ -555,6 +688,9 @@ function notifyProgress() {
 // Complete the scan
 async function completeScan() {
   if (!currentScan) return
+
+  // Stop keepalive
+  await stopKeepalive()
 
   currentScan.phase = 'complete'
 
@@ -633,6 +769,9 @@ async function completeScan() {
 
 // Cancel the current scan
 async function cancelScan() {
+  // Stop keepalive
+  await stopKeepalive()
+
   if (currentScan) {
     currentScan.status = 'cancelled'
 

@@ -119,7 +119,8 @@ class ClaudeCapture {
   // Submit prompt without waiting for response (for batch mode)
   async submitPromptOnly(promptText) {
     try {
-      console.log('Columbus Claude: Submitting prompt (batch mode)')
+      console.log('Columbus Claude: === SUBMIT PROMPT START ===')
+      console.log('Columbus Claude: Prompt text length:', promptText.length)
 
       // Find input field
       const input = await this.waitForElement([
@@ -129,32 +130,248 @@ class ClaudeCapture {
       ], 10000)
 
       if (!input) {
+        console.error('Columbus Claude: Could not find input field!')
         return { success: false, error: 'Could not find input field' }
       }
+      console.log('Columbus Claude: Found input field:', input.tagName, input.className)
 
       // Type the prompt
       await this.typeIntoInput(input, promptText)
+      console.log('Columbus Claude: Typed prompt into input')
       await this.delay(500)
 
-      // Click send button
+      // Check input has text
+      const inputTextBefore = input.innerText?.trim() || ''
+      console.log('Columbus Claude: Input text length after typing:', inputTextBefore.length)
+
+      // Find and click send button
       const sendBtn = await this.findSendButton()
+      console.log('Columbus Claude: Send button found:', !!sendBtn)
+
       if (sendBtn) {
-        sendBtn.click()
+        console.log('Columbus Claude: Send button classes:', sendBtn.className)
+        console.log('Columbus Claude: Send button disabled:', sendBtn.disabled)
+        console.log('Columbus Claude: Send button aria-label:', sendBtn.getAttribute('aria-label'))
+
+        // Click with multiple methods
+        console.log('Columbus Claude: Clicking send button...')
+        await this.forceClick(sendBtn)
+        console.log('Columbus Claude: forceClick completed')
       } else {
-        input.dispatchEvent(new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          which: 13,
-          bubbles: true
-        }))
+        console.log('Columbus Claude: No send button found, trying Enter key...')
       }
 
-      console.log('Columbus Claude: Prompt submitted')
-      return { success: true }
+      // Also try keyboard submission as backup
+      console.log('Columbus Claude: Also trying keyboard submission...')
+      input.focus()
+      await this.delay(100)
+
+      // Try Enter key
+      const enterEvent = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+        composed: true
+      })
+      input.dispatchEvent(enterEvent)
+      console.log('Columbus Claude: Dispatched Enter keydown')
+
+      // Also try on document
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        bubbles: true
+      }))
+
+      await this.delay(100)
+
+      const keyupEvent = new KeyboardEvent('keyup', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        bubbles: true
+      })
+      input.dispatchEvent(keyupEvent)
+
+      // Wait and verify
+      await this.delay(1500)
+
+      const inputAfter = document.querySelector('[contenteditable="true"]') ||
+                         document.querySelector('.ProseMirror')
+      const inputTextAfter = inputAfter?.innerText?.trim() || ''
+      console.log('Columbus Claude: Input text length after submit:', inputTextAfter.length)
+
+      // Check for response indicators
+      const thinkingIndicator = document.querySelector('[class*="thinking"]') ||
+                                document.querySelector('[class*="loading"]') ||
+                                document.querySelector('[aria-label*="Stop"]') ||
+                                document.querySelector('[aria-label*="Stopp"]') ||
+                                document.querySelector('button[aria-label*="top"]')
+
+      console.log('Columbus Claude: Thinking indicator found:', !!thinkingIndicator)
+
+      // If input is cleared or response started, success
+      if (inputTextAfter.length === 0 || inputTextAfter.length < inputTextBefore.length * 0.5) {
+        console.log('Columbus Claude: SUCCESS - Input was cleared')
+        return { success: true }
+      }
+
+      if (thinkingIndicator) {
+        console.log('Columbus Claude: SUCCESS - Response is being generated')
+        return { success: true }
+      }
+
+      // Retry clicking button multiple times
+      if (sendBtn && !sendBtn.disabled) {
+        console.log('Columbus Claude: Retrying button clicks...')
+        for (let i = 0; i < 5; i++) {
+          await this.forceClick(sendBtn)
+          await this.delay(200)
+
+          // Check if it worked
+          const currentText = document.querySelector('[contenteditable="true"]')?.innerText?.trim() || ''
+          if (currentText.length < inputTextBefore.length * 0.5) {
+            console.log('Columbus Claude: SUCCESS on retry', i + 1)
+            return { success: true }
+          }
+        }
+      }
+
+      console.log('Columbus Claude: === SUBMIT PROMPT END (may not have worked) ===')
+      return { success: true } // Return success anyway, collection phase will verify
     } catch (error) {
+      console.error('Columbus Claude: Submit error:', error)
       return { success: false, error: error.message }
     }
+  }
+
+  // Force click an element using multiple methods
+  async forceClick(element) {
+    if (!element) {
+      console.log('Columbus Claude: forceClick - no element')
+      return
+    }
+
+    console.log('Columbus Claude: forceClick - starting')
+
+    // Scroll element into view first
+    element.scrollIntoView({ behavior: 'instant', block: 'center' })
+    await this.delay(100)
+
+    const rect = element.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+
+    console.log('Columbus Claude: forceClick - element position:', centerX, centerY)
+
+    // Method 1: Focus and regular click
+    element.focus()
+    element.click()
+    console.log('Columbus Claude: forceClick - regular click done')
+
+    await this.delay(50)
+
+    // Method 2: Pointer events (more modern, works better with React)
+    const pointerdownEvent = new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: centerX,
+      clientY: centerY,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true
+    })
+    element.dispatchEvent(pointerdownEvent)
+
+    await this.delay(30)
+
+    const pointerupEvent = new PointerEvent('pointerup', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: centerX,
+      clientY: centerY,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true
+    })
+    element.dispatchEvent(pointerupEvent)
+
+    // Method 3: Mouse events with all properties
+    const mousedownEvent = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      detail: 1,
+      screenX: centerX,
+      screenY: centerY,
+      clientX: centerX,
+      clientY: centerY,
+      button: 0,
+      buttons: 1,
+      relatedTarget: null
+    })
+    element.dispatchEvent(mousedownEvent)
+
+    await this.delay(30)
+
+    const mouseupEvent = new MouseEvent('mouseup', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      detail: 1,
+      screenX: centerX,
+      screenY: centerY,
+      clientX: centerX,
+      clientY: centerY,
+      button: 0,
+      buttons: 0,
+      relatedTarget: null
+    })
+    element.dispatchEvent(mouseupEvent)
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      detail: 1,
+      screenX: centerX,
+      screenY: centerY,
+      clientX: centerX,
+      clientY: centerY,
+      button: 0,
+      buttons: 0,
+      relatedTarget: null
+    })
+    element.dispatchEvent(clickEvent)
+
+    console.log('Columbus Claude: forceClick - mouse events dispatched')
+
+    // Method 4: Try using the native click directly
+    await this.delay(50)
+    HTMLElement.prototype.click.call(element)
+
+    // Method 5: If it's a button, try submitting parent form
+    if (element.tagName === 'BUTTON') {
+      const form = element.closest('form')
+      if (form) {
+        console.log('Columbus Claude: forceClick - trying form submit')
+        try {
+          form.requestSubmit(element)
+        } catch (e) {
+          // requestSubmit might not be supported
+        }
+      }
+    }
+
+    console.log('Columbus Claude: forceClick - complete')
   }
 
   // Collect response that's already been generated (for batch mode)
@@ -271,49 +488,95 @@ class ClaudeCapture {
     // Wait briefly for button to become enabled after text input
     await this.delay(300)
 
+    // Direct selectors - including internationalized aria-labels
     const selectors = [
+      // English
       'button[aria-label="Send Message"]',
       'button[aria-label="Send message"]',
       'button[aria-label="Send"]',
+      // German
+      'button[aria-label="Nachricht senden"]',
+      'button[aria-label="Senden"]',
+      // French
+      'button[aria-label="Envoyer le message"]',
+      'button[aria-label="Envoyer"]',
+      // Spanish
+      'button[aria-label="Enviar mensaje"]',
+      'button[aria-label="Enviar"]',
+      // Claude-specific classes
+      'button[class*="Button_claude"]',
+      'button[class*="send"]',
       '[data-testid="send-button"]',
-      'button[type="button"][class*="send"]',
-      'fieldset button[type="button"]'  // Claude's submit button is often inside a fieldset
+      'fieldset button[type="button"]'
     ]
 
     for (const selector of selectors) {
       try {
         const btn = document.querySelector(selector)
-        if (btn && !btn.disabled) return btn
+        if (btn && !btn.disabled) {
+          console.log('Columbus Claude: Found send button via selector:', selector)
+          return btn
+        }
       } catch {
         // Selector might not be supported
       }
     }
 
-    // Fallback: find the button near the input area
-    const inputArea = document.querySelector('[contenteditable="true"]') ||
-                      document.querySelector('.ProseMirror')
-    if (inputArea) {
-      const form = inputArea.closest('form') || inputArea.closest('fieldset') || inputArea.parentElement?.parentElement
-      if (form) {
-        const buttons = form.querySelectorAll('button')
-        for (const btn of buttons) {
-          // Look for a button that could be send (not disabled, has icon or specific styling)
-          if (!btn.disabled && btn.querySelector('svg')) {
-            return btn
-          }
+    // Find button by aria-label containing "send" in any language
+    const allButtons = document.querySelectorAll('button[aria-label]')
+    for (const btn of allButtons) {
+      const label = btn.getAttribute('aria-label')?.toLowerCase() || ''
+      // Common "send" translations
+      if (label.includes('send') || label.includes('senden') ||
+          label.includes('envoyer') || label.includes('enviar') ||
+          label.includes('invia') || label.includes('verzenden')) {
+        if (!btn.disabled) {
+          console.log('Columbus Claude: Found send button via aria-label:', label)
+          return btn
         }
       }
     }
 
-    // Last fallback: find any enabled button with arrow/send icon
-    const allButtons = document.querySelectorAll('button:not([disabled])')
-    for (const btn of allButtons) {
-      const svg = btn.querySelector('svg')
-      if (svg && (btn.innerHTML.includes('M') || btn.className.includes('send'))) {
-        return btn
+    // Fallback: find the button near the input area with an SVG (arrow icon)
+    const inputArea = document.querySelector('[contenteditable="true"]') ||
+                      document.querySelector('.ProseMirror')
+    if (inputArea) {
+      // Look up the DOM tree to find container with the button
+      let container = inputArea.parentElement
+      for (let i = 0; i < 10 && container; i++) {
+        const buttons = container.querySelectorAll('button:not([disabled])')
+        for (const btn of buttons) {
+          // Look for a button with an SVG that has an upward arrow path (send icon)
+          const svg = btn.querySelector('svg')
+          if (svg) {
+            const path = svg.querySelector('path')
+            const d = path?.getAttribute('d') || ''
+            // Claude's send button has an upward arrow
+            if (d.includes('120.49') || d.includes('72-72') || btn.className.includes('claude')) {
+              console.log('Columbus Claude: Found send button via SVG arrow pattern')
+              return btn
+            }
+          }
+        }
+        container = container.parentElement
       }
     }
 
+    // Last resort: find any button with an upward arrow SVG near bottom of page
+    const bottomButtons = document.querySelectorAll('button:not([disabled])')
+    for (const btn of bottomButtons) {
+      const rect = btn.getBoundingClientRect()
+      // Button should be in lower part of viewport (input area)
+      if (rect.top > window.innerHeight * 0.5) {
+        const svg = btn.querySelector('svg')
+        if (svg && svg.innerHTML.includes('path')) {
+          console.log('Columbus Claude: Found send button via position heuristic')
+          return btn
+        }
+      }
+    }
+
+    console.log('Columbus Claude: Could not find send button')
     return null
   }
 
