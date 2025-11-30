@@ -195,6 +195,37 @@
         </div>
       </div>
 
+      <!-- Auto-Run Settings -->
+      <div class="settings-section auto-run-section">
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label">Auto-run scans</label>
+            <span class="setting-hint">Run scans automatically in the background</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoRunEnabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row" id="scansPerDayRow">
+          <div class="setting-info">
+            <label class="setting-label" for="scansPerDay">Scans per day</label>
+            <span class="setting-hint">Target number of automatic scans daily</span>
+          </div>
+          <input type="number" id="scansPerDay" class="input-small" min="1" max="24" value="1">
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label">Start with system</label>
+            <span class="setting-hint">Launch Columbus when you log in</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autostartEnabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Scan Controls -->
       <div class="scan-section">
         <button id="scanBtn" class="btn btn-primary btn-large" disabled>

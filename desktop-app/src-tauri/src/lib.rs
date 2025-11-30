@@ -2,11 +2,19 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
+};
 
+mod autoscan;
 mod commands;
+mod storage;
 mod webview;
 
 pub use commands::*;
+pub use storage::*;
 pub use webview::*;
 
 // Configuration
@@ -22,10 +30,36 @@ pub const PLATFORM_URLS: &[(&str, &str)] = &[
 ];
 
 // Application state
-#[derive(Default)]
 pub struct AppState {
     pub auth: Mutex<AuthState>,
     pub scan: Mutex<ScanState>,
+    pub last_product_id: Mutex<Option<String>>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        // Load persisted state on startup
+        let persisted = storage::load_state();
+
+        // Restore auth state from persisted data
+        let auth_state = match &persisted.auth {
+            Some(a) => {
+                println!("[AppState] Loaded persisted auth for user: {}", a.user_email);
+                println!("[AppState] Token expires at: {}, now: {}", a.expires_at, chrono::Utc::now().timestamp());
+                AuthState::from(a)
+            }
+            None => {
+                println!("[AppState] No persisted auth found");
+                AuthState::default()
+            }
+        };
+
+        Self {
+            auth: Mutex::new(auth_state),
+            scan: Mutex::new(ScanState::default()),
+            last_product_id: Mutex::new(persisted.last_product_id),
+        }
+    }
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -122,8 +156,22 @@ pub struct ScanComplete {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    println!("[Columbus] Starting application...");
+
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // When a second instance tries to run, show the existing window
+            println!("[Columbus] Second instance detected, focusing existing window");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized"]),
+        ))
         .manage(Arc::new(AppState::default()))
         .invoke_handler(tauri::generate_handler![
             commands::auth::login,
@@ -140,7 +188,93 @@ pub fn run() {
             commands::platform::open_platform_login,
             commands::platform::close_platform_login,
             commands::platform::open_url_in_browser,
+            commands::settings::get_product_config,
+            commands::settings::set_product_config,
+            commands::settings::get_last_product_id,
+            commands::settings::set_last_product_id,
+            commands::settings::get_autostart_enabled,
+            commands::settings::set_autostart_enabled,
         ])
+        .setup(|app| {
+            println!("[Columbus] Setup starting...");
+
+            // Build system tray menu
+            let show_item = MenuItem::with_id(app, "show", "Show Columbus", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            // Create system tray if we have an icon
+            if let Some(icon) = app.default_window_icon().cloned() {
+                println!("[Columbus] Creating system tray...");
+                let tray_result = TrayIconBuilder::new()
+                    .icon(icon)
+                    .menu(&menu)
+                    .tooltip("Columbus - AI Brand Monitor")
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    })
+                    .build(app);
+
+                match &tray_result {
+                    Ok(_) => println!("[Columbus] System tray created successfully"),
+                    Err(e) => {
+                        eprintln!("[Columbus] ERROR creating system tray: {}", e);
+                    }
+                }
+
+                // Store tray handle to keep it alive (important!)
+                if let Ok(tray) = tray_result {
+                    app.manage(tray);
+                }
+            } else {
+                eprintln!("[Columbus] No window icon available, skipping system tray");
+            }
+
+            // Check if started minimized (via --minimized arg)
+            let args: Vec<String> = std::env::args().collect();
+            if args.contains(&"--minimized".to_string()) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
+            // Start the auto-scan scheduler
+            println!("[Columbus] Starting auto-scan scheduler...");
+            autoscan::start_scheduler(app.handle().clone());
+
+            println!("[Columbus] Setup complete");
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Hide window instead of closing when user clicks X
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

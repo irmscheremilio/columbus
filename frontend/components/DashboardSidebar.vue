@@ -393,8 +393,8 @@ const LinkIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'c
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' })
 ])
 
-const ExtensionIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z' })
+const DesktopIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25' })
 ])
 
 const navItems = [
@@ -408,7 +408,7 @@ const navItems = [
   { name: 'Prompts', path: '/dashboard/prompts', icon: ChatIcon },
   { name: 'Reports', path: '/dashboard/reports', icon: DocumentIcon },
   { name: 'ROI', path: '/dashboard/roi', icon: CurrencyIcon },
-  { name: 'Extension', path: '/dashboard/extension', icon: ExtensionIcon, badge: 'New', badgeClass: 'bg-green-100 text-green-700' },
+  { name: 'Desktop App', path: '/dashboard/extension', icon: DesktopIcon, badge: 'New', badgeClass: 'bg-green-100 text-green-700' },
   { name: 'Settings', path: '/dashboard/settings', icon: CogIcon },
 ]
 

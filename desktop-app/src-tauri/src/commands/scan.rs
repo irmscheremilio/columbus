@@ -26,6 +26,17 @@ pub async fn start_scan(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
+    start_scan_internal(product_id, samples_per_prompt, platforms, app, state.inner().clone()).await
+}
+
+/// Internal scan function that can be called without Tauri State wrapper
+pub async fn start_scan_internal(
+    product_id: String,
+    samples_per_prompt: Option<usize>,
+    platforms: Option<Vec<String>>,
+    app: AppHandle,
+    state: Arc<AppState>,
+) -> Result<(), String> {
     // Default to all platforms if none specified
     let selected_platforms: Vec<String> = platforms.unwrap_or_else(|| {
         PLATFORM_URLS.iter().map(|(name, _)| name.to_string()).collect()
@@ -102,10 +113,10 @@ pub async fn start_scan(
     }
 
     // Emit initial progress
-    emit_progress(&app, &state);
+    emit_progress_with_state(&app, &state);
 
     // Clone necessary data for async task
-    let state_clone = state.inner().clone();
+    let state_clone = state.clone();
     let app_clone = app.clone();
     let prompts = prompts_response.prompts.clone();
     let brand = prompts_response.product.brand.clone();
@@ -514,20 +525,6 @@ pub async fn get_scan_progress(state: State<'_, Arc<AppState>>) -> Result<ScanPr
         total: scan.total_prompts,
         platforms: scan.platforms.clone(),
     })
-}
-
-fn emit_progress(app: &AppHandle, state: &State<'_, Arc<AppState>>) {
-    let scan = state.scan.lock();
-    let _ = app.emit(
-        "scan:progress",
-        ScanProgressEvent {
-            phase: scan.phase.clone(),
-            current: scan.completed_prompts,
-            total: scan.total_prompts,
-            platforms: scan.platforms.clone(),
-            countdown_seconds: None,
-        },
-    );
 }
 
 fn emit_progress_with_state(app: &AppHandle, state: &Arc<AppState>) {

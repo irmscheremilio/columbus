@@ -12,6 +12,15 @@ let currentUser = null;
 let products = [];
 let selectedProductId = null;
 let isScanning = false;
+let isInitializing = true; // Flag to prevent saving during initialization
+
+// Per-product config (loaded when product is selected)
+let currentProductConfig = {
+    readyPlatforms: [],
+    samplesPerPrompt: 1,
+    autoRunEnabled: true,
+    scansPerDay: 1
+};
 
 // DOM Elements - get them after DOM is ready
 let loginView, mainView, scanningView, completeView;
@@ -22,6 +31,7 @@ let samplesPerPrompt, samplesWarning, scanBtn, scanInfo, dashboardLink;
 let progressFill, progressText, phaseIndicator, cancelScanBtn;
 let countdownDisplay, countdownSeconds;
 let completeStats, viewResultsBtn, newScanBtn;
+let autoRunEnabled, scansPerDay, scansPerDayRow, autostartEnabled;
 
 // Platform elements
 const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
@@ -75,6 +85,12 @@ async function init() {
     completeStats = document.getElementById('completeStats');
     viewResultsBtn = document.getElementById('viewResultsBtn');
     newScanBtn = document.getElementById('newScanBtn');
+
+    // Auto-run settings elements
+    autoRunEnabled = document.getElementById('autoRunEnabled');
+    scansPerDay = document.getElementById('scansPerDay');
+    scansPerDayRow = document.getElementById('scansPerDayRow');
+    autostartEnabled = document.getElementById('autostartEnabled');
 
     console.log('DOM elements loaded, googleLoginBtn:', googleLoginBtn);
 
@@ -148,6 +164,17 @@ function setupEventListeners() {
                 handleOpenCustomUrl(customUrlInput);
             }
         });
+    }
+
+    // Auto-run settings
+    if (autoRunEnabled) {
+        autoRunEnabled.addEventListener('change', handleAutoRunChange);
+    }
+    if (scansPerDay) {
+        scansPerDay.addEventListener('change', handleScansPerDayChange);
+    }
+    if (autostartEnabled) {
+        autostartEnabled.addEventListener('change', handleAutostartChange);
     }
 }
 
@@ -281,7 +308,18 @@ async function onAuthenticated() {
     userEmail.textContent = currentUser.email;
     showView('main');
     await loadProducts();
-    await updatePlatformStatus();
+
+    // Load product config if a product was restored
+    if (selectedProductId) {
+        await loadProductConfig(selectedProductId);
+    }
+
+    // Load autostart setting (global, not per-product)
+    await loadAutostartSetting();
+
+    // Initialization complete - enable persistence
+    isInitializing = false;
+    console.log('Initialization complete, persistence enabled');
 }
 
 // Product functions
@@ -300,17 +338,112 @@ async function loadProducts() {
             option.textContent = product.name;
             productSelect.appendChild(option);
         });
+
+        // Restore last selected product
+        try {
+            const lastProductId = await invoke('get_last_product_id');
+            if (lastProductId && products.some(p => p.id === lastProductId)) {
+                productSelect.value = lastProductId;
+                selectedProductId = lastProductId;
+                updateScanButtonState();
+            }
+        } catch (e) {
+            console.error('Failed to restore last product:', e);
+        }
     } catch (error) {
         console.error('Failed to load products:', error);
     }
 }
 
-function handleProductChange() {
+async function handleProductChange() {
     selectedProductId = productSelect.value;
+
+    // Load config for this product
+    if (selectedProductId) {
+        await loadProductConfig(selectedProductId);
+    } else {
+        // Reset to defaults if no product selected
+        currentProductConfig = {
+            readyPlatforms: [],
+            samplesPerPrompt: 1,
+            autoRunEnabled: true,
+            scansPerDay: 1
+        };
+        applyProductConfigToUI();
+    }
+
+    updateScanButtonState();
+
+    // Only persist if not during initialization
+    if (!isInitializing) {
+        try {
+            await invoke('set_last_product_id', { productId: selectedProductId || null });
+        } catch (e) {
+            console.error('Failed to save product selection:', e);
+        }
+    }
+}
+
+async function loadProductConfig(productId) {
+    try {
+        const config = await invoke('get_product_config', { productId });
+        console.log('Loaded product config for', productId, ':', config);
+
+        currentProductConfig = {
+            readyPlatforms: config.ready_platforms || [],
+            samplesPerPrompt: config.samples_per_prompt || 1,
+            autoRunEnabled: config.auto_run_enabled !== false,
+            scansPerDay: config.scans_per_day || 1
+        };
+
+        applyProductConfigToUI();
+    } catch (e) {
+        console.error('Failed to load product config:', e);
+    }
+}
+
+function applyProductConfigToUI() {
+    // Update platform checkboxes
+    readyPlatforms.clear();
+    currentProductConfig.readyPlatforms.forEach(p => readyPlatforms.add(p));
+
+    platforms.forEach(platform => {
+        const checkbox = document.getElementById(`ready-${platform}`);
+        const item = document.querySelector(`.platform-login-item[data-platform="${platform}"]`);
+        const isReady = readyPlatforms.has(platform);
+
+        if (checkbox) checkbox.checked = isReady;
+        if (item) {
+            if (isReady) {
+                item.classList.add('ready');
+            } else {
+                item.classList.remove('ready');
+            }
+        }
+    });
+
+    // Update samples per prompt
+    if (samplesPerPrompt) {
+        samplesPerPrompt.value = currentProductConfig.samplesPerPrompt;
+    }
+
+    // Update auto-run settings
+    if (autoRunEnabled) {
+        autoRunEnabled.checked = currentProductConfig.autoRunEnabled;
+    }
+    if (scansPerDay) {
+        scansPerDay.value = currentProductConfig.scansPerDay;
+    }
+    if (scansPerDayRow) {
+        scansPerDayRow.style.opacity = currentProductConfig.autoRunEnabled ? '1' : '0.5';
+        scansPerDay.disabled = !currentProductConfig.autoRunEnabled;
+    }
+
+    updatePlatformHint();
     updateScanButtonState();
 }
 
-function handleSamplesChange(e) {
+async function handleSamplesChange(e) {
     let count = parseInt(e.target.value, 10);
 
     if (isNaN(count) || count < 1) {
@@ -324,6 +457,9 @@ function handleSamplesChange(e) {
     } else {
         samplesWarning.classList.add('hidden');
     }
+
+    // Persist platform config
+    await saveProductConfig();
 }
 
 // Platform functions
@@ -366,7 +502,7 @@ async function handleOpenCustomUrl(inputElement) {
     }
 }
 
-function handlePlatformReadyChange(platform, isReady) {
+async function handlePlatformReadyChange(platform, isReady) {
     const item = document.querySelector(`.platform-login-item[data-platform="${platform}"]`);
 
     if (isReady) {
@@ -379,6 +515,27 @@ function handlePlatformReadyChange(platform, isReady) {
 
     updateScanButtonState();
     updatePlatformHint();
+
+    // Only persist if not during initialization
+    if (!isInitializing) {
+        await saveProductConfig();
+    }
+}
+
+async function saveProductConfig() {
+    if (!selectedProductId) return;
+
+    try {
+        await invoke('set_product_config', {
+            productId: selectedProductId,
+            readyPlatforms: Array.from(readyPlatforms),
+            samplesPerPrompt: parseInt(samplesPerPrompt.value) || 1,
+            autoRunEnabled: currentProductConfig.autoRunEnabled,
+            scansPerDay: currentProductConfig.scansPerDay
+        });
+    } catch (e) {
+        console.error('Failed to save product config:', e);
+    }
 }
 
 function updateScanButtonState() {
@@ -417,18 +574,7 @@ function updatePlatformHint() {
     }
 }
 
-async function updatePlatformStatus() {
-    // Reset platform ready state on login
-    readyPlatforms.clear();
-    platforms.forEach(platform => {
-        const checkbox = document.getElementById(`ready-${platform}`);
-        const item = document.querySelector(`.platform-login-item[data-platform="${platform}"]`);
-        if (checkbox) checkbox.checked = false;
-        if (item) item.classList.remove('ready');
-    });
-    updatePlatformHint();
-    updateScanButtonState();
-}
+// updatePlatformStatus is no longer needed - config is loaded per-product in handleProductChange
 
 // Scan functions
 async function handleStartScan() {
@@ -642,6 +788,80 @@ function setGoogleLoginLoading(loading) {
     googleLoginBtn.disabled = loading;
     googleLoginBtn.querySelector('.btn-text').classList.toggle('hidden', loading);
     googleLoginBtn.querySelector('.btn-loading').classList.toggle('hidden', !loading);
+}
+
+// Auto-run settings handlers (per-product)
+async function handleAutoRunChange(e) {
+    if (!selectedProductId) return;
+
+    const enabled = e.target.checked;
+    currentProductConfig.autoRunEnabled = enabled;
+
+    // Show/hide scans per day setting based on auto-run state
+    if (scansPerDayRow) {
+        scansPerDayRow.style.opacity = enabled ? '1' : '0.5';
+        scansPerDay.disabled = !enabled;
+    }
+
+    try {
+        await saveProductConfig();
+        console.log('Auto-run setting updated for product:', selectedProductId, enabled);
+    } catch (error) {
+        console.error('Failed to update auto-run setting:', error);
+        // Revert UI on error
+        e.target.checked = !enabled;
+        currentProductConfig.autoRunEnabled = !enabled;
+    }
+}
+
+async function handleScansPerDayChange(e) {
+    if (!selectedProductId) return;
+
+    let value = parseInt(e.target.value, 10);
+
+    // Clamp value between 1 and 24
+    if (isNaN(value) || value < 1) {
+        value = 1;
+        e.target.value = '1';
+    } else if (value > 24) {
+        value = 24;
+        e.target.value = '24';
+    }
+
+    currentProductConfig.scansPerDay = value;
+
+    try {
+        await saveProductConfig();
+        console.log('Scans per day updated for product:', selectedProductId, value);
+    } catch (error) {
+        console.error('Failed to update scans per day:', error);
+    }
+}
+
+async function handleAutostartChange(e) {
+    const enabled = e.target.checked;
+
+    try {
+        const result = await invoke('set_autostart_enabled', { enabled });
+        console.log('Autostart setting updated:', result);
+    } catch (error) {
+        console.error('Failed to update autostart setting:', error);
+        // Revert UI on error
+        e.target.checked = !enabled;
+    }
+}
+
+async function loadAutostartSetting() {
+    try {
+        // Load autostart setting (this is global, not per-product)
+        const autostartIsEnabled = await invoke('get_autostart_enabled');
+        if (autostartEnabled) {
+            autostartEnabled.checked = autostartIsEnabled;
+        }
+        console.log('Autostart status:', autostartIsEnabled);
+    } catch (error) {
+        console.error('Failed to load autostart setting:', error);
+    }
 }
 
 // Initialize on DOM ready

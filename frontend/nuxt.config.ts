@@ -34,6 +34,7 @@ export default defineNuxtConfig({
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       stripePublishableKey: process.env.NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       workerApiUrl: process.env.WORKER_API_URL || 'http://localhost:3001',
+      desktopAppDownloadUrl: process.env.NUXT_PUBLIC_DESKTOP_APP_DOWNLOAD_URL || '#',
     },
   },
 

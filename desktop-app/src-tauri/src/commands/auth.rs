@@ -1,4 +1,4 @@
-use crate::{AppState, AuthState, User, SUPABASE_ANON_KEY, SUPABASE_URL};
+use crate::{storage, AppState, AuthState, PersistedAuth, User, SUPABASE_ANON_KEY, SUPABASE_URL};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
@@ -62,13 +62,27 @@ pub async fn login(
         email: login_data.user.email,
     };
 
+    let expires_at = chrono::Utc::now().timestamp() + login_data.expires_in;
+
     // Store auth state
     {
         let mut auth = state.auth.lock();
-        auth.access_token = Some(login_data.access_token);
-        auth.refresh_token = Some(login_data.refresh_token);
+        auth.access_token = Some(login_data.access_token.clone());
+        auth.refresh_token = Some(login_data.refresh_token.clone());
         auth.user = Some(user.clone());
-        auth.expires_at = Some(chrono::Utc::now().timestamp() + login_data.expires_in);
+        auth.expires_at = Some(expires_at);
+    }
+
+    // Persist auth to disk
+    let persisted_auth = PersistedAuth {
+        access_token: login_data.access_token,
+        refresh_token: login_data.refresh_token,
+        user_id: user.id.clone(),
+        user_email: user.email.clone(),
+        expires_at,
+    };
+    if let Err(e) = storage::update_auth(Some(persisted_auth)) {
+        eprintln!("[Auth] Failed to persist auth: {}", e);
     }
 
     Ok(user)
@@ -78,21 +92,88 @@ pub async fn login(
 pub async fn logout(state: State<'_, Arc<AppState>>) -> Result<(), String> {
     let mut auth = state.auth.lock();
     *auth = AuthState::default();
+
+    // Clear persisted auth
+    if let Err(e) = storage::clear_auth() {
+        eprintln!("[Auth] Failed to clear persisted auth: {}", e);
+    }
+
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_auth_status(state: State<'_, Arc<AppState>>) -> Result<AuthStatusResponse, String> {
-    let auth = state.auth.lock();
+    // First check if we have auth data
+    let (user, expires_at, refresh_token) = {
+        let auth = state.auth.lock();
+        (
+            auth.user.clone(),
+            auth.expires_at,
+            auth.refresh_token.clone(),
+        )
+    };
 
-    if let Some(ref user) = auth.user {
-        // Check if token is expired
-        if let Some(expires_at) = auth.expires_at {
-            if chrono::Utc::now().timestamp() >= expires_at {
-                return Ok(AuthStatusResponse {
-                    authenticated: false,
-                    user: None,
-                });
+    if let Some(ref user) = user {
+        // Check if token is expired or about to expire (within 5 minutes)
+        if let Some(expires_at) = expires_at {
+            let now = chrono::Utc::now().timestamp();
+            let is_expired = now >= expires_at - 300; // 5 minute buffer
+
+            if is_expired {
+                // Try to refresh the token
+                if let Some(refresh_token) = refresh_token {
+                    println!("[Auth] Token expired, attempting refresh...");
+                    match refresh_access_token(&refresh_token).await {
+                        Ok((new_access, new_refresh, new_expires_in)) => {
+                            let new_expires_at = chrono::Utc::now().timestamp() + new_expires_in;
+
+                            // Update state
+                            {
+                                let mut auth = state.auth.lock();
+                                auth.access_token = Some(new_access.clone());
+                                auth.refresh_token = Some(new_refresh.clone());
+                                auth.expires_at = Some(new_expires_at);
+                            }
+
+                            // Persist updated tokens
+                            let persisted_auth = PersistedAuth {
+                                access_token: new_access,
+                                refresh_token: new_refresh,
+                                user_id: user.id.clone(),
+                                user_email: user.email.clone(),
+                                expires_at: new_expires_at,
+                            };
+                            if let Err(e) = storage::update_auth(Some(persisted_auth)) {
+                                eprintln!("[Auth] Failed to persist refreshed auth: {}", e);
+                            }
+
+                            println!("[Auth] Token refreshed successfully");
+                            return Ok(AuthStatusResponse {
+                                authenticated: true,
+                                user: Some(user.clone()),
+                            });
+                        }
+                        Err(e) => {
+                            eprintln!("[Auth] Token refresh failed: {}", e);
+                            // Clear invalid auth state
+                            {
+                                let mut auth = state.auth.lock();
+                                *auth = AuthState::default();
+                            }
+                            let _ = storage::clear_auth();
+                            return Ok(AuthStatusResponse {
+                                authenticated: false,
+                                user: None,
+                            });
+                        }
+                    }
+                } else {
+                    // No refresh token, can't refresh
+                    return Ok(AuthStatusResponse {
+                        authenticated: false,
+                        user: None,
+                    });
+                }
             }
         }
 
@@ -106,6 +187,40 @@ pub async fn get_auth_status(state: State<'_, Arc<AppState>>) -> Result<AuthStat
             user: None,
         })
     }
+}
+
+/// Refresh an expired access token using the refresh token
+async fn refresh_access_token(refresh_token: &str) -> Result<(String, String, i64), String> {
+    let client = reqwest::Client::new();
+
+    let url = format!("{}/auth/v1/token?grant_type=refresh_token", SUPABASE_URL);
+
+    let response = client
+        .post(&url)
+        .header("apikey", SUPABASE_ANON_KEY)
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "refresh_token": refresh_token
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Network error during refresh: {}", e))?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("Token refresh failed: {}", error_text));
+    }
+
+    let refresh_data: LoginResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Parse error during refresh: {}", e))?;
+
+    Ok((
+        refresh_data.access_token,
+        refresh_data.refresh_token,
+        refresh_data.expires_in,
+    ))
 }
 
 #[tauri::command]
@@ -259,13 +374,27 @@ async fn finalize_oauth(
         email: supabase_user.email,
     };
 
+    let expires_at = chrono::Utc::now().timestamp() + expires_in;
+
     // Store auth state
     {
         let mut auth = state.auth.lock();
-        auth.access_token = Some(access_token);
-        auth.refresh_token = Some(refresh_token);
+        auth.access_token = Some(access_token.clone());
+        auth.refresh_token = Some(refresh_token.clone());
         auth.user = Some(user.clone());
-        auth.expires_at = Some(chrono::Utc::now().timestamp() + expires_in);
+        auth.expires_at = Some(expires_at);
+    }
+
+    // Persist auth to disk
+    let persisted_auth = PersistedAuth {
+        access_token,
+        refresh_token,
+        user_id: user.id.clone(),
+        user_email: user.email.clone(),
+        expires_at,
+    };
+    if let Err(e) = storage::update_auth(Some(persisted_auth)) {
+        eprintln!("[Auth] Failed to persist OAuth auth: {}", e);
     }
 
     Ok(user)
