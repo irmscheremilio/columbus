@@ -972,11 +972,38 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
                 '[class*="citation-number"]'
             ];
 
+            // Domains to exclude (AI provider pages, support pages, etc.)
+            const excludedDomains = [
+                'anthropic.com',
+                'claude.ai',
+                'openai.com',
+                'chat.openai.com',
+                'google.com',
+                'gemini.google.com',
+                'support.google.com',
+                'accounts.google.com',
+                'perplexity.ai',
+                'microsoft.com',
+                'bing.com',
+                'copilot.microsoft.com'
+            ];
+
+            const isExcludedDomain = (url) => {{
+                try {{
+                    const hostname = new URL(url).hostname.toLowerCase();
+                    return excludedDomains.some(domain =>
+                        hostname === domain || hostname.endsWith('.' + domain)
+                    );
+                }} catch {{
+                    return false;
+                }}
+            }};
+
             for (const citeSel of citationSelectors) {{
                 try {{
                     const links = document.querySelectorAll(citeSel);
                     links.forEach((link, i) => {{
-                        if (link.href && !citations.some(c => c.url === link.href)) {{
+                        if (link.href && !citations.some(c => c.url === link.href) && !isExcludedDomain(link.href)) {{
                             citations.push({{
                                 url: link.href,
                                 title: link.textContent || link.title || '',
@@ -986,7 +1013,7 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
                     }});
                 }} catch(e) {{}}
             }}
-            console.log('[Columbus] Citations found:', citations.length);
+            console.log('[Columbus] Citations found (after filtering):', citations.length);
 
             // Build result object
             const result = {{

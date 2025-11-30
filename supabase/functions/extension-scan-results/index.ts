@@ -18,10 +18,13 @@ interface ScanResult {
   sentiment: 'positive' | 'neutral' | 'negative'
   competitorMentions: string[]
   citations: { url: string; title?: string; position?: number }[]
-  metadata: {
+  creditsExhausted?: boolean
+  chatUrl?: string
+  chat_url?: string  // Support both camelCase and snake_case
+  metadata?: {
     modelUsed?: string
     hadWebSearch?: boolean
-    responseTimeMs: number
+    responseTimeMs?: number
   }
 }
 
@@ -114,6 +117,10 @@ Deno.serve(async (req) => {
 
     // Save raw result immediately (no AI evaluation - that's done async by worker)
     // Use extension's basic analysis for now, worker will override with AI evaluation
+    // Support both snake_case (from Rust) and camelCase field names
+    const chatUrl = result.chat_url || result.chatUrl || null
+    const creditsExhausted = result.creditsExhausted ?? false
+
     const { data: promptResult, error: insertError } = await supabaseAdmin
       .from('prompt_results')
       .insert({
@@ -128,6 +135,8 @@ Deno.serve(async (req) => {
         position: result.position,  // Extension's basic detection
         sentiment: result.sentiment,  // Extension's basic detection
         competitor_mentions: result.competitorMentions,
+        credits_exhausted: creditsExhausted,
+        chat_url: chatUrl,
         metadata: {
           ...result.metadata,
           aiEvaluated: false,  // Mark as not yet evaluated by AI
