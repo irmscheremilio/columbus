@@ -304,25 +304,50 @@ body {
   border-color: #6366f1;
 }
 
-/* Platforms Grid */
+/* Platforms Section */
 .platforms-section {
   margin-bottom: 16px;
 }
 
-.platforms-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.section-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 10px;
+  margin-top: -4px;
 }
 
-.platform-item {
+.platforms-login-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.platform-login-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   padding: 10px 12px;
   background: white;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+  transition: border-color 0.15s;
+}
+
+.platform-login-item.ready {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.platform-login-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-login-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .platform-icon {
@@ -337,9 +362,147 @@ body {
 .platform-icon.perplexity { background: #20b8cd; }
 
 .platform-name {
-  flex: 1;
   font-size: 13px;
   font-weight: 500;
+}
+
+/* Platform Checkbox */
+.platform-checkbox {
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.platform-checkbox input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.platform-checkbox .checkmark {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.platform-checkbox input:checked ~ .checkmark {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.platform-checkbox .checkmark::after {
+  content: '';
+  display: none;
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.platform-checkbox input:checked ~ .checkmark::after {
+  display: block;
+}
+
+.btn-icon-only {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #6b7280;
+}
+
+.btn-icon-only:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.platforms-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.platforms-hint.warning {
+  color: #f59e0b;
+}
+
+.platforms-hint.ready {
+  color: #10b981;
+}
+
+/* URL Input Section */
+.url-input-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.url-input-label {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.url-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.url-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+}
+
+.url-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Legacy platforms grid for progress view */
+.platforms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.platform-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 
 .platform-status {
@@ -514,10 +677,28 @@ body {
   text-align: center;
   font-size: 13px;
   color: #6b7280;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   padding: 8px;
   background: #f1f5f9;
   border-radius: 4px;
+}
+
+.countdown-display {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4f46e5;
+  margin-bottom: 16px;
+  padding: 10px;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-radius: 6px;
+  border: 1px solid #c7d2fe;
+}
+
+.countdown-display #countdownSeconds {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4338ca;
 }
 
 /* Per-Platform Progress Grid */

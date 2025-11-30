@@ -1,7 +1,11 @@
 // Columbus Desktop App - Main JavaScript
+console.log('Main.js loading...');
+
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-shell';
+
+console.log('Tauri imports loaded');
 
 // State
 let currentUser = null;
@@ -9,39 +13,29 @@ let products = [];
 let selectedProductId = null;
 let isScanning = false;
 
-// DOM Elements
-const loginView = document.getElementById('loginView');
-const mainView = document.getElementById('mainView');
-const scanningView = document.getElementById('scanningView');
-const completeView = document.getElementById('completeView');
+// DOM Elements - get them after DOM is ready
+let loginView, mainView, scanningView, completeView;
+let loginForm, loginError, loginBtn, googleLoginBtn, signupLink;
 
-const loginForm = document.getElementById('loginForm');
-const loginError = document.getElementById('loginError');
-const loginBtn = document.getElementById('loginBtn');
-const googleLoginBtn = document.getElementById('googleLoginBtn');
-const signupLink = document.getElementById('signupLink');
-
-const userEmail = document.getElementById('userEmail');
-const logoutBtn = document.getElementById('logoutBtn');
-const productSelect = document.getElementById('productSelect');
-const samplesPerPrompt = document.getElementById('samplesPerPrompt');
-const samplesWarning = document.getElementById('samplesWarning');
-const scanBtn = document.getElementById('scanBtn');
-const scanInfo = document.getElementById('scanInfo');
-const dashboardLink = document.getElementById('dashboardLink');
-
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const phaseIndicator = document.getElementById('phaseIndicator');
-const collectNowBtn = document.getElementById('collectNowBtn');
-const cancelScanBtn = document.getElementById('cancelScanBtn');
-
-const completeStats = document.getElementById('completeStats');
-const viewResultsBtn = document.getElementById('viewResultsBtn');
-const newScanBtn = document.getElementById('newScanBtn');
+let userEmail, logoutBtn, productSelect;
+let samplesPerPrompt, samplesWarning, scanBtn, scanInfo, dashboardLink;
+let progressFill, progressText, phaseIndicator, cancelScanBtn;
+let countdownDisplay, countdownSeconds;
+let completeStats, viewResultsBtn, newScanBtn;
 
 // Platform elements
 const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
+
+// Platform URLs for login
+const PLATFORM_URLS = {
+    chatgpt: 'https://chat.openai.com',
+    claude: 'https://claude.ai',
+    gemini: 'https://gemini.google.com',
+    perplexity: 'https://perplexity.ai'
+};
+
+// Track which platforms user has marked as ready
+let readyPlatforms = new Set();
 
 // Dashboard URL
 const DASHBOARD_URL = 'https://columbus-aeo.vercel.app/dashboard';
@@ -49,6 +43,40 @@ const DASHBOARD_URL = 'https://columbus-aeo.vercel.app/dashboard';
 // Initialize app
 async function init() {
     console.log('Initializing Columbus Desktop...');
+
+    // Initialize DOM elements
+    loginView = document.getElementById('loginView');
+    mainView = document.getElementById('mainView');
+    scanningView = document.getElementById('scanningView');
+    completeView = document.getElementById('completeView');
+
+    loginForm = document.getElementById('loginForm');
+    loginError = document.getElementById('loginError');
+    loginBtn = document.getElementById('loginBtn');
+    googleLoginBtn = document.getElementById('googleLoginBtn');
+    signupLink = document.getElementById('signupLink');
+
+    userEmail = document.getElementById('userEmail');
+    logoutBtn = document.getElementById('logoutBtn');
+    productSelect = document.getElementById('productSelect');
+    samplesPerPrompt = document.getElementById('samplesPerPrompt');
+    samplesWarning = document.getElementById('samplesWarning');
+    scanBtn = document.getElementById('scanBtn');
+    scanInfo = document.getElementById('scanInfo');
+    dashboardLink = document.getElementById('dashboardLink');
+
+    progressFill = document.getElementById('progressFill');
+    progressText = document.getElementById('progressText');
+    phaseIndicator = document.getElementById('phaseIndicator');
+    countdownDisplay = document.getElementById('countdownDisplay');
+    countdownSeconds = document.getElementById('countdownSeconds');
+    cancelScanBtn = document.getElementById('cancelScanBtn');
+
+    completeStats = document.getElementById('completeStats');
+    viewResultsBtn = document.getElementById('viewResultsBtn');
+    newScanBtn = document.getElementById('newScanBtn');
+
+    console.log('DOM elements loaded, googleLoginBtn:', googleLoginBtn);
 
     // Setup event listeners
     setupEventListeners();
@@ -61,11 +89,17 @@ async function init() {
 }
 
 function setupEventListeners() {
+    console.log('Setting up event listeners...');
+
     // Login form
     loginForm.addEventListener('submit', handleLogin);
 
     // Google login
-    googleLoginBtn.addEventListener('click', handleGoogleLogin);
+    console.log('Adding click listener to googleLoginBtn:', googleLoginBtn);
+    googleLoginBtn.addEventListener('click', (e) => {
+        console.log('Google login button clicked!');
+        handleGoogleLogin();
+    });
 
     // Signup link
     signupLink.addEventListener('click', handleSignupClick);
@@ -76,6 +110,19 @@ function setupEventListeners() {
     // Product selection
     productSelect.addEventListener('change', handleProductChange);
 
+    // Platform login buttons and checkboxes
+    platforms.forEach(platform => {
+        const openBtn = document.getElementById(`open-${platform}`);
+        const checkbox = document.getElementById(`ready-${platform}`);
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => openPlatform(platform));
+        }
+        if (checkbox) {
+            checkbox.addEventListener('change', (e) => handlePlatformReadyChange(platform, e.target.checked));
+        }
+    });
+
     // Samples per prompt
     samplesPerPrompt.addEventListener('change', handleSamplesChange);
     samplesPerPrompt.addEventListener('input', handleSamplesChange);
@@ -83,7 +130,6 @@ function setupEventListeners() {
     // Scan controls
     scanBtn.addEventListener('click', handleStartScan);
     cancelScanBtn.addEventListener('click', handleCancelScan);
-    collectNowBtn.addEventListener('click', handleCollectNow);
 
     // Complete view
     viewResultsBtn.addEventListener('click', handleViewResults);
@@ -91,6 +137,18 @@ function setupEventListeners() {
 
     // Dashboard link
     dashboardLink.addEventListener('click', handleDashboardClick);
+
+    // Custom URL input
+    const openUrlBtn = document.getElementById('openUrlBtn');
+    const customUrlInput = document.getElementById('customUrlInput');
+    if (openUrlBtn && customUrlInput) {
+        openUrlBtn.addEventListener('click', () => handleOpenCustomUrl(customUrlInput));
+        customUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleOpenCustomUrl(customUrlInput);
+            }
+        });
+    }
 }
 
 async function setupTauriListeners() {
@@ -178,10 +236,12 @@ async function handleLogin(e) {
 }
 
 async function handleGoogleLogin() {
+    console.log('handleGoogleLogin called');
     setGoogleLoginLoading(true);
     hideLoginError();
 
     try {
+        console.log('Calling invoke login_with_google...');
         const result = await invoke('login_with_google');
         console.log('Google login result:', result);
 
@@ -247,15 +307,7 @@ async function loadProducts() {
 
 function handleProductChange() {
     selectedProductId = productSelect.value;
-
-    if (selectedProductId) {
-        scanBtn.disabled = false;
-        const product = products.find(p => p.id === selectedProductId);
-        scanInfo.textContent = `Ready to scan ${product?.name || 'product'}`;
-    } else {
-        scanBtn.disabled = true;
-        scanInfo.textContent = 'Select a product to start scanning';
-    }
+    updateScanButtonState();
 }
 
 function handleSamplesChange(e) {
@@ -274,22 +326,120 @@ function handleSamplesChange(e) {
     }
 }
 
-async function updatePlatformStatus() {
-    // For now, show all platforms as ready
-    platforms.forEach(platform => {
-        const statusEl = document.getElementById(`status-${platform}`);
-        if (statusEl) {
-            statusEl.textContent = 'Ready';
-            statusEl.classList.add('complete');
+// Platform functions
+async function openPlatform(platform) {
+    try {
+        // Open in Tauri webview so cookies are shared with scan
+        await invoke('open_platform_login', { platform });
+    } catch (error) {
+        console.error(`Failed to open ${platform}:`, error);
+        // Fallback to shell open (cookies won't be shared with scan)
+        const url = PLATFORM_URLS[platform];
+        if (url) {
+            try {
+                await open(url);
+            } catch (e) {
+                window.open(url, '_blank');
+            }
         }
+    }
+}
+
+async function handleOpenCustomUrl(inputElement) {
+    const url = inputElement.value.trim();
+    if (!url) {
+        return;
+    }
+
+    // Basic URL validation
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('Please enter a valid URL starting with http:// or https://');
+        return;
+    }
+
+    try {
+        await invoke('open_url_in_browser', { url });
+        inputElement.value = ''; // Clear input on success
+    } catch (error) {
+        console.error('Failed to open URL:', error);
+        alert('Failed to open URL: ' + error);
+    }
+}
+
+function handlePlatformReadyChange(platform, isReady) {
+    const item = document.querySelector(`.platform-login-item[data-platform="${platform}"]`);
+
+    if (isReady) {
+        readyPlatforms.add(platform);
+        item?.classList.add('ready');
+    } else {
+        readyPlatforms.delete(platform);
+        item?.classList.remove('ready');
+    }
+
+    updateScanButtonState();
+    updatePlatformHint();
+}
+
+function updateScanButtonState() {
+    const hasProduct = !!selectedProductId;
+    const hasPlatforms = readyPlatforms.size > 0;
+
+    scanBtn.disabled = !hasProduct || !hasPlatforms;
+
+    if (!hasProduct && !hasPlatforms) {
+        scanInfo.textContent = 'Select a product and log into platforms';
+    } else if (!hasProduct) {
+        scanInfo.textContent = 'Select a product to start scanning';
+    } else if (!hasPlatforms) {
+        scanInfo.textContent = 'Check at least one platform you\'re logged into';
+    } else {
+        const product = products.find(p => p.id === selectedProductId);
+        const platformCount = readyPlatforms.size;
+        scanInfo.textContent = `Ready to scan ${product?.name || 'product'} on ${platformCount} platform${platformCount > 1 ? 's' : ''}`;
+    }
+}
+
+function updatePlatformHint() {
+    const hint = document.getElementById('platformsHint');
+    if (!hint) return;
+
+    const count = readyPlatforms.size;
+    if (count === 0) {
+        hint.textContent = 'Check platforms you\'re logged into';
+        hint.className = 'platforms-hint warning';
+    } else if (count < platforms.length) {
+        hint.textContent = `${count} of ${platforms.length} platforms ready`;
+        hint.className = 'platforms-hint';
+    } else {
+        hint.textContent = 'All platforms ready!';
+        hint.className = 'platforms-hint ready';
+    }
+}
+
+async function updatePlatformStatus() {
+    // Reset platform ready state on login
+    readyPlatforms.clear();
+    platforms.forEach(platform => {
+        const checkbox = document.getElementById(`ready-${platform}`);
+        const item = document.querySelector(`.platform-login-item[data-platform="${platform}"]`);
+        if (checkbox) checkbox.checked = false;
+        if (item) item.classList.remove('ready');
     });
+    updatePlatformHint();
+    updateScanButtonState();
 }
 
 // Scan functions
 async function handleStartScan() {
     if (!selectedProductId) return;
+    if (readyPlatforms.size === 0) {
+        alert('Please select at least one platform you\'re logged into');
+        return;
+    }
 
     const samples = parseInt(samplesPerPrompt.value) || 1;
+    const selectedPlatforms = Array.from(readyPlatforms);
 
     try {
         scanBtn.disabled = true;
@@ -301,13 +451,14 @@ async function handleStartScan() {
         // Show scanning view
         showView('scanning');
 
-        // Start scan
+        // Start scan with selected platforms
         await invoke('start_scan', {
             productId: selectedProductId,
-            samplesPerPrompt: samples
+            samplesPerPrompt: samples,
+            platforms: selectedPlatforms
         });
 
-        console.log('Scan started');
+        console.log('Scan started with platforms:', selectedPlatforms);
     } catch (error) {
         console.error('Start scan error:', error);
         alert('Failed to start scan: ' + error);
@@ -328,19 +479,12 @@ async function handleCancelScan() {
     }
 }
 
-async function handleCollectNow() {
-    console.log('Collect now requested');
-    collectNowBtn.disabled = true;
-    collectNowBtn.textContent = 'Collecting...';
-}
-
 function resetProgressUI() {
     progressFill.style.width = '0%';
     progressText.textContent = '0%';
     phaseIndicator.textContent = 'Initializing...';
-    collectNowBtn.classList.add('hidden');
-    collectNowBtn.disabled = false;
-    collectNowBtn.textContent = 'Collect Now';
+    countdownDisplay.classList.add('hidden');
+    countdownSeconds.textContent = '45';
 
     // Reset platform progress
     platforms.forEach(platform => {
@@ -363,7 +507,7 @@ function resetProgressUI() {
 }
 
 function updateScanProgress(progress) {
-    const { phase, current, total, platforms: platformStates } = progress;
+    const { phase, current, total, platforms: platformStates, countdownSeconds: countdown } = progress;
 
     // Update overall progress
     const percent = total > 0 ? Math.round((current / total) * 100) : 0;
@@ -380,11 +524,12 @@ function updateScanProgress(progress) {
     };
     phaseIndicator.textContent = phaseText[phase] || phase;
 
-    // Show collect now button during waiting phase
-    if (phase === 'waiting') {
-        collectNowBtn.classList.remove('hidden');
+    // Show countdown during waiting phase
+    if (phase === 'waiting' && countdown !== null && countdown !== undefined) {
+        countdownDisplay.classList.remove('hidden');
+        countdownSeconds.textContent = countdown;
     } else {
-        collectNowBtn.classList.add('hidden');
+        countdownDisplay.classList.add('hidden');
     }
 
     // Update platform progress
@@ -500,4 +645,11 @@ function setGoogleLoginLoading(loading) {
 }
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOMContentLoaded fired');
+    init().catch(e => {
+        console.error('Init error:', e);
+    });
+});
+
+console.log('Main.js fully loaded');

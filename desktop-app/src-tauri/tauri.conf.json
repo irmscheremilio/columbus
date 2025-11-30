@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "identifier": "com.columbus.desktop",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "",
-    "frontendDist": "../src"
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../src/dist"
   },
   "app": {
     "windows": [

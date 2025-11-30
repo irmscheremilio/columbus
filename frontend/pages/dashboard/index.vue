@@ -94,7 +94,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Chart Section -->
         <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" />
+          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" @period-change="onPeriodChange" />
         </div>
 
         <!-- Granularity Stats -->
@@ -214,6 +214,17 @@ const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
 const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
+const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
+
+const onPeriodChange = (days: number) => {
+  selectedPeriodDays.value = days
+  // Reload stats with new date range
+  if (activeProductId.value) {
+    loadVisibilityScore(activeProductId.value)
+    loadGranularityStats(activeProductId.value)
+    loadModelStats(activeProductId.value)
+  }
+}
 
 const granularityStats = ref({
   hasData: false,
@@ -255,6 +266,74 @@ onMounted(async () => {
   }
 })
 
+const loadVisibilityScore = async (productId: string) => {
+  try {
+    // Calculate date range based on selected period
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
+    // Get visibility history data within date range
+    const { data: historyData } = await supabase
+      .from('visibility_history')
+      .select('ai_model, prompts_tested, prompts_mentioned')
+      .eq('product_id', productId)
+      .gte('recorded_at', startDate.toISOString())
+
+    if (!historyData || historyData.length === 0) {
+      visibilityScore.value = null
+      return
+    }
+
+    // Aggregate by platform
+    const platformTotals: Record<string, { tested: number; mentioned: number }> = {
+      chatgpt: { tested: 0, mentioned: 0 },
+      claude: { tested: 0, mentioned: 0 },
+      gemini: { tested: 0, mentioned: 0 },
+      perplexity: { tested: 0, mentioned: 0 }
+    }
+
+    for (const entry of historyData) {
+      const platform = entry.ai_model?.toLowerCase()
+      if (platformTotals[platform]) {
+        platformTotals[platform].tested += entry.prompts_tested || 0
+        platformTotals[platform].mentioned += entry.prompts_mentioned || 0
+      }
+    }
+
+    // Calculate mention rates
+    const chatgptRate = platformTotals.chatgpt.tested > 0
+      ? Math.round((platformTotals.chatgpt.mentioned / platformTotals.chatgpt.tested) * 100) : 0
+    const claudeRate = platformTotals.claude.tested > 0
+      ? Math.round((platformTotals.claude.mentioned / platformTotals.claude.tested) * 100) : 0
+    const geminiRate = platformTotals.gemini.tested > 0
+      ? Math.round((platformTotals.gemini.mentioned / platformTotals.gemini.tested) * 100) : 0
+    const perplexityRate = platformTotals.perplexity.tested > 0
+      ? Math.round((platformTotals.perplexity.mentioned / platformTotals.perplexity.tested) * 100) : 0
+
+    // Overall = average of all platforms with data
+    const totalTested = platformTotals.chatgpt.tested + platformTotals.claude.tested +
+      platformTotals.gemini.tested + platformTotals.perplexity.tested
+    const totalMentioned = platformTotals.chatgpt.mentioned + platformTotals.claude.mentioned +
+      platformTotals.gemini.mentioned + platformTotals.perplexity.mentioned
+    const overall = totalTested > 0 ? Math.round((totalMentioned / totalTested) * 100) : 0
+
+    visibilityScore.value = {
+      overall,
+      byModel: {
+        chatgpt: chatgptRate,
+        claude: claudeRate,
+        gemini: geminiRate,
+        perplexity: perplexityRate,
+      },
+      trend: 'stable',
+      percentChange: 0,
+    }
+  } catch (error) {
+    console.error('Error loading visibility score:', error)
+  }
+}
+
 const loadDashboardData = async () => {
   const productId = activeProductId.value
   if (!productId) {
@@ -264,31 +343,8 @@ const loadDashboardData = async () => {
 
   loading.value = true
   try {
-    const { data: scores } = await supabase
-      .from('visibility_scores')
-      .select('*')
-      .eq('product_id', productId)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (scores && scores.length > 0) {
-      const latestScores = scores.slice(0, 4)
-      const overall = Math.round(
-        latestScores.reduce((sum, s) => sum + s.score, 0) / latestScores.length
-      )
-
-      visibilityScore.value = {
-        overall,
-        byModel: {
-          chatgpt: latestScores.find(s => s.ai_model === 'chatgpt')?.score || 0,
-          claude: latestScores.find(s => s.ai_model === 'claude')?.score || 0,
-          gemini: latestScores.find(s => s.ai_model === 'gemini')?.score || 0,
-          perplexity: latestScores.find(s => s.ai_model === 'perplexity')?.score || 0,
-        },
-        trend: 'stable',
-        percentChange: 0,
-      }
-    }
+    // Load visibility score from history filtered by date range
+    await loadVisibilityScore(productId)
 
     const { data: jobsData } = await supabase
       .from('jobs')
@@ -320,6 +376,11 @@ const loadDashboardData = async () => {
 
 const loadGranularityStats = async (productId: string) => {
   try {
+    // Calculate date range based on selected period
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
     const { data: prompts } = await supabase
       .from('prompts')
       .select('id, granularity_level')
@@ -347,10 +408,12 @@ const loadGranularityStats = async (productId: string) => {
     }, {} as Record<number, number>)
 
     const promptIds = prompts.map(p => p.id)
+    // Filter by date range
     const { data: results } = await supabase
       .from('prompt_results')
       .select('prompt_id, brand_mentioned')
       .in('prompt_id', promptIds)
+      .gte('tested_at', startDate.toISOString())
 
     if (results && results.length > 0) {
       const statsByLevel: Record<number, { total: number; cited: number }> = {
@@ -367,6 +430,7 @@ const loadGranularityStats = async (productId: string) => {
         }
       })
 
+      // Calculate average mention rate per granularity level
       granularityStats.value = {
         hasData: true,
         level1: {
@@ -400,10 +464,17 @@ const loadGranularityStats = async (productId: string) => {
 
 const loadModelStats = async (productId: string) => {
   try {
+    // Calculate date range based on selected period
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
+    // Filter by date range
     const { data: results } = await supabase
       .from('prompt_results')
       .select('ai_model, brand_mentioned')
       .eq('product_id', productId)
+      .gte('tested_at', startDate.toISOString())
 
     const stats: Record<string, { mentions: number; total: number }> = {
       chatgpt: { mentions: 0, total: 0 },

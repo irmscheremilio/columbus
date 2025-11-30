@@ -87,29 +87,96 @@
         </select>
       </div>
 
-      <!-- Platform Status -->
+      <!-- Platform Login Status -->
       <div class="platforms-section">
-        <label class="section-label">Platform Status</label>
-        <div class="platforms-grid" id="platformsGrid">
-          <div class="platform-item" data-platform="chatgpt">
-            <div class="platform-icon chatgpt"></div>
-            <span class="platform-name">ChatGPT</span>
-            <span class="platform-status" id="status-chatgpt">—</span>
+        <label class="section-label">Platform Logins</label>
+        <p class="section-hint">Log in to each platform before scanning. Click to open in browser.</p>
+        <div class="platforms-login-grid" id="platformsGrid">
+          <div class="platform-login-item" data-platform="chatgpt">
+            <div class="platform-login-left">
+              <div class="platform-icon chatgpt"></div>
+              <span class="platform-name">ChatGPT</span>
+            </div>
+            <div class="platform-login-right">
+              <label class="platform-checkbox">
+                <input type="checkbox" id="ready-chatgpt" class="platform-ready-check">
+                <span class="checkmark"></span>
+              </label>
+              <button class="btn-icon-only" id="open-chatgpt" title="Open ChatGPT">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="platform-item" data-platform="claude">
-            <div class="platform-icon claude"></div>
-            <span class="platform-name">Claude</span>
-            <span class="platform-status" id="status-claude">—</span>
+          <div class="platform-login-item" data-platform="claude">
+            <div class="platform-login-left">
+              <div class="platform-icon claude"></div>
+              <span class="platform-name">Claude</span>
+            </div>
+            <div class="platform-login-right">
+              <label class="platform-checkbox">
+                <input type="checkbox" id="ready-claude" class="platform-ready-check">
+                <span class="checkmark"></span>
+              </label>
+              <button class="btn-icon-only" id="open-claude" title="Open Claude">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="platform-item" data-platform="gemini">
-            <div class="platform-icon gemini"></div>
-            <span class="platform-name">Gemini</span>
-            <span class="platform-status" id="status-gemini">—</span>
+          <div class="platform-login-item" data-platform="gemini">
+            <div class="platform-login-left">
+              <div class="platform-icon gemini"></div>
+              <span class="platform-name">Gemini</span>
+            </div>
+            <div class="platform-login-right">
+              <label class="platform-checkbox">
+                <input type="checkbox" id="ready-gemini" class="platform-ready-check">
+                <span class="checkmark"></span>
+              </label>
+              <button class="btn-icon-only" id="open-gemini" title="Open Gemini">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="platform-item" data-platform="perplexity">
-            <div class="platform-icon perplexity"></div>
-            <span class="platform-name">Perplexity</span>
-            <span class="platform-status" id="status-perplexity">—</span>
+          <div class="platform-login-item" data-platform="perplexity">
+            <div class="platform-login-left">
+              <div class="platform-icon perplexity"></div>
+              <span class="platform-name">Perplexity</span>
+            </div>
+            <div class="platform-login-right">
+              <label class="platform-checkbox">
+                <input type="checkbox" id="ready-perplexity" class="platform-ready-check">
+                <span class="checkmark"></span>
+              </label>
+              <button class="btn-icon-only" id="open-perplexity" title="Open Perplexity">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="platforms-hint" id="platformsHint">Check platforms you're logged into</p>
+
+        <!-- URL Input for 2FA/Magic Links -->
+        <div class="url-input-section">
+          <label class="url-input-label">Open URL in Columbus browser (for 2FA links):</label>
+          <div class="url-input-row">
+            <input type="url" id="customUrlInput" class="url-input" placeholder="Paste 2FA or magic link here...">
+            <button type="button" id="openUrlBtn" class="btn btn-small">Open</button>
           </div>
         </div>
       </div>
@@ -156,7 +223,6 @@
         <div class="scanning-header">
           <h3>Scanning in Progress</h3>
           <div class="scanning-actions">
-            <button id="collectNowBtn" class="text-btn hidden">Collect Now</button>
             <button id="cancelScanBtn" class="text-btn">Cancel</button>
           </div>
         </div>
@@ -170,6 +236,9 @@
         </div>
 
         <div class="phase-indicator" id="phaseIndicator">Initializing...</div>
+        <div class="countdown-display hidden" id="countdownDisplay">
+          Collecting responses in <span id="countdownSeconds">45</span>s
+        </div>
 
         <!-- Per-Platform Progress -->
         <div class="platform-progress-grid" id="platformProgressGrid">

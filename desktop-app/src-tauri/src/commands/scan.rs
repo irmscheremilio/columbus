@@ -14,15 +14,22 @@ pub struct ScanProgressEvent {
     pub current: usize,
     pub total: usize,
     pub platforms: HashMap<String, PlatformState>,
+    #[serde(rename = "countdownSeconds")]
+    pub countdown_seconds: Option<usize>,
 }
 
 #[tauri::command]
 pub async fn start_scan(
     product_id: String,
     samples_per_prompt: Option<usize>,
+    platforms: Option<Vec<String>>,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
+    // Default to all platforms if none specified
+    let selected_platforms: Vec<String> = platforms.unwrap_or_else(|| {
+        PLATFORM_URLS.iter().map(|(name, _)| name.to_string()).collect()
+    });
     // Check if scan is already running
     {
         let scan = state.scan.lock();
@@ -66,6 +73,7 @@ pub async fn start_scan(
 
     let samples = samples_per_prompt.unwrap_or(1);
     let scan_session_id = Uuid::new_v4().to_string();
+    let platform_count = selected_platforms.len();
 
     // Initialize scan state
     {
@@ -74,14 +82,14 @@ pub async fn start_scan(
         scan.phase = "initializing".to_string();
         scan.scan_session_id = Some(scan_session_id.clone());
         scan.product_id = Some(product_id.clone());
-        scan.total_prompts = prompts_response.prompts.len() * samples * 4; // 4 platforms
+        scan.total_prompts = prompts_response.prompts.len() * samples * platform_count;
         scan.completed_prompts = 0;
 
-        // Initialize platform states
+        // Initialize platform states for selected platforms only
         scan.platforms.clear();
-        for (platform, _) in PLATFORM_URLS {
+        for platform in &selected_platforms {
             scan.platforms.insert(
-                platform.to_string(),
+                platform.clone(),
                 PlatformState {
                     status: "pending".to_string(),
                     total: prompts_response.prompts.len() * samples,
@@ -102,6 +110,7 @@ pub async fn start_scan(
     let prompts = prompts_response.prompts.clone();
     let brand = prompts_response.product.brand.clone();
     let competitors = prompts_response.competitors.clone();
+    let platforms_for_scan = selected_platforms.clone();
 
     // Spawn scan task
     tokio::spawn(async move {
@@ -114,6 +123,7 @@ pub async fn start_scan(
             product_id.clone(),
             brand,
             competitors,
+            platforms_for_scan,
         )
         .await;
 
@@ -146,6 +156,7 @@ async fn run_scan(
     product_id: String,
     brand: String,
     competitors: Vec<String>,
+    selected_platforms: Vec<String>,
 ) -> Result<ScanComplete, String> {
     let mut manager = WebviewManager::new();
 
@@ -160,14 +171,18 @@ async fn run_scan(
     let mut total_mentioned = 0;
     let mut total_cited = 0;
 
-    // Process each platform
-    for (platform, url) in PLATFORM_URLS {
-        let platform_str = platform.to_string();
+    // Process each selected platform
+    for platform_str in &selected_platforms {
+        let url = PLATFORM_URLS.iter()
+            .find(|(name, _)| *name == platform_str.as_str())
+            .map(|(_, url)| *url)
+            .ok_or_else(|| format!("Unknown platform: {}", platform_str))?;
+        let platform = platform_str.as_str();
 
         // Update platform status
         {
             let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                 ps.status = "submitting".to_string();
             }
         }
@@ -183,7 +198,7 @@ async fn run_scan(
             // Mark platform as skipped
             {
                 let mut scan = state.scan.lock();
-                if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
                     ps.status = "skipped".to_string();
                 }
             }
@@ -206,7 +221,7 @@ async fn run_scan(
         if !is_logged_in {
             {
                 let mut scan = state.scan.lock();
-                if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
                     ps.status = "skipped".to_string();
                 }
             }
@@ -232,7 +247,7 @@ async fn run_scan(
                     eprintln!("Failed to create webview: {}", e);
                     {
                         let mut scan = state.scan.lock();
-                        if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                        if let Some(ps) = scan.platforms.get_mut(platform_str) {
                             ps.failed += 1;
                         }
                     }
@@ -250,7 +265,7 @@ async fn run_scan(
                 if submit_result.is_ok() {
                     {
                         let mut scan = state.scan.lock();
-                        if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                        if let Some(ps) = scan.platforms.get_mut(platform_str) {
                             ps.submitted += 1;
                         }
                     }
@@ -262,21 +277,27 @@ async fn run_scan(
         // Update to waiting phase
         {
             let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                 ps.status = "waiting".to_string();
             }
         }
         emit_progress_with_state(&app, &state);
     }
 
-    // Wait for responses
+    // Wait for responses with countdown
     {
         let mut scan = state.scan.lock();
         scan.phase = "waiting".to_string();
     }
-    emit_progress_with_state(&app, &state);
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(45)).await;
+    // Countdown from 45 seconds, emitting progress every second
+    const WAIT_SECONDS: usize = 45;
+    for remaining in (0..=WAIT_SECONDS).rev() {
+        emit_progress_with_countdown(&app, &state, remaining);
+        if remaining > 0 {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+    }
 
     // Collection phase
     {
@@ -286,12 +307,12 @@ async fn run_scan(
     emit_progress_with_state(&app, &state);
 
     // Collect responses from all webviews
-    for (platform, _) in PLATFORM_URLS {
-        let platform_str = platform.to_string();
+    for platform_str in &selected_platforms {
+        let platform = platform_str.as_str();
 
         {
             let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                 if ps.status == "skipped" {
                     continue;
                 }
@@ -333,9 +354,11 @@ async fn run_scan(
                             sentiment: response.sentiment,
                             competitor_mentions: response.competitor_mentions,
                             citations: response.citations,
+                            credits_exhausted: response.credits_exhausted,
+                            chat_url: response.chat_url,
                         };
 
-                        // Submit to API (fire and forget)
+                        // Submit to API with logging
                         let token = {
                             let auth = state.auth.lock();
                             auth.access_token.clone()
@@ -343,21 +366,40 @@ async fn run_scan(
 
                         if let Some(token) = token {
                             let client = reqwest::Client::new();
-                            let _ = client
+                            eprintln!("Submitting scan result for {} prompt {} to API...", platform_str, prompt.id);
+
+                            match client
                                 .post(format!(
                                     "{}/functions/v1/extension-scan-results",
                                     crate::SUPABASE_URL
                                 ))
                                 .header("Authorization", format!("Bearer {}", token))
                                 .header("apikey", crate::SUPABASE_ANON_KEY)
+                                .header("Content-Type", "application/json")
                                 .json(&scan_result)
                                 .send()
-                                .await;
+                                .await
+                            {
+                                Ok(response) => {
+                                    let status = response.status();
+                                    if status.is_success() {
+                                        eprintln!("API submission successful: {}", status);
+                                    } else {
+                                        let body = response.text().await.unwrap_or_default();
+                                        eprintln!("API submission failed: {} - {}", status, body);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("API request error: {}", e);
+                                }
+                            }
+                        } else {
+                            eprintln!("No auth token available for API submission");
                         }
 
                         {
                             let mut scan = state.scan.lock();
-                            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                                 ps.collected += 1;
                             }
                             scan.completed_prompts += 1;
@@ -367,7 +409,7 @@ async fn run_scan(
                         eprintln!("Failed to collect response: {}", e);
                         {
                             let mut scan = state.scan.lock();
-                            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+                            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                                 ps.failed += 1;
                             }
                         }
@@ -384,7 +426,7 @@ async fn run_scan(
         // Mark platform complete
         {
             let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(&platform_str) {
+            if let Some(ps) = scan.platforms.get_mut(platform_str) {
                 ps.status = "complete".to_string();
             }
         }
@@ -400,19 +442,38 @@ async fn run_scan(
 
         if let Some(token) = token {
             let client = reqwest::Client::new();
-            let _ = client
+            eprintln!("Finalizing scan session {}...", scan_session_id);
+
+            match client
                 .post(format!(
                     "{}/functions/v1/extension-finalize-scan",
                     crate::SUPABASE_URL
                 ))
                 .header("Authorization", format!("Bearer {}", token))
                 .header("apikey", crate::SUPABASE_ANON_KEY)
+                .header("Content-Type", "application/json")
                 .json(&serde_json::json!({
                     "scanSessionId": scan_session_id,
                     "productId": product_id
                 }))
                 .send()
-                .await;
+                .await
+            {
+                Ok(response) => {
+                    let status = response.status();
+                    if status.is_success() {
+                        eprintln!("Finalize scan successful: {}", status);
+                    } else {
+                        let body = response.text().await.unwrap_or_default();
+                        eprintln!("Finalize scan failed: {} - {}", status, body);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Finalize scan request error: {}", e);
+                }
+            }
+        } else {
+            eprintln!("No auth token available for finalize scan");
         }
     }
 
@@ -464,6 +525,7 @@ fn emit_progress(app: &AppHandle, state: &State<'_, Arc<AppState>>) {
             current: scan.completed_prompts,
             total: scan.total_prompts,
             platforms: scan.platforms.clone(),
+            countdown_seconds: None,
         },
     );
 }
@@ -477,6 +539,21 @@ fn emit_progress_with_state(app: &AppHandle, state: &Arc<AppState>) {
             current: scan.completed_prompts,
             total: scan.total_prompts,
             platforms: scan.platforms.clone(),
+            countdown_seconds: None,
+        },
+    );
+}
+
+fn emit_progress_with_countdown(app: &AppHandle, state: &Arc<AppState>, countdown: usize) {
+    let scan = state.scan.lock();
+    let _ = app.emit(
+        "scan:progress",
+        ScanProgressEvent {
+            phase: scan.phase.clone(),
+            current: scan.completed_prompts,
+            total: scan.total_prompts,
+            platforms: scan.platforms.clone(),
+            countdown_seconds: Some(countdown),
         },
     );
 }

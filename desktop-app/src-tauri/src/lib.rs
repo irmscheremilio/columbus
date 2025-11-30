@@ -84,7 +84,9 @@ pub struct ScanProgress {
     pub platforms: HashMap<String, PlatformState>,
 }
 
+// ScanResult uses camelCase to match the Supabase API expected format
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanResult {
     pub product_id: String,
     pub scan_session_id: String,
@@ -98,9 +100,12 @@ pub struct ScanResult {
     pub sentiment: String,
     pub competitor_mentions: Vec<String>,
     pub citations: Vec<Citation>,
+    pub credits_exhausted: bool,
+    pub chat_url: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Citation {
     pub url: String,
     pub title: String,
@@ -132,6 +137,9 @@ pub fn run() {
             commands::scan::start_scan,
             commands::scan::cancel_scan,
             commands::scan::get_scan_progress,
+            commands::platform::open_platform_login,
+            commands::platform::close_platform_login,
+            commands::platform::open_url_in_browser,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

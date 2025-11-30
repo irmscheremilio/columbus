@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
+  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200 flex flex-col">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
       <span v-if="totalCitations > 0" class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
@@ -7,11 +7,11 @@
       </span>
     </div>
 
-    <div v-if="loading" class="flex items-center justify-center h-48">
+    <div v-if="loading" class="flex items-center justify-center h-52">
       <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
     </div>
 
-    <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-48 text-center">
+    <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-52 text-center">
       <svg class="w-10 h-10 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
       </svg>
@@ -19,35 +19,35 @@
       <p class="text-xs text-gray-400 mt-1">Run a visibility scan to see source data</p>
     </div>
 
-    <div v-else class="flex flex-col lg:flex-row items-center gap-4">
+    <div v-else class="flex flex-col lg:flex-row items-center gap-4 flex-1">
       <!-- Donut Chart -->
-      <div class="relative w-40 h-40 flex-shrink-0">
+      <div class="relative w-36 h-36 flex-shrink-0">
         <canvas ref="chartCanvas"></canvas>
         <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-2xl font-bold text-gray-900">{{ brandSourcePercent }}%</span>
-          <span class="text-xs text-gray-500">Your site</span>
+          <span class="text-xl font-bold text-gray-900">{{ brandSourcePercent }}%</span>
+          <span class="text-[10px] text-gray-500">Your site</span>
         </div>
       </div>
 
       <!-- Legend -->
       <div class="flex-1 w-full">
-        <div class="space-y-2 max-h-40 overflow-y-auto">
+        <div class="space-y-1 max-h-48 overflow-y-auto pr-1">
           <div
             v-for="(source, idx) in topSources"
             :key="source.domain"
-            class="flex items-center justify-between text-sm p-1.5 rounded-lg hover:bg-gray-50/80 transition-colors"
+            class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg hover:bg-gray-50/80 transition-colors"
           >
             <div class="flex items-center gap-2 min-w-0">
               <div
-                class="w-3 h-3 rounded-full flex-shrink-0"
+                class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 :style="{ backgroundColor: getColor(idx, source.isBrand) }"
               ></div>
-              <span class="truncate" :class="source.isBrand ? 'font-medium text-brand' : 'text-gray-600'">
+              <span class="truncate text-sm" :class="source.isBrand ? 'font-medium text-brand' : 'text-gray-600'">
                 {{ source.domain }}
               </span>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
-              <span class="text-gray-900 font-semibold">{{ source.count }}</span>
+            <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              <span class="text-gray-900 font-semibold text-sm">{{ source.count }}</span>
               <span class="text-gray-400 text-xs">({{ getPercent(source.count) }}%)</span>
             </div>
           </div>
@@ -153,12 +153,7 @@ const loadData = async () => {
 
     sources.value = Object.entries(domainCounts)
       .map(([domain, { count, isBrand }]) => ({ domain, count, isBrand }))
-      .sort((a, b) => {
-        // Brand sources first, then by count
-        if (a.isBrand && !b.isBrand) return -1
-        if (!a.isBrand && b.isBrand) return 1
-        return b.count - a.count
-      })
+      .sort((a, b) => b.count - a.count)
 
     totalCitations.value = total
     brandCitations.value = brand

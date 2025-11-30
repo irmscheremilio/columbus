@@ -50,7 +50,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Chart Section -->
         <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" />
+          <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" />
         </div>
 
         <!-- Platform Stats -->
@@ -91,7 +91,18 @@
       <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
         <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
           <h2 class="text-sm font-semibold text-gray-900">Recent Scan Results</h2>
-          <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">{{ results.length }} results</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">{{ results.length }} results</span>
+            <NuxtLink
+              to="/dashboard/scans"
+              class="text-xs font-medium text-brand hover:text-brand/80 flex items-center gap-1 transition-colors"
+            >
+              View all scans
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </NuxtLink>
+          </div>
         </div>
         <div v-if="loading" class="flex items-center justify-center py-8">
           <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
@@ -110,6 +121,7 @@
                 <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Web</th>
                 <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Position</th>
                 <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Sentiment</th>
+                <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Limit</th>
                 <th class="text-right px-4 py-3 font-medium">Date</th>
               </tr>
             </thead>
@@ -163,6 +175,16 @@
                   >
                     {{ result.sentiment || 'neutral' }}
                   </span>
+                </td>
+                <td class="px-4 py-3 text-center hidden lg:table-cell">
+                  <span
+                    v-if="result.credits_exhausted"
+                    class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs bg-amber-50 text-amber-600"
+                    title="Credit limit exceeded"
+                  >
+                    ⚠
+                  </span>
+                  <span v-else class="text-gray-300">−</span>
                 </td>
                 <td class="px-4 py-3 text-right text-gray-500 text-xs">
                   {{ formatDate(result.tested_at) }}
@@ -229,6 +251,24 @@
               <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="getSentimentClass(selectedResult.sentiment)">
                 <span class="text-xs font-medium capitalize">{{ selectedResult.sentiment || 'neutral' }}</span>
               </div>
+              <div v-if="selectedResult.credits_exhausted" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span class="text-xs font-medium">Credit Limit Exceeded</span>
+              </div>
+              <a
+                v-if="selectedResult.chat_url"
+                :href="selectedResult.chat_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span class="text-xs font-medium">Open Chat</span>
+              </a>
             </div>
 
             <!-- Prompt Section -->
@@ -288,6 +328,7 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
 const loading = ref(true)
+const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
 const overallScore = ref(0)
 const totalTests = ref(0)
 const mentionRate = ref(0)
@@ -305,6 +346,14 @@ const platforms = ref([
 const results = ref<any[]>([])
 const showDetailModal = ref(false)
 const selectedResult = ref<any>(null)
+
+const onPeriodChange = (days: number) => {
+  selectedPeriodDays.value = days
+  // Reload stats with new date range
+  if (activeProductId.value) {
+    loadVisibilityData()
+  }
+}
 
 const bestPlatform = computed(() => {
   const sorted = [...platforms.value].sort((a, b) => b.score - a.score)
@@ -343,10 +392,24 @@ const loadVisibilityData = async () => {
 
   loading.value = true
   try {
+    // Calculate date range based on selected period
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
+    // Load ALL results within date range for accurate stats calculation
+    const { data: allResults } = await supabase
+      .from('prompt_results')
+      .select('id, ai_model, brand_mentioned, citation_present, position, sentiment')
+      .eq('product_id', productId)
+      .gte('tested_at', startDate.toISOString())
+
+    // Load only 50 recent results for display table (with prompt text)
     const { data: promptResults } = await supabase
       .from('prompt_results')
       .select('*, prompts(prompt_text)')
       .eq('product_id', productId)
+      .gte('tested_at', startDate.toISOString())
       .order('tested_at', { ascending: false })
       .limit(50)
 
@@ -355,36 +418,51 @@ const loadVisibilityData = async () => {
       prompt: r.prompts?.prompt_text || 'Unknown prompt'
     })) || []
 
-    if (results.value.length > 0) {
-      totalTests.value = results.value.length
+    // Calculate stats from ALL results in date range
+    const statsData = allResults || []
+    if (statsData.length > 0) {
+      totalTests.value = statsData.length
 
-      const mentioned = results.value.filter(r => r.brand_mentioned).length
+      const mentioned = statsData.filter(r => r.brand_mentioned).length
       mentionRate.value = Math.round((mentioned / totalTests.value) * 100)
 
-      const cited = results.value.filter(r => r.citation_present).length
+      const cited = statsData.filter(r => r.citation_present).length
       citationRate.value = Math.round((cited / totalTests.value) * 100)
 
-      const positions = results.value.filter(r => r.position !== null).map(r => r.position)
+      const positions = statsData.filter(r => r.position !== null).map(r => r.position)
       avgPosition.value = positions.length > 0
         ? Math.round(positions.reduce((a, b) => a + b, 0) / positions.length)
         : 0
 
-      const positive = results.value.filter(r => r.sentiment === 'positive').length
+      const positive = statsData.filter(r => r.sentiment === 'positive').length
       positiveSentiment.value = Math.round((positive / totalTests.value) * 100)
 
-      overallScore.value = Math.round(
-        (mentionRate.value * 0.4) + (citationRate.value * 0.3) + (positiveSentiment.value * 0.3)
-      )
+      // Overall score = mention rate (primary metric)
+      overallScore.value = mentionRate.value
 
+      // Calculate platform stats from ALL results
       for (const platform of platforms.value) {
         const modelKey = platform.name.toLowerCase()
-        const platformResults = results.value.filter(r => r.ai_model === modelKey)
+        const platformResults = statsData.filter(r => r.ai_model === modelKey)
 
         platform.tests = platformResults.length
         platform.mentions = platformResults.filter(r => r.brand_mentioned).length
         platform.score = platform.tests > 0
           ? Math.round((platform.mentions / platform.tests) * 100)
           : 0
+      }
+    } else {
+      // Reset all stats when no data
+      totalTests.value = 0
+      mentionRate.value = 0
+      citationRate.value = 0
+      avgPosition.value = 0
+      positiveSentiment.value = 0
+      overallScore.value = 0
+      for (const platform of platforms.value) {
+        platform.tests = 0
+        platform.mentions = 0
+        platform.score = 0
       }
     }
   } catch (error) {

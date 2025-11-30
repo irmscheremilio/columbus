@@ -84,54 +84,54 @@
         <SourcesDonutChart :product-id="activeProductId" title="Citation Distribution" />
 
         <!-- Top Sources List -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-          <h2 class="text-sm font-semibold text-gray-900 mb-4">Top Citation Sources</h2>
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200 flex flex-col">
+          <h2 class="text-sm font-semibold text-gray-900 mb-3">Top Citation Sources</h2>
 
-          <div v-if="loading" class="flex items-center justify-center h-48">
+          <div v-if="loading" class="flex items-center justify-center h-52">
             <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
           </div>
 
-          <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-48 text-center">
+          <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-52 text-center">
             <p class="text-sm text-gray-500">No citation data available</p>
           </div>
 
-          <div v-else class="space-y-2">
+          <div v-else class="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
             <div
               v-for="(source, idx) in sources.slice(0, 10)"
               :key="source.domain"
-              class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50/80 transition-all duration-200"
+              class="flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-gray-50/80 transition-all duration-200"
             >
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="text-xs text-gray-400 w-5 font-medium">{{ idx + 1 }}</span>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <span class="text-xs text-gray-400 w-4 font-medium flex-shrink-0">{{ idx + 1 }}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
                     <span
-                      class="font-medium truncate"
+                      class="font-medium truncate text-sm"
                       :class="source.isBrand ? 'text-brand' : 'text-gray-900'"
                     >
                       {{ source.domain }}
                     </span>
                     <span
                       v-if="source.isBrand"
-                      class="px-1.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full"
+                      class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 rounded-full flex-shrink-0"
                     >
                       Your site
                     </span>
                   </div>
-                  <p class="text-xs text-gray-500 mt-0.5">
+                  <p class="text-xs text-gray-500">
                     {{ source.count }} citation{{ source.count !== 1 ? 's' : '' }}
                   </p>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+                <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all duration-500"
                     :class="source.isBrand ? 'bg-gradient-to-r from-brand to-brand/80' : 'bg-gradient-to-r from-blue-500 to-blue-400'"
                     :style="{ width: `${(source.count / stats.totalCitations) * 100}%` }"
                   ></div>
                 </div>
-                <span class="text-sm font-semibold text-gray-600 w-12 text-right">
+                <span class="text-xs font-semibold text-gray-600 w-10 text-right">
                   {{ Math.round((source.count / stats.totalCitations) * 100) }}%
                 </span>
               </div>
@@ -141,72 +141,88 @@
       </div>
 
       <!-- Citation Details Table -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-        <div class="flex items-center justify-between mb-4">
+      <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 hover:shadow-md transition-shadow duration-200">
+        <div class="flex items-center justify-between p-4 pb-3 border-b border-gray-100/80">
           <h2 class="text-sm font-semibold text-gray-900">Recent Citations</h2>
           <div class="flex items-center gap-2">
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search domains..."
-              class="text-sm bg-gray-50/80 border border-gray-200/50 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-48"
+              class="text-sm bg-gray-50/80 border border-gray-200/50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-40"
             />
           </div>
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="border-b border-gray-100/80">
-                <th class="text-left text-xs font-medium text-gray-500 uppercase pb-3">Source</th>
-                <th class="text-left text-xs font-medium text-gray-500 uppercase pb-3">URL</th>
-                <th class="text-left text-xs font-medium text-gray-500 uppercase pb-3">Context</th>
-                <th class="text-left text-xs font-medium text-gray-500 uppercase pb-3">Date</th>
+          <table class="w-full table-fixed">
+            <thead class="bg-gray-50/50">
+              <tr>
+                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[140px]">Source</th>
+                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5">URL</th>
+                <th class="text-center text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[70px]">Chat</th>
+                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[120px]">Date</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
-              <tr
-                v-for="citation in filteredCitations"
-                :key="citation.id"
-                class="hover:bg-gray-50/50 transition-colors"
-              >
-                <td class="py-3 pr-4">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="font-medium text-sm"
-                      :class="citation.is_brand_source ? 'text-brand' : 'text-gray-900'"
-                    >
-                      {{ citation.source_domain }}
-                    </span>
-                    <span
-                      v-if="citation.is_brand_source"
-                      class="w-2 h-2 rounded-full bg-emerald-500"
-                      title="Your domain"
-                    ></span>
-                  </div>
-                </td>
-                <td class="py-3 pr-4">
-                  <a
-                    :href="citation.url"
-                    target="_blank"
-                    class="text-sm text-blue-600 hover:text-blue-800 truncate block max-w-xs transition-colors"
-                  >
-                    {{ citation.url }}
-                  </a>
-                </td>
-                <td class="py-3 pr-4">
-                  <p class="text-sm text-gray-600 truncate max-w-md">
-                    {{ citation.citation_text || '-' }}
-                  </p>
-                </td>
-                <td class="py-3">
-                  <span class="text-sm text-gray-500">
-                    {{ formatDate(citation.created_at) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
           </table>
+          <div class="max-h-80 overflow-y-auto">
+            <table class="w-full table-fixed">
+              <tbody class="divide-y divide-gray-100/80">
+                <tr
+                  v-for="citation in paginatedCitations"
+                  :key="citation.id"
+                  class="hover:bg-gray-50/50 transition-colors"
+                >
+                  <td class="py-2.5 px-4 w-[140px]">
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        class="font-medium text-sm truncate"
+                        :class="citation.is_brand_source ? 'text-brand' : 'text-gray-900'"
+                        :title="citation.source_domain"
+                      >
+                        {{ citation.source_domain }}
+                      </span>
+                      <span
+                        v-if="citation.is_brand_source"
+                        class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"
+                        title="Your domain"
+                      ></span>
+                    </div>
+                  </td>
+                  <td class="py-2.5 px-4">
+                    <a
+                      :href="citation.url"
+                      target="_blank"
+                      class="text-sm text-blue-600 hover:text-blue-800 truncate block transition-colors"
+                      :title="citation.url"
+                    >
+                      {{ citation.url }}
+                    </a>
+                  </td>
+                  <td class="py-2.5 px-4 w-[70px] text-center">
+                    <a
+                      v-if="citation.chat_url"
+                      :href="citation.chat_url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex w-6 h-6 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+                      title="Open chat"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                    <span v-else class="text-gray-300">−</span>
+                  </td>
+                  <td class="py-2.5 px-4 w-[120px]">
+                    <span class="text-xs text-gray-500 whitespace-nowrap">
+                      {{ formatDate(citation.created_at) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <div v-if="filteredCitations.length === 0" class="text-center py-8">
             <p class="text-sm text-gray-500">No citations found</p>
@@ -214,22 +230,22 @@
         </div>
 
         <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100/80">
-          <span class="text-sm text-gray-500">
-            Showing {{ (currentPage - 1) * pageSize + 1 }}-{{ Math.min(currentPage * pageSize, totalCitations) }} of {{ totalCitations }}
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t border-gray-100/80 bg-gray-50/30">
+          <span class="text-xs text-gray-500">
+            Page {{ currentPage }} of {{ totalPages }} ({{ filteredCitations.length }} results)
           </span>
           <div class="flex items-center gap-1">
             <button
               @click="currentPage = Math.max(1, currentPage - 1)"
               :disabled="currentPage === 1"
-              class="px-3 py-1.5 text-sm font-medium rounded-xl hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
             <button
               @click="currentPage = Math.min(totalPages, currentPage + 1)"
               :disabled="currentPage === totalPages"
-              class="px-3 py-1.5 text-sm font-medium rounded-xl hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
@@ -242,6 +258,7 @@
 
 <script setup lang="ts">
 definePageMeta({
+  middleware: 'auth',
   layout: 'dashboard'
 })
 
@@ -262,6 +279,7 @@ interface Citation {
   citation_text: string | null
   is_brand_source: boolean
   created_at: string
+  chat_url: string | null
 }
 
 interface SourceData {
@@ -305,6 +323,11 @@ const filteredCitations = computed(() => {
 
 const totalPages = computed(() => Math.ceil(filteredCitations.value.length / pageSize))
 
+const paginatedCitations = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredCitations.value.slice(start, start + pageSize)
+})
+
 const loadData = async () => {
   if (!activeProductId.value) return
 
@@ -335,8 +358,31 @@ const loadData = async () => {
 
     if (error) throw error
 
-    citations.value = citationData || []
-    totalCitations.value = citationData?.length || 0
+    // Get unique prompt_result_ids to fetch chat_urls
+    const resultIds = [...new Set((citationData || []).map(c => c.prompt_result_id).filter(Boolean))]
+
+    // Fetch chat_urls for these results
+    let chatUrlMap = new Map<string, string>()
+    if (resultIds.length > 0) {
+      const { data: results } = await supabase
+        .from('prompt_results')
+        .select('id, chat_url')
+        .in('id', resultIds)
+        .not('chat_url', 'is', null)
+
+      for (const r of results || []) {
+        if (r.chat_url) {
+          chatUrlMap.set(r.id, r.chat_url)
+        }
+      }
+    }
+
+    // Map citations with chat_url
+    citations.value = (citationData || []).map(c => ({
+      ...c,
+      chat_url: chatUrlMap.get(c.prompt_result_id) || null
+    }))
+    totalCitations.value = citations.value.length
 
     // Aggregate sources
     const domainCounts: Record<string, { count: number; isBrand: boolean }> = {}
@@ -349,11 +395,7 @@ const loadData = async () => {
 
     sources.value = Object.entries(domainCounts)
       .map(([domain, { count, isBrand }]) => ({ domain, count, isBrand }))
-      .sort((a, b) => {
-        if (a.isBrand && !b.isBrand) return -1
-        if (!a.isBrand && b.isBrand) return 1
-        return b.count - a.count
-      })
+      .sort((a, b) => b.count - a.count)
 
   } catch (error) {
     console.error('Error loading citations:', error)

@@ -106,8 +106,8 @@ Deno.serve(async (req) => {
     for (const [platform, stats] of platformStats) {
       const mentionRate = stats.total > 0 ? (stats.mentioned / stats.total) * 100 : 0
       const citationRate = stats.total > 0 ? (stats.cited / stats.total) * 100 : 0
-      // Score: 40% mention rate + 30% citation rate + 30% base
-      const score = Math.round(mentionRate * 0.4 + citationRate * 0.3 + 30)
+      // Score = mention rate (primary visibility metric)
+      const score = Math.round(mentionRate)
 
       historyEntries.push({
         organization_id: organizationId,

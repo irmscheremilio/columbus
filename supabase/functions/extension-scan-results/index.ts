@@ -85,6 +85,18 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Skip saving if there's no meaningful response - don't pollute statistics
+    if (!result.responseText || result.responseText.trim().length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: 'No response available - result not saved to preserve statistics accuracy'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Verify product belongs to user's organization
     const { data: product } = await supabaseAdmin
       .from('products')
