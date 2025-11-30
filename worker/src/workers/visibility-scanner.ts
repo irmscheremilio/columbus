@@ -44,12 +44,12 @@ export function startVisibilityScanWorker() {
           throw new Error('Organization not found')
         }
 
-        // Get competitors (filter by product if provided)
+        // Get competitors being actively tracked (filter by product if provided)
         let competitorQuery = supabase
           .from('competitors')
           .select('*')
           .eq('organization_id', organizationId)
-          .eq('is_active', true)
+          .eq('status', 'tracking')
 
         if (productId) {
           competitorQuery = competitorQuery.eq('product_id', productId)

@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import { createRedisConnection } from '../utils/redis.js'
+import { competitorDetector } from '../services/competitor-detector.js'
 
 const redisConnection = createRedisConnection()
 
@@ -87,12 +88,12 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
       const productName = promptResult.products?.name || 'Unknown'
       const productDomain = promptResult.products?.domain || ''
 
-      // 2. Get competitors for this product
+      // 2. Get competitors for this product (only those being actively tracked)
       const { data: competitors } = await supabase
         .from('competitors')
         .select('id, name')
         .eq('product_id', promptResult.product_id)
-        .eq('is_active', true)
+        .eq('status', 'tracking')
 
       const competitorNames = competitors?.map(c => c.name) || []
 
@@ -136,7 +137,7 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
         throw new Error(`Failed to update prompt result: ${updateError.message}`)
       }
 
-      // 5. Insert competitor mentions if found
+      // 5. Insert competitor mentions if found (for tracked competitors)
       if (evaluation.competitorMentions.length > 0 && competitors) {
         const mentionedCompetitors = competitors.filter(c =>
           evaluation.competitorMentions.some(m =>
@@ -160,6 +161,30 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
             .from('competitor_mentions')
             .insert(mentionsToInsert)
         }
+      }
+
+      // 6. Auto-detect new competitors from response and save as 'proposed'
+      try {
+        const detection = await competitorDetector.detectCompetitors(
+          promptResult.response_text,
+          productName,
+          competitorNames // Pass existing tracked competitors to avoid duplicates
+        )
+
+        if (detection.competitors.length > 0 && promptResult.product_id) {
+          console.log(`[Prompt Evaluation] Detected ${detection.competitors.length} potential new competitors`)
+          const { added, updated } = await competitorDetector.saveDetectedCompetitors(
+            promptResult.organization_id,
+            promptResult.product_id,
+            detection.competitors
+          )
+          if (added > 0 || updated > 0) {
+            console.log(`[Prompt Evaluation] Auto-detected competitors: ${added} new, ${updated} updated`)
+          }
+        }
+      } catch (detectionError) {
+        console.error(`[Prompt Evaluation] Competitor auto-detection error:`, detectionError)
+        // Don't fail the evaluation for detection errors
       }
 
       // Mark job as completed if jobId provided

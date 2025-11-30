@@ -253,13 +253,37 @@ Only include actual company/product names, not generic terms. Set confidence bas
       // Skip low confidence detections
       if (competitor.confidence < 50) continue
 
-      // Check if competitor already exists for this product (by name, case-insensitive)
-      const { data: existing } = await this.supabase
+      // Check if competitor already exists for this product (by name OR domain, case-insensitive)
+      let existing = null
+
+      // First check by name
+      const { data: existingByName } = await this.supabase
         .from('competitors')
         .select('id, detection_count, status')
         .eq('product_id', productId)
         .ilike('name', competitor.name)
         .single()
+
+      existing = existingByName
+
+      // If not found by name and we have a domain, check by domain
+      if (!existing && competitor.domain) {
+        const normalizedDomain = competitor.domain.toLowerCase().replace(/^www\./, '')
+        const { data: existingByDomain } = await this.supabase
+          .from('competitors')
+          .select('id, detection_count, status, domain')
+          .eq('product_id', productId)
+          .not('domain', 'is', null)
+
+        // Find match by normalized domain
+        existing = existingByDomain?.find(c => {
+          if (!c.domain) return false
+          const existingNormalized = c.domain.toLowerCase().replace(/^www\./, '')
+          return existingNormalized === normalizedDomain ||
+                 existingNormalized.includes(normalizedDomain) ||
+                 normalizedDomain.includes(existingNormalized)
+        }) || null
+      }
 
       if (existing) {
         // Only update detection count, don't change status (user may have already reviewed)
