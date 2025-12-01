@@ -92,15 +92,15 @@
             <div class="mb-4">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-sm text-gray-600">AEO Score</span>
-                <span class="text-sm font-semibold" :class="getScoreColor(product.aeo_score)">
-                  {{ product.aeo_score ?? '--' }}
+                <span class="text-sm font-semibold" :class="getScoreColor(product.calculated_aeo_score)">
+                  {{ product.calculated_aeo_score ?? '--' }}
                 </span>
               </div>
               <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :class="getScoreBarColor(product.aeo_score)"
-                  :style="{ width: `${product.aeo_score ?? 0}%` }"
+                  :class="getScoreBarColor(product.calculated_aeo_score)"
+                  :style="{ width: `${product.calculated_aeo_score ?? 0}%` }"
                 ></div>
               </div>
             </div>
@@ -304,8 +304,17 @@ interface Product {
   domain: string
   description: string | null
   aeo_score: number | null
+  calculated_aeo_score: number | null
   last_analyzed_at: string | null
   is_active: boolean
+}
+
+interface ProductMetrics {
+  totalTests: number
+  mentionRate: number
+  citationRate: number
+  avgPosition: number
+  positiveSentiment: number
 }
 
 const supabase = useSupabaseClient()
@@ -398,7 +407,19 @@ const loadProducts = async () => {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
-    products.value = productsData || []
+    // Calculate AEO score for each product based on visibility metrics
+    const productsWithScores = await Promise.all(
+      (productsData || []).map(async (product) => {
+        const metrics = await loadProductMetrics(product.id)
+        const calculatedScore = calculateAEOScore(metrics)
+        return {
+          ...product,
+          calculated_aeo_score: calculatedScore
+        }
+      })
+    )
+
+    products.value = productsWithScores
 
     // Get product slots
     const { data: org } = await supabase
@@ -604,5 +625,93 @@ const formatDate = (date: string) => {
     day: 'numeric',
     year: 'numeric'
   })
+}
+
+/**
+ * Calculate AEO score based on visibility metrics
+ * Score components:
+ * - Mention Rate (0-100): 35% weight - How often AI mentions the brand
+ * - Citation Rate (0-100): 25% weight - How often AI cites/links to the brand
+ * - Position Score (0-100): 25% weight - Average ranking position (inverted, lower position = higher score)
+ * - Sentiment Score (0-100): 15% weight - Percentage of positive sentiment
+ */
+const calculateAEOScore = (metrics: ProductMetrics): number | null => {
+  if (metrics.totalTests === 0) return null
+
+  // Mention rate contributes directly (0-100)
+  const mentionScore = metrics.mentionRate
+
+  // Citation rate contributes directly (0-100)
+  const citationScore = metrics.citationRate
+
+  // Position score: convert avg position to a 0-100 score
+  // Position 1 = 100, Position 2 = 90, Position 3 = 80, etc.
+  // No position data = 0
+  let positionScore = 0
+  if (metrics.avgPosition > 0) {
+    positionScore = Math.max(0, 100 - (metrics.avgPosition - 1) * 10)
+  }
+
+  // Sentiment score is the positive sentiment percentage
+  const sentimentScore = metrics.positiveSentiment
+
+  // Weighted average
+  const aeoScore = Math.round(
+    mentionScore * 0.35 +
+    citationScore * 0.25 +
+    positionScore * 0.25 +
+    sentimentScore * 0.15
+  )
+
+  return Math.min(100, Math.max(0, aeoScore))
+}
+
+const loadProductMetrics = async (productId: string): Promise<ProductMetrics> => {
+  // Get results from last 30 days
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - 30)
+
+  const { data: results } = await supabase
+    .from('prompt_results')
+    .select('brand_mentioned, citation_present, position, sentiment')
+    .eq('product_id', productId)
+    .gte('tested_at', startDate.toISOString())
+
+  if (!results || results.length === 0) {
+    return {
+      totalTests: 0,
+      mentionRate: 0,
+      citationRate: 0,
+      avgPosition: 0,
+      positiveSentiment: 0
+    }
+  }
+
+  const totalTests = results.length
+  const mentioned = results.filter(r => r.brand_mentioned).length
+  const mentionRate = Math.round((mentioned / totalTests) * 100)
+
+  const cited = results.filter(r => r.citation_present).length
+  const citationRate = Math.round((cited / totalTests) * 100)
+
+  const positions = results.filter(r => r.position !== null).map(r => r.position as number)
+  const avgPosition = positions.length > 0
+    ? Math.round(positions.reduce((a, b) => a + b, 0) / positions.length)
+    : 0
+
+  // Only count sentiment from results where brand was mentioned
+  const mentionedResults = results.filter(r => r.brand_mentioned)
+  const positive = mentionedResults.filter(r => r.sentiment === 'positive').length
+  const positiveSentiment = mentionedResults.length > 0
+    ? Math.round((positive / mentionedResults.length) * 100)
+    : 0
+
+  return {
+    totalTests,
+    mentionRate,
+    citationRate,
+    avgPosition,
+    positiveSentiment
+  }
 }
 </script>

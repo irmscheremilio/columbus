@@ -10,7 +10,7 @@
         <div class="flex items-center gap-3">
           <select
             v-model="selectedPeriod"
-            class="text-sm bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 shadow-sm"
+            class="text-sm bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 shadow-sm"
           >
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>

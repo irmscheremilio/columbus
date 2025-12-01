@@ -24,6 +24,7 @@ export interface CompetitorMention {
   name: string
   position: number | null
   sentiment: 'positive' | 'neutral' | 'negative'
+  excerpt: string
 }
 
 export interface AIEvaluation {
@@ -158,6 +159,8 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
         if (mentionedCompetitors.length > 0) {
           const mentionsToInsert = mentionedCompetitors.map(competitor => {
             const details = detailsMap.get(competitor.name.toLowerCase())
+            // Use AI-generated excerpt if available, fall back to automatic extraction
+            const mentionContext = details?.excerpt || extractMentionContext(promptResult.response_text, competitor.name)
             return {
               organization_id: promptResult.organization_id,
               product_id: promptResult.product_id,
@@ -165,7 +168,7 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
               prompt_result_id: promptResultId,
               ai_model: promptResult.ai_model,
               position: details?.position || null,
-              mention_context: extractMentionContext(promptResult.response_text, competitor.name),
+              mention_context: mentionContext,
               sentiment: details?.sentiment || 'neutral',
               detected_at: new Date().toISOString()
             }
@@ -281,7 +284,8 @@ Provide your analysis in the following JSON format:
     {
       "name": "competitor name",
       "position": number or null,  // Position in list if ranked (1 = first, null if not in a list)
-      "sentiment": "positive" | "neutral" | "negative"  // How is this competitor portrayed?
+      "sentiment": "positive" | "neutral" | "negative",  // How is this competitor portrayed?
+      "excerpt": "A brief, meaningful quote from the response about this competitor (max 150 chars)"
     }
   ],
   "summary": "Brief 1-2 sentence summary of how the brand appears in this response",
@@ -294,6 +298,7 @@ Important rules:
 - For sentiment, consider the context around the brand mention - is it recommended, criticized, or just mentioned neutrally?
 - Only include competitors that are ACTUALLY mentioned in the response
 - For each competitor, determine their position in the ranking (if any) and sentiment independently
+- For the excerpt, extract the most relevant sentence or phrase about the competitor from the response - this should be an actual quote that captures how the competitor is described
 - Be precise and conservative in your analysis`
 
   const completion = await openai.chat.completions.create({
@@ -316,7 +321,8 @@ Important rules:
           .map((c: any) => ({
             name: c.name,
             position: typeof c.position === 'number' && c.position > 0 ? c.position : null,
-            sentiment: ['positive', 'negative', 'neutral'].includes(c.sentiment) ? c.sentiment : 'neutral'
+            sentiment: ['positive', 'negative', 'neutral'].includes(c.sentiment) ? c.sentiment : 'neutral',
+            excerpt: typeof c.excerpt === 'string' ? c.excerpt.slice(0, 200) : ''
           }))
       : []
 

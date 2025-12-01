@@ -958,6 +958,27 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
             console.log('[Columbus] Response length:', responseText.length);
             console.log('[Columbus] Response preview:', responseText.substring(0, 300));
 
+            // Validate response - reject non-responses like "Thinking", loading states, etc.
+            const invalidResponses = [
+                'thinking',
+                'thinking...',
+                'loading',
+                'loading...',
+                'generating',
+                'generating...',
+                'please wait',
+                'just a moment',
+                'working on it'
+            ];
+            const responseTrimmed = responseText.trim().toLowerCase();
+            const isInvalidResponse = responseText.length < 100 ||
+                invalidResponses.some(inv => responseTrimmed === inv || responseTrimmed.startsWith(inv + '\n'));
+
+            if (isInvalidResponse) {{
+                console.log('[Columbus] Invalid/incomplete response detected, returning empty');
+                responseText = '';
+            }}
+
             // Check for credit exhaustion
             const pageText = document.body?.innerText?.toLowerCase() || '';
             const creditsExhausted = creditChecks.some(indicator =>

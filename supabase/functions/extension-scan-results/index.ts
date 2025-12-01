@@ -96,12 +96,18 @@ Deno.serve(async (req) => {
     }
 
     // Skip saving if there's no meaningful response - don't pollute statistics
-    if (!result.responseText || result.responseText.trim().length === 0) {
+    const responseText = result.responseText?.trim() || ''
+    const invalidPatterns = ['thinking', 'loading', 'generating', 'please wait', 'just a moment']
+    const isInvalidResponse = responseText.length === 0 ||
+      responseText.length < 100 ||
+      invalidPatterns.some(p => responseText.toLowerCase() === p || responseText.toLowerCase().startsWith(p + '...'))
+
+    if (isInvalidResponse) {
       return new Response(
         JSON.stringify({
           success: false,
           skipped: true,
-          reason: 'No response available - result not saved to preserve statistics accuracy'
+          reason: 'No meaningful response available - result not saved to preserve statistics accuracy'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

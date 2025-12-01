@@ -61,7 +61,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <select
             v-model="filterStatus"
-            class="px-2 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
+            class="pl-2 pr-7 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -70,7 +70,7 @@
           </select>
           <select
             v-model="filterImpact"
-            class="px-2 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
+            class="pl-2 pr-7 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
           >
             <option value="all">All Impact</option>
             <option value="high">High</option>
@@ -79,7 +79,7 @@
           </select>
           <select
             v-model="filterCategory"
-            class="px-2 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
+            class="pl-2 pr-7 py-1.5 text-xs font-medium bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
           >
             <option value="all">All Categories</option>
             <option value="schema">Schema</option>
