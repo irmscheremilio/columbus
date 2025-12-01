@@ -277,13 +277,13 @@ ${responseText.slice(0, 4000)}
 Provide your analysis in the following JSON format:
 {
   "brandMentioned": true/false,  // Is "${productName}" (or clear variations/the company behind it) explicitly mentioned?
-  "position": number or null,    // If products are listed/ranked, what position is "${productName}"? (1 = first, null if not in a list)
+  "position": number or null,    // ONLY set if there's a numbered/bulleted list. What rank is "${productName}"? (1 = first in list, 2 = second, etc.). null if not in a list.
   "sentiment": "positive" | "neutral" | "negative",  // How is "${productName}" portrayed?
   "competitorMentions": ["name1", "name2"],  // Which competitors from the list are mentioned?
   "competitorDetails": [  // Details for each mentioned competitor
     {
       "name": "competitor name",
-      "position": number or null,  // Position in list if ranked (1 = first, null if not in a list)
+      "position": number or null,  // ONLY set if competitor appears in a numbered/bulleted list (1 = first, 2 = second, etc.). null if not in a ranked list.
       "sentiment": "positive" | "neutral" | "negative",  // How is this competitor portrayed?
       "excerpt": "A brief, meaningful quote from the response about this competitor (max 150 chars)"
     }
@@ -294,10 +294,10 @@ Provide your analysis in the following JSON format:
 
 Important rules:
 - brandMentioned should be TRUE only if the product/brand name is explicitly mentioned (not just implied)
-- position should reflect the actual ranking if there's a numbered or bulleted list of recommendations
+- position should ONLY be set if there is a clear numbered or bulleted list of recommendations/products in the response. It represents the rank in that list (1 = first recommendation, 2 = second, etc.). If there's no explicit list or ranking, position should be null. Typical AI responses have 3-10 items in a list, so positions above 10 are very rare.
 - For sentiment, consider the context around the brand mention - is it recommended, criticized, or just mentioned neutrally?
 - Only include competitors that are ACTUALLY mentioned in the response
-- For each competitor, determine their position in the ranking (if any) and sentiment independently
+- For each competitor, determine their position in the ranking (if any) and sentiment independently. Position should only be set if the competitor appears in a numbered/bulleted list - not based on paragraph order or other factors.
 - For the excerpt, extract the most relevant sentence or phrase about the competitor from the response - this should be an actual quote that captures how the competitor is described
 - Be precise and conservative in your analysis`
 
