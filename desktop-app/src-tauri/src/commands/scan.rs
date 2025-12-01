@@ -1,6 +1,6 @@
 use crate::{
-    webview::WebviewManager, AppState, PlatformState, Prompt, ScanComplete, ScanProgress,
-    ScanResult, PLATFORM_URLS,
+    update_tray_status, webview::WebviewManager, AppState, PlatformState, Prompt, ScanComplete,
+    ScanProgress, ScanResult, PLATFORM_URLS,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -112,6 +112,9 @@ pub async fn start_scan_internal(
         }
     }
 
+    // Update tray to show scanning
+    update_tray_status(&app, true);
+
     // Emit initial progress
     emit_progress_with_state(&app, &state);
 
@@ -148,6 +151,9 @@ pub async fn start_scan_internal(
                 eprintln!("Scan error: {}", e);
             }
         }
+
+        // Reset tray to normal
+        update_tray_status(&app_clone, false);
 
         // Reset scan state
         let mut scan = state_clone.scan.lock();
@@ -509,10 +515,14 @@ async fn run_scan(
 }
 
 #[tauri::command]
-pub async fn cancel_scan(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+pub async fn cancel_scan(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<(), String> {
     let mut scan = state.scan.lock();
     scan.is_running = false;
     scan.phase = "cancelled".to_string();
+
+    // Reset tray to normal
+    update_tray_status(&app, false);
+
     Ok(())
 }
 
@@ -525,6 +535,12 @@ pub async fn get_scan_progress(state: State<'_, Arc<AppState>>) -> Result<ScanPr
         total: scan.total_prompts,
         platforms: scan.platforms.clone(),
     })
+}
+
+#[tauri::command]
+pub async fn is_scan_running(state: State<'_, Arc<AppState>>) -> Result<bool, String> {
+    let scan = state.scan.lock();
+    Ok(scan.is_running)
 }
 
 fn emit_progress_with_state(app: &AppHandle, state: &Arc<AppState>) {

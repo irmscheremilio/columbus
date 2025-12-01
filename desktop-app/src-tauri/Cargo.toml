@@ -27,6 +27,7 @@ url = "2"
 urlencoding = "2"
 enigo = "0.2"
 dirs = "5"
+image = "0.24"
 
 [features]
 default = ["custom-protocol"]

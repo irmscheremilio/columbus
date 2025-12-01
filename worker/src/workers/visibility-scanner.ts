@@ -47,7 +47,7 @@ export function startVisibilityScanWorker() {
         // Get competitors being actively tracked (filter by product if provided)
         let competitorQuery = supabase
           .from('competitors')
-          .select('*')
+          .select('id, name, product_id')
           .eq('organization_id', organizationId)
           .eq('status', 'tracking')
 
@@ -58,6 +58,8 @@ export function startVisibilityScanWorker() {
         const { data: competitors } = await competitorQuery
 
         const competitorNames = competitors?.map(c => c.name) || []
+        // Create a map of competitor name to ID for quick lookup
+        const competitorNameToId = new Map(competitors?.map(c => [c.name.toLowerCase(), c.id]) || [])
 
         // Get or create default prompts
         let prompts
@@ -127,7 +129,7 @@ export function startVisibilityScanWorker() {
               )
 
               // Store result
-              await supabase.from('prompt_results').insert({
+              const { data: promptResult } = await supabase.from('prompt_results').insert({
                 prompt_id: prompt.id,
                 organization_id: organizationId,
                 product_id: productId || null,
@@ -140,7 +142,30 @@ export function startVisibilityScanWorker() {
                 competitor_mentions: analysis.competitorMentions,
                 metadata: analysis.metadata,
                 tested_at: new Date().toISOString()
-              })
+              }).select('id').single()
+
+              // Insert competitor mentions with position data
+              if (promptResult && analysis.competitorDetails.length > 0) {
+                const competitorMentionInserts = analysis.competitorDetails
+                  .map(cd => {
+                    const competitorId = competitorNameToId.get(cd.name.toLowerCase())
+                    if (!competitorId) return null
+                    return {
+                      organization_id: organizationId,
+                      competitor_id: competitorId,
+                      prompt_result_id: promptResult.id,
+                      ai_model: model,
+                      position: cd.position,
+                      sentiment: cd.sentiment,
+                      detected_at: new Date().toISOString()
+                    }
+                  })
+                  .filter(Boolean)
+
+                if (competitorMentionInserts.length > 0) {
+                  await supabase.from('competitor_mentions').insert(competitorMentionInserts)
+                }
+              }
 
               results.push(analysis)
 

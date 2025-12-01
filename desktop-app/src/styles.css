@@ -565,6 +565,37 @@ body {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
 }
 
+/* Time window inputs */
+.time-window-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.input-time {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.input-time:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.time-separator {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+#timeWindowRow {
+  transition: opacity 0.2s;
+}
+
 .setting-warning {
   margin-top: 8px;
   padding: 6px 10px;
@@ -577,6 +608,118 @@ body {
 
 .setting-warning.hidden {
   display: none;
+}
+
+/* Schedule Info Section */
+.schedule-info-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.schedule-info-section.disabled {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.schedule-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.schedule-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.schedule-info-section.disabled .schedule-value {
+  color: #9ca3af;
+}
+
+.schedule-progress {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.schedule-completed {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.schedule-info-section.disabled .schedule-completed {
+  color: #9ca3af;
+}
+
+/* Scan Running Section */
+.scan-running-section {
+  padding: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.scan-running-section.hidden {
+  display: none;
+}
+
+.scan-running-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.spinner-icon {
+  animation: spin 1s linear infinite;
+  color: #3b82f6;
+}
+
+.scan-running-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d4ed8;
+}
+
+.scan-running-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #dbeafe;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.mini-progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3b82f6;
+  min-width: 32px;
+  text-align: right;
 }
 
 /* Scan Section */

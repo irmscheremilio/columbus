@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIcon},
     Manager, WindowEvent,
 };
 
@@ -154,6 +154,81 @@ pub struct ScanComplete {
     pub citation_rate: f64,
 }
 
+/// Update tray icon and tooltip based on scan state
+pub fn update_tray_status(app: &tauri::AppHandle, is_scanning: bool) {
+    println!("[Tray] update_tray_status called, is_scanning: {}", is_scanning);
+
+    if let Some(tray) = app.try_state::<TrayIcon>() {
+        let tooltip = if is_scanning {
+            "Columbus - Scanning..."
+        } else {
+            "Columbus - AI Brand Monitor"
+        };
+        let _ = tray.set_tooltip(Some(tooltip));
+
+        // Update tray icon
+        if is_scanning {
+            println!("[Tray] Creating scanning icon...");
+            match create_scanning_icon() {
+                Some(scanning_icon) => {
+                    println!("[Tray] Scanning icon created, setting...");
+                    match tray.set_icon(Some(scanning_icon)) {
+                        Ok(_) => println!("[Tray] Scanning icon set successfully"),
+                        Err(e) => println!("[Tray] Failed to set scanning icon: {:?}", e),
+                    }
+                }
+                None => println!("[Tray] Failed to create scanning icon"),
+            }
+        } else {
+            // Restore default icon
+            println!("[Tray] Restoring default icon...");
+            if let Some(default_icon) = app.default_window_icon().cloned() {
+                match tray.set_icon(Some(default_icon)) {
+                    Ok(_) => println!("[Tray] Default icon restored"),
+                    Err(e) => println!("[Tray] Failed to restore default icon: {:?}", e),
+                }
+            }
+        }
+    } else {
+        println!("[Tray] No tray icon state found");
+    }
+}
+
+/// Create a scanning indicator icon (original icon with green dot)
+fn create_scanning_icon() -> Option<tauri::image::Image<'static>> {
+    // Load the 32x32 icon
+    let icon_bytes = include_bytes!("../icons/32x32.png");
+
+    let img = image::load_from_memory(icon_bytes).ok()?;
+    let mut rgba = img.to_rgba8();
+
+    let (width, height) = rgba.dimensions();
+
+    // Draw a green dot in bottom-right corner (indicator)
+    let dot_radius = 6u32;
+    let dot_center_x = width - dot_radius - 2;
+    let dot_center_y = height - dot_radius - 2;
+
+    for y in 0..height {
+        for x in 0..width {
+            let dx = x as i32 - dot_center_x as i32;
+            let dy = y as i32 - dot_center_y as i32;
+            let dist_sq = dx * dx + dy * dy;
+
+            if dist_sq <= (dot_radius as i32 * dot_radius as i32) {
+                // Green dot
+                rgba.put_pixel(x, y, image::Rgba([0, 200, 0, 255]));
+            } else if dist_sq <= ((dot_radius + 1) as i32 * (dot_radius + 1) as i32) {
+                // Dark border
+                rgba.put_pixel(x, y, image::Rgba([0, 100, 0, 255]));
+            }
+        }
+    }
+
+    let raw = rgba.into_raw();
+    Some(tauri::image::Image::new_owned(raw, width, height))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     println!("[Columbus] Starting application...");
@@ -185,11 +260,13 @@ pub fn run() {
             commands::scan::start_scan,
             commands::scan::cancel_scan,
             commands::scan::get_scan_progress,
+            commands::scan::is_scan_running,
             commands::platform::open_platform_login,
             commands::platform::close_platform_login,
             commands::platform::open_url_in_browser,
             commands::settings::get_product_config,
             commands::settings::set_product_config,
+            commands::settings::get_schedule_info,
             commands::settings::get_last_product_id,
             commands::settings::set_last_product_id,
             commands::settings::get_autostart_enabled,

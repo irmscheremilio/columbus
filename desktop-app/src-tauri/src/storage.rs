@@ -57,11 +57,23 @@ pub struct ProductConfig {
     pub auto_run_enabled: bool,
     /// Target scans per day
     pub scans_per_day: u32,
+    /// Start hour of the scan time window (0-23), default 9 (9 AM)
+    #[serde(default = "default_start_hour")]
+    pub time_window_start: u32,
+    /// End hour of the scan time window (0-23), default 17 (5 PM)
+    #[serde(default = "default_end_hour")]
+    pub time_window_end: u32,
     /// Date of last auto scan (ISO format: YYYY-MM-DD)
     pub last_auto_scan_date: Option<String>,
     /// Number of scans completed today
     pub scans_today: u32,
+    /// Scheduled scan times for today (hours in 24h format)
+    #[serde(default)]
+    pub scheduled_times: Vec<u32>,
 }
+
+fn default_start_hour() -> u32 { 9 }
+fn default_end_hour() -> u32 { 17 }
 
 impl Default for ProductConfig {
     fn default() -> Self {
@@ -70,8 +82,11 @@ impl Default for ProductConfig {
             samples_per_prompt: 1,
             auto_run_enabled: true,
             scans_per_day: 1,
+            time_window_start: 9,
+            time_window_end: 17,
             last_auto_scan_date: None,
             scans_today: 0,
+            scheduled_times: Vec::new(),
         }
     }
 }

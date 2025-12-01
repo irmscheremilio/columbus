@@ -3,6 +3,16 @@
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
       <div class="flex items-center gap-2">
+        <!-- Fullscreen Button -->
+        <button
+          @click="openFullscreen"
+          class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          title="View fullscreen"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </button>
         <!-- View Mode Toggle -->
         <select
           v-model="viewMode"
@@ -81,6 +91,110 @@
         <span class="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{{ competitor.name }}</span>
       </div>
     </div>
+
+    <!-- Fullscreen Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="isFullscreen"
+          class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6"
+          @click.self="closeFullscreen"
+        >
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+              <h2 class="text-lg font-semibold text-gray-900">{{ title }}</h2>
+              <div class="flex items-center gap-3">
+                <!-- Controls in fullscreen -->
+                <select
+                  v-model="viewMode"
+                  @change="loadData"
+                  class="text-sm bg-gray-100 border-0 rounded-lg px-3 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
+                >
+                  <option value="platforms">By Platform</option>
+                  <option value="competitors">vs Competitors</option>
+                </select>
+                <select
+                  v-model="selectedMetric"
+                  @change="loadData"
+                  class="text-sm bg-gray-100 border-0 rounded-lg px-3 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
+                >
+                  <option value="mention_rate">Mention Rate</option>
+                  <option value="position">Avg Position</option>
+                </select>
+                <select
+                  v-if="viewMode === 'competitors'"
+                  v-model="competitorModel"
+                  @change="loadData"
+                  class="text-sm bg-gray-100 border-0 rounded-lg px-3 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
+                >
+                  <option value="overall">All Models</option>
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="claude">Claude</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="perplexity">Perplexity</option>
+                </select>
+                <select
+                  v-model="groupingMode"
+                  @change="loadData"
+                  class="text-sm bg-gray-100 border-0 rounded-lg px-3 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
+                >
+                  <option value="session">By Scan</option>
+                  <option value="day">By Day</option>
+                </select>
+                <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                  <button
+                    v-for="period in periods"
+                    :key="period.value"
+                    @click="selectPeriod(period.value)"
+                    class="px-3 py-1 text-sm font-medium rounded-md transition-all duration-200"
+                    :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                  >
+                    {{ period.label }}
+                  </button>
+                </div>
+                <button
+                  @click="closeFullscreen"
+                  class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <!-- Modal Body - Chart -->
+            <div class="flex-1 p-6 min-h-0">
+              <div class="relative h-full" style="min-height: 400px;">
+                <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10 rounded-lg">
+                  <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+                </div>
+                <canvas ref="fullscreenChartCanvas"></canvas>
+              </div>
+            </div>
+            <!-- Modal Footer - Legend -->
+            <div class="p-4 border-t border-gray-100">
+              <div v-if="viewMode === 'platforms'" class="flex flex-wrap justify-center gap-6">
+                <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-2 group cursor-default">
+                  <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: platform.color }"></div>
+                  <span class="text-sm text-gray-600">{{ platform.label }}</span>
+                </div>
+              </div>
+              <div v-else class="flex flex-wrap justify-center gap-6">
+                <div class="flex items-center gap-2 group cursor-default">
+                  <div class="w-3 h-3 rounded-full bg-brand"></div>
+                  <span class="text-sm text-gray-700 font-medium">Your Brand</span>
+                </div>
+                <div v-for="competitor in competitorLegend" :key="competitor.name" class="flex items-center gap-2 group cursor-default">
+                  <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: competitor.color }"></div>
+                  <span class="text-sm text-gray-600">{{ competitor.name }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -105,12 +219,21 @@ const supabase = useSupabaseClient()
 const loading = ref(false)
 const selectedPeriod = ref('30')
 const viewMode = ref<'platforms' | 'competitors'>('platforms')
-const groupingMode = ref<'session' | 'day'>('session')
+const groupingMode = ref<'session' | 'day'>('day')
 const selectedMetric = ref<'mention_rate' | 'position'>('mention_rate')
 const competitorModel = ref<'overall' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity'>('overall')
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
+const fullscreenChartCanvas = ref<HTMLCanvasElement | null>(null)
 const competitorLegend = ref<{ name: string; color: string }[]>([])
+const isFullscreen = ref(false)
 let chart: Chart | null = null
+let fullscreenChart: Chart | null = null
+
+// Store last chart data for fullscreen rendering
+let lastChartData: any = null
+let lastChartType: 'platform' | 'competitor' = 'platform'
+let lastMetric: 'mention_rate' | 'position' = 'mention_rate'
+let lastCompetitors: any[] = []
 
 const periods = [
   { value: '7', label: '7d' },
@@ -187,8 +310,19 @@ const loadPlatformData = async () => {
   const chartData = groupingMode.value === 'session'
     ? processHistoryBySession(historyData || [], positionData, metric)
     : processHistoryByDay(historyData || [], positionData, daysAgo, metric)
+
+  // Store for fullscreen
+  lastChartData = chartData
+  lastChartType = 'platform'
+  lastMetric = metric
+
   await nextTick()
   renderChart(chartData, metric)
+
+  // Also render to fullscreen if open
+  if (isFullscreen.value) {
+    renderFullscreenChart(chartData, metric)
+  }
 }
 
 const loadCompetitorData = async () => {
@@ -271,13 +405,13 @@ const loadCompetitorData = async () => {
     .eq('status', 'tracking')
     .limit(5)
 
-  // Load competitor mentions from prompt_results (for both mention rate and position)
+  // Load competitor mentions from competitor_mentions table (includes position data)
   const competitorIds = (competitors || []).map(c => c.id)
   let competitorMentions: any[] = []
   if (competitorIds.length > 0) {
     let mentionsQuery = supabase
       .from('competitor_mentions')
-      .select('competitor_id, detected_at, ai_model, prompt_result_id')
+      .select('competitor_id, detected_at, ai_model, prompt_result_id, position, sentiment')
       .in('competitor_id', competitorIds)
       .gte('detected_at', startDate.toISOString())
       .order('detected_at', { ascending: true })
@@ -317,8 +451,19 @@ const loadCompetitorData = async () => {
     ? processCompetitorDataBySession(brandData, brandPositionData, competitors || [], competitorMentions, totalPromptsByTime, metric)
     : processCompetitorDataByDay(brandData, brandPositionData, competitors || [], competitorMentions, totalPromptsByTime, daysAgo, metric)
 
+  // Store for fullscreen
+  lastChartData = chartData
+  lastChartType = 'competitor'
+  lastMetric = metric
+  lastCompetitors = competitors || []
+
   await nextTick()
   renderCompetitorChart(chartData, competitors || [], metric)
+
+  // Also render to fullscreen if open
+  if (isFullscreen.value) {
+    renderFullscreenCompetitorChart(chartData, competitors || [], metric)
+  }
 }
 
 // Process competitor data grouped by scan session
@@ -414,9 +559,14 @@ const processCompetitorDataBySession = (
         const rate = session.promptCount > 0 ? (sessionMentions.length / session.promptCount) * 100 : 0
         dataArray.push(sessionMentions.length > 0 ? Math.round(rate * 10) / 10 : null)
       } else {
-        // For position, we'd need position data from competitor_mentions - for now show null
-        // This would require joining with prompt_results to get position
-        dataArray.push(null)
+        // Position metric - calculate average position from competitor mentions
+        const mentionsWithPosition = sessionMentions.filter(m => m.position !== null && m.position !== undefined)
+        if (mentionsWithPosition.length > 0) {
+          const avgPos = mentionsWithPosition.reduce((sum, m) => sum + m.position, 0) / mentionsWithPosition.length
+          dataArray.push(Math.round(avgPos * 10) / 10)
+        } else {
+          dataArray.push(null)
+        }
       }
     }
     competitorDataArrays.set(c.id, dataArray)
@@ -521,7 +671,36 @@ const processCompetitorDataByDay = (
         brandDataArray[i] = Math.round((d.total / d.count) * 10) / 10
       }
     })
-    // Competitor position data not available directly - would need to extend competitor_mentions table
+
+    // Map competitor position by day
+    const competitorPosByDay = new Map<string, Map<string, { total: number; count: number }>>()
+    for (const m of competitorMentions) {
+      if (m.position === null || m.position === undefined) continue
+      const dateKey = new Date(m.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      if (!competitorPosByDay.has(m.competitor_id)) {
+        competitorPosByDay.set(m.competitor_id, new Map())
+      }
+      const dayMap = competitorPosByDay.get(m.competitor_id)!
+      if (!dayMap.has(dateKey)) {
+        dayMap.set(dateKey, { total: 0, count: 0 })
+      }
+      const d = dayMap.get(dateKey)!
+      d.total += m.position
+      d.count++
+    }
+
+    for (const c of competitors) {
+      const dataArray = competitorDataArrays.get(c.id)!
+      const dayData = competitorPosByDay.get(c.id)
+      if (dayData) {
+        labels.forEach((label, i) => {
+          const d = dayData.get(label)
+          if (d && d.count > 0) {
+            dataArray[i] = Math.round((d.total / d.count) * 10) / 10
+          }
+        })
+      }
+    }
   }
 
   // Trim leading empty days
@@ -992,6 +1171,219 @@ const selectPeriod = (period: string) => {
   loadData()
 }
 
+const openFullscreen = () => {
+  isFullscreen.value = true
+  // Render to fullscreen canvas after modal is visible
+  nextTick(() => {
+    if (lastChartType === 'competitor') {
+      renderFullscreenCompetitorChart(lastChartData, lastCompetitors, lastMetric)
+    } else {
+      renderFullscreenChart(lastChartData, lastMetric)
+    }
+  })
+}
+
+const closeFullscreen = () => {
+  isFullscreen.value = false
+  if (fullscreenChart) {
+    fullscreenChart.destroy()
+    fullscreenChart = null
+  }
+}
+
+const renderFullscreenChart = (
+  chartData: { labels: string[], platformData: Record<string, (number | null)[]> },
+  metric: 'mention_rate' | 'position' = 'mention_rate'
+) => {
+  if (!fullscreenChartCanvas.value) return
+
+  if (fullscreenChart) {
+    fullscreenChart.destroy()
+  }
+
+  const ctx = fullscreenChartCanvas.value.getContext('2d')
+  if (!ctx) return
+
+  const isPositionMetric = metric === 'position'
+
+  const datasets = platforms.map(platform => ({
+    label: platform.label,
+    data: chartData.platformData[platform.name] || [],
+    borderColor: platform.color,
+    backgroundColor: platform.color + '20',
+    borderWidth: 2.5,
+    fill: false,
+    tension: 0.3,
+    pointRadius: 3,
+    pointHoverRadius: 5,
+    pointBackgroundColor: platform.color,
+    spanGaps: true
+  }))
+
+  let maxPosition = 10
+  if (isPositionMetric) {
+    const allValues = Object.values(chartData.platformData)
+      .flatMap(arr => arr.filter(v => v !== null) as number[])
+    if (allValues.length > 0) {
+      maxPosition = Math.max(10, Math.ceil(Math.max(...allValues) / 5) * 5)
+    }
+  }
+
+  fullscreenChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.labels,
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y
+              if (value === null) return `${context.dataset.label}: No data`
+              if (isPositionMetric) {
+                return `${context.dataset.label}: #${value}`
+              }
+              return `${context.dataset.label}: ${value}%`
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 12 }, color: '#6b7280' }
+        },
+        y: {
+          min: isPositionMetric ? 1 : 0,
+          max: isPositionMetric ? maxPosition : 100,
+          reverse: isPositionMetric,
+          grid: { color: '#f3f4f6' },
+          ticks: {
+            font: { size: 12 },
+            color: '#6b7280',
+            callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
+          }
+        }
+      }
+    }
+  })
+}
+
+const renderFullscreenCompetitorChart = (
+  chartData: { labels: string[]; brandData: (number | null)[]; competitorData: Map<string, (number | null)[]> },
+  competitors: any[],
+  metric: 'mention_rate' | 'position' = 'mention_rate'
+) => {
+  if (!fullscreenChartCanvas.value) return
+
+  if (fullscreenChart) {
+    fullscreenChart.destroy()
+  }
+
+  const ctx = fullscreenChartCanvas.value.getContext('2d')
+  if (!ctx) return
+
+  const isPositionMetric = metric === 'position'
+
+  const datasets = [
+    {
+      label: 'Your Brand',
+      data: chartData.brandData,
+      borderColor: '#6366f1',
+      backgroundColor: '#6366f120',
+      borderWidth: 3,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#6366f1',
+      spanGaps: true
+    },
+    ...competitors.map((c, i) => ({
+      label: c.name,
+      data: chartData.competitorData.get(c.id) || [],
+      borderColor: competitorColors[i % competitorColors.length],
+      backgroundColor: competitorColors[i % competitorColors.length] + '20',
+      borderWidth: 2.5,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: competitorColors[i % competitorColors.length],
+      spanGaps: true,
+      borderDash: [5, 5]
+    }))
+  ]
+
+  let maxPosition = 10
+  if (isPositionMetric) {
+    const allValues = [
+      ...chartData.brandData.filter(v => v !== null) as number[],
+      ...Array.from(chartData.competitorData.values()).flatMap(arr => arr.filter(v => v !== null) as number[])
+    ]
+    if (allValues.length > 0) {
+      maxPosition = Math.max(10, Math.ceil(Math.max(...allValues) / 5) * 5)
+    }
+  }
+
+  fullscreenChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.labels,
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y
+              if (value === null) return `${context.dataset.label}: No data`
+              if (isPositionMetric) {
+                return `${context.dataset.label}: #${value}`
+              }
+              return `${context.dataset.label}: ${value}%`
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 12 }, color: '#6b7280' }
+        },
+        y: {
+          min: isPositionMetric ? 1 : 0,
+          max: isPositionMetric ? maxPosition : 100,
+          reverse: isPositionMetric,
+          grid: { color: '#f3f4f6' },
+          ticks: {
+            font: { size: 12 },
+            color: '#6b7280',
+            callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
+          }
+        }
+      }
+    }
+  })
+}
+
 watch(() => props.productId, (newProductId) => {
   if (newProductId) {
     loadData()
@@ -1010,5 +1402,20 @@ onUnmounted(() => {
   if (chart) {
     chart.destroy()
   }
+  if (fullscreenChart) {
+    fullscreenChart.destroy()
+  }
 })
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

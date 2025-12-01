@@ -4,6 +4,7 @@ console.log('Main.js loading...');
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-shell';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 console.log('Tauri imports loaded');
 
@@ -19,7 +20,9 @@ let currentProductConfig = {
     readyPlatforms: [],
     samplesPerPrompt: 1,
     autoRunEnabled: true,
-    scansPerDay: 1
+    scansPerDay: 1,
+    timeWindowStart: 9,
+    timeWindowEnd: 17
 };
 
 // DOM Elements - get them after DOM is ready
@@ -32,6 +35,9 @@ let progressFill, progressText, phaseIndicator, cancelScanBtn;
 let countdownDisplay, countdownSeconds;
 let completeStats, viewResultsBtn, newScanBtn;
 let autoRunEnabled, scansPerDay, scansPerDayRow, autostartEnabled;
+let timeWindowStart, timeWindowEnd, timeWindowRow;
+let scheduleInfoSection, nextScanTime, scansCompleted, scansTotal;
+let scanRunningSection, miniProgressFill, miniProgressText;
 
 // Platform elements
 const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
@@ -90,7 +96,21 @@ async function init() {
     autoRunEnabled = document.getElementById('autoRunEnabled');
     scansPerDay = document.getElementById('scansPerDay');
     scansPerDayRow = document.getElementById('scansPerDayRow');
+    timeWindowStart = document.getElementById('timeWindowStart');
+    timeWindowEnd = document.getElementById('timeWindowEnd');
+    timeWindowRow = document.getElementById('timeWindowRow');
     autostartEnabled = document.getElementById('autostartEnabled');
+
+    // Schedule info elements
+    scheduleInfoSection = document.getElementById('scheduleInfoSection');
+    nextScanTime = document.getElementById('nextScanTime');
+    scansCompleted = document.getElementById('scansCompleted');
+    scansTotal = document.getElementById('scansTotal');
+
+    // Scan running indicator elements
+    scanRunningSection = document.getElementById('scanRunningSection');
+    miniProgressFill = document.getElementById('miniProgressFill');
+    miniProgressText = document.getElementById('miniProgressText');
 
     console.log('DOM elements loaded, googleLoginBtn:', googleLoginBtn);
 
@@ -100,8 +120,64 @@ async function init() {
     // Setup Tauri event listeners
     await setupTauriListeners();
 
+    // Check scan status when window becomes visible
+    document.addEventListener('visibilitychange', async () => {
+        console.log('visibilitychange:', document.visibilityState);
+        if (document.visibilityState === 'visible' && currentUser && !isInitializing) {
+            await checkAndShowScanProgress();
+        }
+    });
+
+    // Also listen for Tauri window focus event (more reliable for tray show)
+    const appWindow = getCurrentWindow();
+    appWindow.onFocusChanged(async ({ payload: focused }) => {
+        console.log('Window focus changed:', focused);
+        if (focused && currentUser && !isInitializing) {
+            await checkAndShowScanProgress();
+        }
+    });
+
     // Check auth status
     await checkAuthStatus();
+}
+
+// Check if scan is running and update UI accordingly
+async function checkAndShowScanProgress() {
+    console.log('checkAndShowScanProgress called, currentUser:', !!currentUser, 'isInitializing:', isInitializing);
+    try {
+        const scanRunning = await invoke('is_scan_running');
+        console.log('is_scan_running result:', scanRunning, 'isScanning state:', isScanning);
+
+        if (scanRunning) {
+            // Get current progress
+            const progress = await invoke('get_scan_progress');
+            console.log('Scan progress:', progress);
+
+            // Update the running indicator in main view
+            updateScanRunningIndicator(true, progress);
+
+            if (!isScanning) {
+                console.log('Scan is running, switching to scanning view');
+                isScanning = true;
+                showView('scanning');
+                updateScanProgress(progress);
+            }
+        } else {
+            // Hide running indicator
+            updateScanRunningIndicator(false);
+
+            if (isScanning) {
+                // Scan finished while window was hidden
+                console.log('Scan finished, switching to main view');
+                isScanning = false;
+                showView('main');
+                // Refresh schedule info
+                loadScheduleInfo();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to check scan status:', e);
+    }
 }
 
 function setupEventListeners() {
@@ -173,6 +249,12 @@ function setupEventListeners() {
     if (scansPerDay) {
         scansPerDay.addEventListener('change', handleScansPerDayChange);
     }
+    if (timeWindowStart) {
+        timeWindowStart.addEventListener('change', handleTimeWindowChange);
+    }
+    if (timeWindowEnd) {
+        timeWindowEnd.addEventListener('change', handleTimeWindowChange);
+    }
     if (autostartEnabled) {
         autostartEnabled.addEventListener('change', handleAutostartChange);
     }
@@ -183,18 +265,25 @@ async function setupTauriListeners() {
     await listen('scan:progress', (event) => {
         console.log('Scan progress:', event.payload);
         updateScanProgress(event.payload);
+        // Also update mini indicator in main view
+        updateScanRunningIndicator(true, event.payload);
     });
 
     // Listen for scan complete
     await listen('scan:complete', (event) => {
         console.log('Scan complete:', event.payload);
         handleScanComplete(event.payload);
+        // Hide running indicator and refresh schedule
+        updateScanRunningIndicator(false);
+        loadScheduleInfo();
     });
 
     // Listen for scan error
     await listen('scan:error', (event) => {
         console.log('Scan error:', event.payload);
         handleScanError(event.payload);
+        // Hide running indicator
+        updateScanRunningIndicator(false);
     });
 }
 
@@ -306,7 +395,26 @@ async function handleLogout() {
 
 async function onAuthenticated() {
     userEmail.textContent = currentUser.email;
-    showView('main');
+
+    // Check if a scan is currently running
+    try {
+        const scanRunning = await invoke('is_scan_running');
+        if (scanRunning) {
+            console.log('Scan is running, showing scanning view');
+            isScanning = true;
+            showView('scanning');
+
+            // Get current progress to update UI
+            const progress = await invoke('get_scan_progress');
+            updateScanProgress(progress);
+        } else {
+            showView('main');
+        }
+    } catch (e) {
+        console.error('Failed to check scan status:', e);
+        showView('main');
+    }
+
     await loadProducts();
 
     // Load product config if a product was restored
@@ -367,9 +475,11 @@ async function handleProductChange() {
             readyPlatforms: [],
             samplesPerPrompt: 1,
             autoRunEnabled: true,
-            scansPerDay: 1
+            scansPerDay: 1,
+            timeWindowStart: 9,
+            timeWindowEnd: 17
         };
-        applyProductConfigToUI();
+        await applyProductConfigToUI();
     }
 
     updateScanButtonState();
@@ -393,16 +503,18 @@ async function loadProductConfig(productId) {
             readyPlatforms: config.ready_platforms || [],
             samplesPerPrompt: config.samples_per_prompt || 1,
             autoRunEnabled: config.auto_run_enabled !== false,
-            scansPerDay: config.scans_per_day || 1
+            scansPerDay: config.scans_per_day || 1,
+            timeWindowStart: config.time_window_start ?? 9,
+            timeWindowEnd: config.time_window_end ?? 17
         };
 
-        applyProductConfigToUI();
+        await applyProductConfigToUI();
     } catch (e) {
         console.error('Failed to load product config:', e);
     }
 }
 
-function applyProductConfigToUI() {
+async function applyProductConfigToUI() {
     // Update platform checkboxes
     readyPlatforms.clear();
     currentProductConfig.readyPlatforms.forEach(p => readyPlatforms.add(p));
@@ -434,13 +546,103 @@ function applyProductConfigToUI() {
     if (scansPerDay) {
         scansPerDay.value = currentProductConfig.scansPerDay;
     }
+    if (timeWindowStart) {
+        timeWindowStart.value = currentProductConfig.timeWindowStart;
+    }
+    if (timeWindowEnd) {
+        timeWindowEnd.value = currentProductConfig.timeWindowEnd;
+    }
+
+    // Update disabled state of auto-run dependent fields
+    const autoRunDependentEnabled = currentProductConfig.autoRunEnabled;
     if (scansPerDayRow) {
-        scansPerDayRow.style.opacity = currentProductConfig.autoRunEnabled ? '1' : '0.5';
-        scansPerDay.disabled = !currentProductConfig.autoRunEnabled;
+        scansPerDayRow.style.opacity = autoRunDependentEnabled ? '1' : '0.5';
+        scansPerDay.disabled = !autoRunDependentEnabled;
+    }
+    if (timeWindowRow) {
+        timeWindowRow.style.opacity = autoRunDependentEnabled ? '1' : '0.5';
+        timeWindowStart.disabled = !autoRunDependentEnabled;
+        timeWindowEnd.disabled = !autoRunDependentEnabled;
     }
 
     updatePlatformHint();
     updateScanButtonState();
+
+    // Load schedule info for auto-run products
+    if (selectedProductId) {
+        await loadScheduleInfo();
+    }
+}
+
+// Format hour to 12-hour format with AM/PM
+function formatHour(hour) {
+    if (hour === 0) return '12 AM';
+    if (hour === 12) return '12 PM';
+    if (hour < 12) return `${hour} AM`;
+    return `${hour - 12} PM`;
+}
+
+// Load and display schedule info for the current product
+async function loadScheduleInfo() {
+    if (!selectedProductId || !currentProductConfig.autoRunEnabled) {
+        // Hide schedule info if no product or auto-run disabled
+        if (scheduleInfoSection) {
+            scheduleInfoSection.classList.add('disabled');
+            nextScanTime.textContent = 'Auto-run disabled';
+            scansCompleted.textContent = '0';
+            scansTotal.textContent = '0';
+        }
+        return;
+    }
+
+    try {
+        const info = await invoke('get_schedule_info', { productId: selectedProductId });
+        console.log('Schedule info:', info);
+
+        if (scheduleInfoSection) {
+            scheduleInfoSection.classList.remove('disabled');
+
+            if (info.next_scan_hour !== null) {
+                nextScanTime.textContent = formatHour(info.next_scan_hour);
+            } else if (info.scans_completed_today >= info.scans_total_today) {
+                nextScanTime.textContent = 'Done for today';
+            } else {
+                nextScanTime.textContent = '--';
+            }
+
+            scansCompleted.textContent = info.scans_completed_today;
+            scansTotal.textContent = info.scans_total_today;
+        }
+    } catch (e) {
+        console.error('Failed to load schedule info:', e);
+    }
+}
+
+// Update scan running indicator in main view
+function updateScanRunningIndicator(isRunning, progress = null) {
+    if (scanRunningSection) {
+        if (isRunning) {
+            scanRunningSection.classList.remove('hidden');
+            if (progress) {
+                const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+                miniProgressFill.style.width = `${percent}%`;
+                miniProgressText.textContent = `${percent}%`;
+            }
+        } else {
+            scanRunningSection.classList.add('hidden');
+        }
+    }
+
+    // Disable/enable scan button based on running state
+    if (scanBtn) {
+        if (isRunning) {
+            scanBtn.disabled = true;
+            scanBtn.querySelector('.btn-text').textContent = 'Scan Running...';
+        } else {
+            updateScanButtonState();
+            scanBtn.querySelector('.btn-text').textContent = 'Run Scan';
+        }
+    }
 }
 
 async function handleSamplesChange(e) {
@@ -531,7 +733,9 @@ async function saveProductConfig() {
             readyPlatforms: Array.from(readyPlatforms),
             samplesPerPrompt: parseInt(samplesPerPrompt.value) || 1,
             autoRunEnabled: currentProductConfig.autoRunEnabled,
-            scansPerDay: currentProductConfig.scansPerDay
+            scansPerDay: currentProductConfig.scansPerDay,
+            timeWindowStart: currentProductConfig.timeWindowStart,
+            timeWindowEnd: currentProductConfig.timeWindowEnd
         });
     } catch (e) {
         console.error('Failed to save product config:', e);
@@ -797,10 +1001,15 @@ async function handleAutoRunChange(e) {
     const enabled = e.target.checked;
     currentProductConfig.autoRunEnabled = enabled;
 
-    // Show/hide scans per day setting based on auto-run state
+    // Show/hide scans per day and time window settings based on auto-run state
     if (scansPerDayRow) {
         scansPerDayRow.style.opacity = enabled ? '1' : '0.5';
         scansPerDay.disabled = !enabled;
+    }
+    if (timeWindowRow) {
+        timeWindowRow.style.opacity = enabled ? '1' : '0.5';
+        timeWindowStart.disabled = !enabled;
+        timeWindowEnd.disabled = !enabled;
     }
 
     try {
@@ -835,6 +1044,32 @@ async function handleScansPerDayChange(e) {
         console.log('Scans per day updated for product:', selectedProductId, value);
     } catch (error) {
         console.error('Failed to update scans per day:', error);
+    }
+}
+
+async function handleTimeWindowChange(e) {
+    if (!selectedProductId) return;
+
+    const startValue = parseInt(timeWindowStart.value, 10);
+    const endValue = parseInt(timeWindowEnd.value, 10);
+
+    // Validate that end is after start
+    if (endValue <= startValue) {
+        console.warn('End time must be after start time');
+        // Reset to previous values
+        timeWindowStart.value = currentProductConfig.timeWindowStart;
+        timeWindowEnd.value = currentProductConfig.timeWindowEnd;
+        return;
+    }
+
+    currentProductConfig.timeWindowStart = startValue;
+    currentProductConfig.timeWindowEnd = endValue;
+
+    try {
+        await saveProductConfig();
+        console.log('Time window updated for product:', selectedProductId, startValue, '-', endValue);
+    } catch (error) {
+        console.error('Failed to update time window:', error);
     }
 }
 

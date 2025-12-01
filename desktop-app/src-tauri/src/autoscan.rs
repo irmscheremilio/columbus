@@ -1,4 +1,5 @@
-use crate::{storage, AppState};
+use crate::{storage, storage::ProductConfig, AppState};
+use chrono::Timelike;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, async_runtime};
 use tokio::time::{Duration, interval};
@@ -12,13 +13,45 @@ pub fn start_scheduler(app: AppHandle) {
         // Run initial check
         check_and_run_auto_scans(&app).await;
 
-        // Then check every 5 minutes
-        let mut interval = interval(Duration::from_secs(5 * 60));
+        // Then check every minute (to catch scheduled times accurately)
+        let mut interval = interval(Duration::from_secs(60));
         loop {
             interval.tick().await;
             check_and_run_auto_scans(&app).await;
         }
     });
+}
+
+/// Calculate scheduled scan times for a product based on its config
+fn calculate_scheduled_times(config: &ProductConfig) -> Vec<u32> {
+    let start = config.time_window_start;
+    let end = config.time_window_end;
+    let scans = config.scans_per_day;
+
+    // Handle edge case: if end <= start, assume it wraps around midnight (not supported yet)
+    // For now, require end > start
+    if end <= start || scans == 0 {
+        return Vec::new();
+    }
+
+    let window_hours = end - start;
+
+    if scans == 1 {
+        // Single scan: run at the middle of the window
+        return vec![start + window_hours / 2];
+    }
+
+    // Multiple scans: distribute evenly across the window
+    // For N scans, we divide the window into N-1 intervals
+    let mut times = Vec::with_capacity(scans as usize);
+    let interval = window_hours as f64 / (scans - 1) as f64;
+
+    for i in 0..scans {
+        let time = start as f64 + (i as f64 * interval);
+        times.push(time.round() as u32);
+    }
+
+    times
 }
 
 /// Check if auto-scans should run and execute them for all products
@@ -42,8 +75,10 @@ async fn check_and_run_auto_scans(app: &AppHandle) {
         return;
     }
 
-    // Get current date
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    // Get current date and hour
+    let now = chrono::Local::now();
+    let today = now.format("%Y-%m-%d").to_string();
+    let current_hour = now.hour();
 
     // Get all product configs
     let product_configs = storage::get_all_product_configs();
@@ -53,7 +88,8 @@ async fn check_and_run_auto_scans(app: &AppHandle) {
         return;
     }
 
-    println!("[AutoScan] Checking {} products for auto-scans", product_configs.len());
+    println!("[AutoScan] Checking {} products for auto-scans (current hour: {})",
+        product_configs.len(), current_hour);
 
     // Iterate over all products
     for (product_id, mut config) in product_configs {
@@ -69,87 +105,88 @@ async fn check_and_run_auto_scans(app: &AppHandle) {
             continue;
         }
 
-        // Reset counter if it's a new day
-        let actual_scans_today = if config.last_auto_scan_date.as_ref() != Some(&today) {
-            println!("[AutoScan] New day for product {}, resetting scan counter", product_id);
+        // Check if it's a new day - reset counter and recalculate schedule
+        let is_new_day = config.last_auto_scan_date.as_ref() != Some(&today);
+        if is_new_day {
+            println!("[AutoScan] New day for product {}, resetting scan counter and schedule", product_id);
             config.last_auto_scan_date = Some(today.clone());
             config.scans_today = 0;
+            config.scheduled_times = calculate_scheduled_times(&config);
             let _ = storage::update_product_config(&product_id, &config);
-            0
-        } else {
-            config.scans_today
-        };
+            println!("[AutoScan] Scheduled times for product {}: {:?}", product_id, config.scheduled_times);
+        }
 
-        // Calculate how many scans to run
-        let remaining_scans = config.scans_per_day.saturating_sub(actual_scans_today);
+        // Recalculate schedule if empty (config might have changed)
+        if config.scheduled_times.is_empty() {
+            config.scheduled_times = calculate_scheduled_times(&config);
+            let _ = storage::update_product_config(&product_id, &config);
+            println!("[AutoScan] Recalculated schedule for product {}: {:?}", product_id, config.scheduled_times);
+        }
 
-        if remaining_scans == 0 {
-            println!("[AutoScan] Product {} already completed {} scans today",
-                product_id, config.scans_per_day);
+        // Check if current hour matches any scheduled time that hasn't been run yet
+        let scans_completed = config.scans_today as usize;
+        let scheduled_times = &config.scheduled_times;
+
+        // Find the next scheduled time we should run
+        let next_scheduled_index = scans_completed;
+        if next_scheduled_index >= scheduled_times.len() {
+            println!("[AutoScan] Product {} has completed all {} scheduled scans today",
+                product_id, scheduled_times.len());
             continue;
         }
 
-        println!("[AutoScan] Product {} needs {} more scans today (completed: {}/{})",
-            product_id, remaining_scans, actual_scans_today, config.scans_per_day);
+        let next_scheduled_hour = scheduled_times[next_scheduled_index];
+
+        // Check if it's time for the next scan (current hour >= scheduled hour)
+        if current_hour < next_scheduled_hour {
+            println!("[AutoScan] Product {}: next scan at {}:00, current hour is {} - waiting",
+                product_id, next_scheduled_hour, current_hour);
+            continue;
+        }
+
+        println!("[AutoScan] Product {}: time to run scan {} (scheduled for {}:00, current hour: {})",
+            product_id, next_scheduled_index + 1, next_scheduled_hour, current_hour);
 
         // Check if a scan is already running
         {
             let scan = state.scan.lock();
             if scan.is_running {
-                println!("[AutoScan] Scan already in progress, waiting");
-                return; // Exit completely, will retry next interval
+                println!("[AutoScan] Scan already in progress, will retry next check");
+                continue;
             }
         }
 
-        // Run the remaining scans one by one for this product
-        for scan_num in 0..remaining_scans {
-            println!("[AutoScan] Starting auto-scan {}/{} for product {}",
-                scan_num + 1, remaining_scans, product_id);
+        // Run the scan
+        println!("[AutoScan] Starting scheduled scan {}/{} for product {}",
+            next_scheduled_index + 1, scheduled_times.len(), product_id);
 
-            // Check again if scan is running (might have been started manually)
-            {
-                let scan = state.scan.lock();
-                if scan.is_running {
-                    println!("[AutoScan] Scan started externally, aborting auto-scan batch");
-                    return;
-                }
+        match run_auto_scan(
+            app,
+            &state,
+            &product_id,
+            config.samples_per_prompt as usize,
+            &config.ready_platforms,
+        ).await {
+            Ok(_) => {
+                println!("[AutoScan] Scheduled scan {} for product {} completed successfully",
+                    next_scheduled_index + 1, product_id);
+
+                // Reload config and increment the counter
+                let mut updated_config = storage::get_product_config(&product_id);
+                updated_config.scans_today += 1;
+                updated_config.last_auto_scan_date = Some(today.clone());
+                let _ = storage::update_product_config(&product_id, &updated_config);
             }
-
-            // Run the scan
-            match run_auto_scan(
-                app,
-                &state,
-                &product_id,
-                config.samples_per_prompt as usize,
-                &config.ready_platforms,
-            ).await {
-                Ok(_) => {
-                    println!("[AutoScan] Auto-scan {} for product {} completed successfully",
-                        scan_num + 1, product_id);
-
-                    // Reload config and increment the counter
-                    let mut updated_config = storage::get_product_config(&product_id);
-                    updated_config.scans_today += 1;
-                    updated_config.last_auto_scan_date = Some(today.clone());
-                    let _ = storage::update_product_config(&product_id, &updated_config);
-                }
-                Err(e) => {
-                    eprintln!("[AutoScan] Auto-scan {} for product {} failed: {}",
-                        scan_num + 1, product_id, e);
-                    // Don't increment counter on failure, but continue with next scan
-                }
-            }
-
-            // Wait a bit between scans to avoid overwhelming the system
-            if scan_num + 1 < remaining_scans {
-                println!("[AutoScan] Waiting 30 seconds before next scan...");
-                tokio::time::sleep(Duration::from_secs(30)).await;
+            Err(e) => {
+                eprintln!("[AutoScan] Scheduled scan {} for product {} failed: {}",
+                    next_scheduled_index + 1, product_id, e);
+                // Still increment to avoid retrying failed scans indefinitely
+                let mut updated_config = storage::get_product_config(&product_id);
+                updated_config.scans_today += 1;
+                updated_config.last_auto_scan_date = Some(today.clone());
+                let _ = storage::update_product_config(&product_id, &updated_config);
             }
         }
-
-        // Wait between products too
-        println!("[AutoScan] Waiting 60 seconds before next product...");
-        tokio::time::sleep(Duration::from_secs(60)).await;
     }
 
     println!("[AutoScan] Auto-scan check complete");
