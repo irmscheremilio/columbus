@@ -20,11 +20,18 @@ export interface PromptEvaluationJobData {
   jobId?: string
 }
 
+export interface CompetitorMention {
+  name: string
+  position: number | null
+  sentiment: 'positive' | 'neutral' | 'negative'
+}
+
 export interface AIEvaluation {
   brandMentioned: boolean
   position: number | null
   sentiment: 'positive' | 'neutral' | 'negative'
   competitorMentions: string[]
+  competitorDetails: CompetitorMention[]
   summary: string
   confidence: number
 }
@@ -138,24 +145,31 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
       }
 
       // 5. Insert competitor mentions if found (for tracked competitors)
-      if (evaluation.competitorMentions.length > 0 && competitors) {
+      if (evaluation.competitorDetails.length > 0 && competitors) {
+        // Create a map from competitor name to their details
+        const detailsMap = new Map(
+          evaluation.competitorDetails.map(cd => [cd.name.toLowerCase(), cd])
+        )
+
         const mentionedCompetitors = competitors.filter(c =>
-          evaluation.competitorMentions.some(m =>
-            m.toLowerCase() === c.name.toLowerCase()
-          )
+          detailsMap.has(c.name.toLowerCase())
         )
 
         if (mentionedCompetitors.length > 0) {
-          const mentionsToInsert = mentionedCompetitors.map(competitor => ({
-            organization_id: promptResult.organization_id,
-            product_id: promptResult.product_id,
-            competitor_id: competitor.id,
-            prompt_result_id: promptResultId,
-            ai_model: promptResult.ai_model,
-            mention_context: extractMentionContext(promptResult.response_text, competitor.name),
-            sentiment: evaluation.sentiment,
-            detected_at: new Date().toISOString()
-          }))
+          const mentionsToInsert = mentionedCompetitors.map(competitor => {
+            const details = detailsMap.get(competitor.name.toLowerCase())
+            return {
+              organization_id: promptResult.organization_id,
+              product_id: promptResult.product_id,
+              competitor_id: competitor.id,
+              prompt_result_id: promptResultId,
+              ai_model: promptResult.ai_model,
+              position: details?.position || null,
+              mention_context: extractMentionContext(promptResult.response_text, competitor.name),
+              sentiment: details?.sentiment || 'neutral',
+              detected_at: new Date().toISOString()
+            }
+          })
 
           await supabase
             .from('competitor_mentions')
@@ -263,6 +277,13 @@ Provide your analysis in the following JSON format:
   "position": number or null,    // If products are listed/ranked, what position is "${productName}"? (1 = first, null if not in a list)
   "sentiment": "positive" | "neutral" | "negative",  // How is "${productName}" portrayed?
   "competitorMentions": ["name1", "name2"],  // Which competitors from the list are mentioned?
+  "competitorDetails": [  // Details for each mentioned competitor
+    {
+      "name": "competitor name",
+      "position": number or null,  // Position in list if ranked (1 = first, null if not in a list)
+      "sentiment": "positive" | "neutral" | "negative"  // How is this competitor portrayed?
+    }
+  ],
   "summary": "Brief 1-2 sentence summary of how the brand appears in this response",
   "confidence": 0.0-1.0  // How confident are you in this analysis?
 }
@@ -272,6 +293,7 @@ Important rules:
 - position should reflect the actual ranking if there's a numbered or bulleted list of recommendations
 - For sentiment, consider the context around the brand mention - is it recommended, criticized, or just mentioned neutrally?
 - Only include competitors that are ACTUALLY mentioned in the response
+- For each competitor, determine their position in the ranking (if any) and sentiment independently
 - Be precise and conservative in your analysis`
 
   const completion = await openai.chat.completions.create({
@@ -286,6 +308,18 @@ Important rules:
 
   try {
     const parsed = JSON.parse(responseContent)
+
+    // Parse competitor details
+    const competitorDetails: CompetitorMention[] = Array.isArray(parsed.competitorDetails)
+      ? parsed.competitorDetails
+          .filter((c: any) => c && typeof c.name === 'string')
+          .map((c: any) => ({
+            name: c.name,
+            position: typeof c.position === 'number' && c.position > 0 ? c.position : null,
+            sentiment: ['positive', 'negative', 'neutral'].includes(c.sentiment) ? c.sentiment : 'neutral'
+          }))
+      : []
+
     return {
       brandMentioned: !!parsed.brandMentioned,
       position: typeof parsed.position === 'number' && parsed.position > 0 ? parsed.position : null,
@@ -295,6 +329,7 @@ Important rules:
       competitorMentions: Array.isArray(parsed.competitorMentions)
         ? parsed.competitorMentions.filter((c: any) => typeof c === 'string')
         : [],
+      competitorDetails,
       summary: typeof parsed.summary === 'string' ? parsed.summary : '',
       confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5
     }
@@ -306,6 +341,7 @@ Important rules:
       position: null,
       sentiment: 'neutral',
       competitorMentions: [],
+      competitorDetails: [],
       summary: 'Failed to parse AI evaluation',
       confidence: 0.1
     }

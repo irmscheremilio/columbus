@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface CompetitorDetail {
+  name: string
+  position: number | null
+  sentiment: 'positive' | 'neutral' | 'negative'
+}
+
 interface ScanResult {
   productId: string
   scanSessionId?: string
@@ -17,6 +23,7 @@ interface ScanResult {
   position: number | null
   sentiment: 'positive' | 'neutral' | 'negative'
   competitorMentions: string[]
+  competitorDetails?: CompetitorDetail[]
   citations: { url: string; title?: string; position?: number }[]
   creditsExhausted?: boolean
   chatUrl?: string
@@ -170,6 +177,49 @@ Deno.serve(async (req) => {
       await supabaseAdmin
         .from('prompt_citations')
         .insert(citationsToInsert)
+    }
+
+    // Insert competitor mentions with position data
+    if (result.competitorDetails && result.competitorDetails.length > 0) {
+      // Get competitors for this product to map names to IDs
+      const { data: competitors } = await supabaseAdmin
+        .from('competitors')
+        .select('id, name')
+        .eq('product_id', result.productId)
+        .eq('status', 'tracking')
+
+      if (competitors && competitors.length > 0) {
+        // Create a map of competitor name (lowercase) to ID
+        const competitorNameToId = new Map(
+          competitors.map(c => [c.name.toLowerCase(), c.id])
+        )
+
+        const mentionsToInsert = result.competitorDetails
+          .map(cd => {
+            const competitorId = competitorNameToId.get(cd.name.toLowerCase())
+            if (!competitorId) return null
+            return {
+              organization_id: organizationId,
+              competitor_id: competitorId,
+              prompt_result_id: promptResult.id,
+              ai_model: result.platform,
+              position: cd.position,
+              sentiment: cd.sentiment,
+              detected_at: new Date().toISOString()
+            }
+          })
+          .filter(Boolean)
+
+        if (mentionsToInsert.length > 0) {
+          const { error: mentionsError } = await supabaseAdmin
+            .from('competitor_mentions')
+            .insert(mentionsToInsert)
+
+          if (mentionsError) {
+            console.error('Error inserting competitor mentions:', mentionsError)
+          }
+        }
+      }
     }
 
     // Queue a job for AI evaluation (async processing by worker)

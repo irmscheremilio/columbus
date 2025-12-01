@@ -118,6 +118,15 @@ pub struct ScanProgress {
     pub platforms: HashMap<String, PlatformState>,
 }
 
+// CompetitorDetail for tracking competitor positions
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CompetitorDetailResult {
+    pub name: String,
+    pub position: Option<i32>,
+    pub sentiment: String,
+}
+
 // ScanResult uses camelCase to match the Supabase API expected format
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,6 +142,7 @@ pub struct ScanResult {
     pub position: Option<i32>,
     pub sentiment: String,
     pub competitor_mentions: Vec<String>,
+    pub competitor_details: Vec<CompetitorDetailResult>,
     pub citations: Vec<Citation>,
     pub credits_exhausted: bool,
     pub chat_url: Option<String>,

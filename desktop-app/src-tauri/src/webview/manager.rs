@@ -4,6 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct CompetitorDetail {
+    pub name: String,
+    pub position: Option<i32>,
+    pub sentiment: String,
+}
+
 // Multiple realistic User-Agents to rotate through on captcha detection
 const USER_AGENTS: &[&str] = &[
     // Chrome 131 (latest stable as of Nov 2024)
@@ -33,6 +40,7 @@ pub struct CollectResponse {
     pub position: Option<i32>,
     pub sentiment: String,
     pub competitor_mentions: Vec<String>,
+    pub competitor_details: Vec<CompetitorDetail>,
     pub citations: Vec<Citation>,
     pub credits_exhausted: bool,
     pub chat_url: Option<String>,
@@ -485,6 +493,18 @@ fn decode_base64_and_parse(data: &str) -> Result<CollectResponse, String> {
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter()
                 .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect())
+            .unwrap_or_default(),
+        competitor_details: parsed.get("competitorDetails")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter()
+                .filter_map(|v| {
+                    Some(CompetitorDetail {
+                        name: v.get("name")?.as_str()?.to_string(),
+                        position: v.get("position").and_then(|p| p.as_i64()).map(|p| p as i32),
+                        sentiment: v.get("sentiment").and_then(|s| s.as_str()).unwrap_or("neutral").to_string(),
+                    })
+                })
                 .collect())
             .unwrap_or_default(),
         citations: parsed.get("citations")
@@ -955,11 +975,52 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
             const brandMentioned = responseLower.includes(brandLower);
             console.log('[Columbus] Brand "' + brand + '" mentioned:', brandMentioned);
 
-            // Check competitor mentions
-            const competitorMentions = competitors.filter(c =>
-                responseLower.includes(c.toLowerCase())
-            );
+            // Check competitor mentions with position calculation
+            // Position = rank among all brands (brand + competitors) based on first mention
+            const allBrands = [
+                {{ name: brand, isBrand: true }},
+                ...competitors.map(c => ({{ name: c, isBrand: false }}))
+            ];
+
+            // Find first occurrence position of each brand
+            const brandPositions = [];
+            for (const b of allBrands) {{
+                const idx = responseLower.indexOf(b.name.toLowerCase());
+                if (idx !== -1) {{
+                    brandPositions.push({{ name: b.name, isBrand: b.isBrand, index: idx }});
+                }}
+            }}
+
+            // Sort by position in text
+            brandPositions.sort((a, b) => a.index - b.index);
+
+            // Calculate position (1-indexed rank)
+            const competitorMentions = [];
+            const competitorDetails = [];
+            for (const c of competitors) {{
+                const cLower = c.toLowerCase();
+                if (responseLower.includes(cLower)) {{
+                    competitorMentions.push(c);
+                    const rank = brandPositions.findIndex(bp => bp.name.toLowerCase() === cLower);
+                    competitorDetails.push({{
+                        name: c,
+                        position: rank !== -1 ? rank + 1 : null,
+                        sentiment: 'neutral'
+                    }});
+                }}
+            }}
+
+            // Also calculate brand position
+            let brandPosition = null;
+            if (brandMentioned) {{
+                const brandRank = brandPositions.findIndex(bp => bp.isBrand);
+                if (brandRank !== -1) {{
+                    brandPosition = brandRank + 1;
+                }}
+            }}
+            console.log('[Columbus] Brand position:', brandPosition);
             console.log('[Columbus] Competitor mentions:', competitorMentions);
+            console.log('[Columbus] Competitor details:', competitorDetails);
 
             // Extract citations (links) using extension's working selectors
             const citations = [];
@@ -1020,8 +1081,10 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
                 responseText: responseText.substring(0, 10000), // Limit size for title
                 brandMentioned,
                 citationPresent: citations.length > 0,
+                position: brandPosition,
                 sentiment: 'neutral',
                 competitorMentions,
+                competitorDetails,
                 citations: citations.slice(0, 10), // Limit citations
                 creditsExhausted,
                 chatUrl: responseText.length > 0 ? chatUrl : null

@@ -368,8 +368,15 @@ async fn run_scan(
                             brand_mentioned: response.brand_mentioned,
                             citation_present: response.citation_present,
                             position: response.position,
-                            sentiment: response.sentiment,
+                            sentiment: response.sentiment.clone(),
                             competitor_mentions: response.competitor_mentions,
+                            competitor_details: response.competitor_details.iter().map(|cd| {
+                                crate::CompetitorDetailResult {
+                                    name: cd.name.clone(),
+                                    position: cd.position,
+                                    sentiment: cd.sentiment.clone(),
+                                }
+                            }).collect(),
                             citations: response.citations,
                             credits_exhausted: response.credits_exhausted,
                             chat_url: response.chat_url,
