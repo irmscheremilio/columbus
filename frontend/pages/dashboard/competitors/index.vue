@@ -118,11 +118,36 @@
           <table class="w-full">
             <thead>
               <tr class="text-[11px] text-gray-500 uppercase tracking-wide border-b border-gray-100/80 bg-gray-50/30">
-                <th class="text-left px-4 py-2.5 font-medium">Competitor</th>
-                <th class="text-center px-4 py-2.5 font-medium">Mention Rate</th>
-                <th class="text-center px-4 py-2.5 font-medium hidden sm:table-cell">Avg Position</th>
-                <th class="text-center px-4 py-2.5 font-medium hidden md:table-cell">Citation Rate</th>
-                <th class="text-center px-4 py-2.5 font-medium hidden lg:table-cell">Detections</th>
+                <th
+                  class="text-left px-4 py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  @click="toggleSort('name')"
+                >
+                  Brand {{ getSortIcon('name') }}
+                </th>
+                <th
+                  class="text-center px-4 py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  @click="toggleSort('mention_rate')"
+                >
+                  Mention Rate {{ getSortIcon('mention_rate') }}
+                </th>
+                <th
+                  class="text-center px-4 py-2.5 font-medium hidden sm:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  @click="toggleSort('avg_position')"
+                >
+                  Avg Position {{ getSortIcon('avg_position') }}
+                </th>
+                <th
+                  class="text-center px-4 py-2.5 font-medium hidden md:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  @click="toggleSort('citation_rate')"
+                >
+                  Citation Rate {{ getSortIcon('citation_rate') }}
+                </th>
+                <th
+                  class="text-center px-4 py-2.5 font-medium hidden lg:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  @click="toggleSort('detection_count')"
+                >
+                  Detections {{ getSortIcon('detection_count') }}
+                </th>
                 <th class="text-right px-4 py-2.5 font-medium">Actions</th>
               </tr>
             </thead>
@@ -130,51 +155,84 @@
               <tr
                 v-for="competitor in trackingCompetitors"
                 :key="competitor.id"
-                class="text-sm hover:bg-gray-50/50 transition-colors cursor-pointer"
-                @click="$router.push(`/dashboard/competitors/${competitor.id}`)"
+                class="text-sm transition-colors"
+                :class="competitor.is_own_brand ? 'bg-brand/5 hover:bg-brand/10' : 'hover:bg-gray-50/50 cursor-pointer'"
+                @click="!competitor.is_own_brand && $router.push(`/dashboard/competitors/${competitor.id}`)"
               >
                 <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <div class="font-medium text-gray-900">{{ competitor.name }}</div>
-                    <span v-if="competitor.is_auto_detected" class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                      auto
-                    </span>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+                      :class="competitor.is_own_brand ? 'bg-brand/20' : 'bg-gray-100'"
+                    >
+                      <img
+                        v-if="competitor.icon_url || competitor.domain"
+                        :src="competitor.icon_url || getFaviconUrl(competitor.domain, 32)"
+                        :alt="competitor.name"
+                        class="w-5 h-5"
+                        @error="($event.target as HTMLImageElement).style.display = 'none'"
+                      />
+                      <span v-else class="text-xs font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-400'">{{ competitor.name.charAt(0).toUpperCase() }}</span>
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <div class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-900'">{{ competitor.name }}</div>
+                        <span v-if="competitor.is_own_brand" class="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded font-medium">
+                          You
+                        </span>
+                        <span v-else-if="competitor.is_auto_detected" class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                          auto
+                        </span>
+                      </div>
+                      <div v-if="competitor.domain" class="text-xs text-gray-400">{{ competitor.domain }}</div>
+                    </div>
                   </div>
-                  <div v-if="competitor.domain" class="text-xs text-gray-400">{{ competitor.domain }}</div>
                 </td>
                 <td class="px-4 py-3 text-center">
                   <div class="flex items-center justify-center gap-1">
-                    <span class="font-medium" :class="getMentionColor(competitor.mention_rate)">
+                    <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : getMentionColor(competitor.mention_rate)">
                       {{ competitor.mention_rate !== null ? `${competitor.mention_rate}%` : '-' }}
                     </span>
-                    <span v-if="competitor.mention_rate !== null && brandMentionRate !== null" class="text-[10px]" :class="competitor.mention_rate < brandMentionRate ? 'text-emerald-500' : competitor.mention_rate > brandMentionRate ? 'text-red-500' : 'text-gray-400'">
+                    <span v-if="!competitor.is_own_brand && competitor.mention_rate !== null && brandMentionRate !== null" class="text-[10px]" :class="competitor.mention_rate < brandMentionRate ? 'text-emerald-500' : competitor.mention_rate > brandMentionRate ? 'text-red-500' : 'text-gray-400'">
                       {{ competitor.mention_rate < brandMentionRate ? '↓' : competitor.mention_rate > brandMentionRate ? '↑' : '=' }}
                     </span>
                   </div>
                 </td>
                 <td class="px-4 py-3 text-center hidden sm:table-cell">
-                  <span class="font-medium text-gray-700">
+                  <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-700'">
                     {{ competitor.avg_position ? `#${competitor.avg_position.toFixed(1)}` : '-' }}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center hidden md:table-cell">
-                  <span class="font-medium text-gray-700">
+                  <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-700'">
                     {{ competitor.citation_rate !== null ? `${competitor.citation_rate}%` : '-' }}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center hidden lg:table-cell">
-                  <span class="text-gray-500 text-xs">{{ competitor.detection_count || 0 }}</span>
+                  <span v-if="!competitor.is_own_brand" class="text-gray-500 text-xs">{{ competitor.detection_count || 0 }}</span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
                 </td>
                 <td class="px-4 py-3 text-right">
-                  <button
-                    @click.stop="removeCompetitor(competitor)"
-                    class="text-gray-400 hover:text-red-500 transition-colors"
-                    title="Stop tracking"
-                  >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div v-if="!competitor.is_own_brand" class="flex items-center justify-end gap-1">
+                    <button
+                      @click.stop="openEditModal(competitor)"
+                      class="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit competitor"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      @click.stop="removeCompetitor(competitor)"
+                      class="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Stop tracking"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -200,16 +258,28 @@
             :key="competitor.id"
             class="px-4 py-3 flex items-center justify-between gap-4"
           >
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="font-medium text-gray-900">{{ competitor.name }}</span>
-                <span v-if="competitor.detection_count > 1" class="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
-                  {{ competitor.detection_count }}x detected
-                </span>
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <img
+                  v-if="competitor.icon_url || competitor.domain"
+                  :src="competitor.icon_url || getFaviconUrl(competitor.domain, 32)"
+                  :alt="competitor.name"
+                  class="w-5 h-5"
+                  @error="($event.target as HTMLImageElement).style.display = 'none'"
+                />
+                <span v-else class="text-xs font-medium text-amber-600">{{ competitor.name.charAt(0).toUpperCase() }}</span>
               </div>
-              <p v-if="competitor.detection_context" class="text-xs text-gray-500 truncate mt-0.5" :title="competitor.detection_context">
-                "{{ competitor.detection_context }}"
-              </p>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-gray-900">{{ competitor.name }}</span>
+                  <span v-if="competitor.detection_count > 1" class="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                    {{ competitor.detection_count }}x detected
+                  </span>
+                </div>
+                <p v-if="competitor.detection_context" class="text-xs text-gray-500 truncate mt-0.5" :title="competitor.detection_context">
+                  "{{ competitor.detection_context }}"
+                </p>
+              </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               <button
@@ -283,6 +353,54 @@
         </form>
       </div>
     </div>
+
+    <!-- Edit Competitor Modal -->
+    <div
+      v-if="showEditModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      @click.self="showEditModal = false"
+    >
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full">
+        <h3 class="text-lg font-semibold mb-4">Edit Competitor</h3>
+        <form @submit.prevent="updateCompetitor" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
+            <input
+              v-model="editForm.name"
+              type="text"
+              required
+              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+              placeholder="Competitor Inc."
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Website (Optional)</label>
+            <input
+              v-model="editForm.domain"
+              type="text"
+              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+              placeholder="competitor.com"
+            />
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button
+              type="button"
+              @click="showEditModal = false; editingCompetitor = null"
+              class="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
+              :disabled="isSubmitting"
+            >
+              {{ isSubmitting ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -294,6 +412,8 @@ definePageMeta({
   layout: 'dashboard'
 })
 
+const { getFaviconUrl } = useFavicon()
+
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 
@@ -301,8 +421,15 @@ const loading = ref(true)
 const chartLoading = ref(false)
 const allCompetitors = ref<any[]>([])
 const showAddModal = ref(false)
+const showEditModal = ref(false)
 const isSubmitting = ref(false)
 const newCompetitor = ref({ name: '', domain: '' })
+const editingCompetitor = ref<any>(null)
+const editForm = ref({ name: '', domain: '' })
+
+// Sorting
+const sortColumn = ref<'name' | 'mention_rate' | 'avg_position' | 'citation_rate' | 'detection_count'>('mention_rate')
+const sortDirection = ref<'asc' | 'desc'>('desc')
 
 // Chart state
 const comparisonChartCanvas = ref<HTMLCanvasElement | null>(null)
@@ -332,11 +459,14 @@ const brandMentionRate = ref<number | null>(null)
 const brandCitationRate = ref<number | null>(null)
 const brandAvgPosition = ref<number | null>(null)
 
+// Product data for own brand display
+const product = ref<any>(null)
+
 // Competitor metrics map
 const competitorMetrics = ref<Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null }>>(new Map())
 
 // Split competitors by status
-const trackingCompetitors = computed(() =>
+const trackingCompetitorsRaw = computed(() =>
   allCompetitors.value
     .filter(c => c.status === 'tracking')
     .map(c => {
@@ -345,12 +475,74 @@ const trackingCompetitors = computed(() =>
         ...c,
         mention_rate: metrics?.mention_rate ?? null,
         citation_rate: metrics?.citation_rate ?? null,
-        avg_position: metrics?.avg_position ?? null
+        avg_position: metrics?.avg_position ?? null,
+        is_own_brand: false
       }
     })
 )
 
-const chartCompetitors = computed(() => trackingCompetitors.value.slice(0, 8))
+// Own brand entry for the table
+const ownBrandEntry = computed(() => {
+  if (!product.value) return null
+  return {
+    id: 'own-brand',
+    name: product.value.name,
+    domain: product.value.domain,
+    icon_url: product.value.icon_url,
+    mention_rate: brandMentionRate.value,
+    citation_rate: brandCitationRate.value,
+    avg_position: brandAvgPosition.value,
+    detection_count: null,
+    is_own_brand: true,
+    is_auto_detected: false
+  }
+})
+
+// Combined and sorted list including own brand
+const trackingCompetitors = computed(() => {
+  const items = [...trackingCompetitorsRaw.value]
+  if (ownBrandEntry.value) {
+    items.unshift(ownBrandEntry.value)
+  }
+
+  // Sort
+  items.sort((a, b) => {
+    // Own brand always stays at top when sorted by name ascending, otherwise sort normally
+    let aVal: any = a[sortColumn.value]
+    let bVal: any = b[sortColumn.value]
+
+    // Handle nulls - push them to the end
+    if (aVal === null && bVal === null) return 0
+    if (aVal === null) return 1
+    if (bVal === null) return -1
+
+    // For position, lower is better so we invert the sort
+    if (sortColumn.value === 'avg_position') {
+      // Lower position is better, so ascending means lower first
+      if (sortDirection.value === 'asc') {
+        return aVal - bVal
+      } else {
+        return bVal - aVal
+      }
+    }
+
+    // For other metrics, higher is better
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase()
+      bVal = bVal.toLowerCase()
+    }
+
+    if (sortDirection.value === 'asc') {
+      return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+    } else {
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
+    }
+  })
+
+  return items
+})
+
+const chartCompetitors = computed(() => trackingCompetitorsRaw.value.slice(0, 8))
 
 const proposedCompetitors = computed(() =>
   allCompetitors.value
@@ -419,6 +611,15 @@ const loadCompetitors = async () => {
 
   loading.value = true
   try {
+    // Load product data for own brand display
+    const { data: productData } = await supabase
+      .from('products')
+      .select('id, name, domain, icon_url')
+      .eq('id', productId)
+      .single()
+
+    product.value = productData
+
     // Load all competitors (excluding denied)
     const { data: competitors } = await supabase
       .from('competitors')
@@ -681,14 +882,14 @@ const renderComparisonChart = (
     {
       label: 'Your Brand',
       data: brandData,
-      borderColor: '#6366f1',
-      backgroundColor: '#6366f120',
+      borderColor: '#F29901',
+      backgroundColor: '#F2990120',
       borderWidth: 2.5,
       fill: false,
       tension: 0.3,
       pointRadius: 3,
       pointHoverRadius: 5,
-      pointBackgroundColor: '#6366f1',
+      pointBackgroundColor: '#F29901',
       spanGaps: true
     },
     ...chartCompetitors.value.map((competitor, idx) => ({
@@ -779,11 +980,17 @@ const addCompetitor = async () => {
       ? new URL(newCompetitor.value.domain).hostname.replace('www.', '')
       : null
 
+    // Generate icon URL if domain is provided
+    const iconUrl = domain
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+      : null
+
     await supabase.from('competitors').insert({
       organization_id: organizationId,
       product_id: productId,
       name: newCompetitor.value.name,
       domain: domain,
+      icon_url: iconUrl,
       status: 'tracking',
       is_auto_detected: false
     })
@@ -851,5 +1058,65 @@ const getMentionColor = (rate: number | null) => {
   if (rate >= 50) return 'text-emerald-600'
   if (rate >= 25) return 'text-amber-600'
   return 'text-gray-600'
+}
+
+// Sorting
+const toggleSort = (column: typeof sortColumn.value) => {
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortColumn.value = column
+    // Default to desc for metrics (higher is better), asc for name
+    sortDirection.value = column === 'name' ? 'asc' : 'desc'
+  }
+}
+
+const getSortIcon = (column: typeof sortColumn.value) => {
+  if (sortColumn.value !== column) return ''
+  return sortDirection.value === 'asc' ? '↑' : '↓'
+}
+
+// Edit competitor
+const openEditModal = (competitor: any) => {
+  editingCompetitor.value = competitor
+  editForm.value = {
+    name: competitor.name,
+    domain: competitor.domain || ''
+  }
+  showEditModal.value = true
+}
+
+const updateCompetitor = async () => {
+  if (!editingCompetitor.value) return
+
+  isSubmitting.value = true
+  try {
+    const domain = editForm.value.domain
+      ? editForm.value.domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
+      : null
+
+    // Generate icon URL if domain is provided
+    const iconUrl = domain
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+      : null
+
+    await supabase
+      .from('competitors')
+      .update({
+        name: editForm.value.name,
+        domain: domain,
+        icon_url: iconUrl
+      })
+      .eq('id', editingCompetitor.value.id)
+
+    showEditModal.value = false
+    editingCompetitor.value = null
+    await loadCompetitors()
+  } catch (error) {
+    console.error('Error updating competitor:', error)
+    alert('Failed to update competitor')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>

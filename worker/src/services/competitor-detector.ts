@@ -296,6 +296,11 @@ Only include actual company/product names, not generic terms. Set confidence bas
           .eq('id', existing.id)
         updated++
       } else {
+        // Generate icon URL if domain is available
+        const iconUrl = competitor.domain
+          ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(competitor.domain)}&sz=64`
+          : null
+
         // Insert new competitor as 'proposed' (auto-detected, pending user review)
         const { error } = await this.supabase
           .from('competitors')
@@ -304,6 +309,7 @@ Only include actual company/product names, not generic terms. Set confidence bas
             product_id: productId,
             name: competitor.name,
             domain: competitor.domain,
+            icon_url: iconUrl,
             is_auto_detected: true,
             detection_confidence: competitor.confidence,
             detection_context: competitor.context,

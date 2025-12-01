@@ -164,6 +164,9 @@ serve(async (req) => {
       )
     }
 
+    // Generate favicon URL using Google's favicon service
+    const iconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+
     // Create the product
     const { data: product, error: productError } = await supabaseAdmin
       .from('products')
@@ -177,6 +180,7 @@ serve(async (req) => {
         primary_location: primaryLocation?.trim() || null,
         primary_country: primaryCountry?.trim() || null,
         primary_language: primaryLanguage || 'en',
+        icon_url: iconUrl,
         is_active: true,
       }])
       .select()

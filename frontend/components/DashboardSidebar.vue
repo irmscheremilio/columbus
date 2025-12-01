@@ -130,8 +130,15 @@
               class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
-                <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0">
-                  <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <img
+                    v-if="currentProduct?.icon_url || currentProduct?.domain"
+                    :src="currentProduct?.icon_url || getFaviconUrl(currentProduct?.domain, 32)"
+                    :alt="currentProduct?.name"
+                    class="w-4 h-4"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <svg v-else class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
@@ -176,8 +183,15 @@
                   class="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
                   :class="activeProductId === product.id && 'bg-brand/5'"
                 >
-                  <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand">
-                    {{ product.name?.charAt(0).toUpperCase() }}
+                  <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img
+                      v-if="product.icon_url || product.domain"
+                      :src="product.icon_url || getFaviconUrl(product.domain, 32)"
+                      :alt="product.name"
+                      class="w-4 h-4"
+                      @error="($event.target as HTMLImageElement).style.display = 'none'"
+                    />
+                    <span v-else class="text-xs font-semibold text-brand">{{ product.name?.charAt(0).toUpperCase() }}</span>
                   </div>
                   <div class="flex-1 min-w-0 text-left">
                     <div class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</div>
@@ -275,6 +289,7 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { products, activeProductId, activeProduct, setActiveProduct, loadProducts } = useActiveProduct()
+const { getFaviconUrl } = useFavicon()
 
 const mobileMenuOpen = ref(false)
 const showOrgSwitcher = ref(false)

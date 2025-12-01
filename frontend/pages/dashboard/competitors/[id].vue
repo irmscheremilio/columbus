@@ -12,6 +12,16 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </NuxtLink>
+          <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden">
+            <img
+              v-if="competitor?.icon_url || competitor?.domain"
+              :src="competitor?.icon_url || getFaviconUrl(competitor?.domain, 64)"
+              :alt="competitor?.name"
+              class="w-6 h-6"
+              @error="($event.target as HTMLImageElement).style.display = 'none'"
+            />
+            <span v-else class="text-sm font-medium text-gray-400">{{ competitor?.name?.charAt(0)?.toUpperCase() }}</span>
+          </div>
           <div>
             <h1 class="text-xl font-semibold text-gray-900 tracking-tight">{{ competitor?.name || 'Competitor' }}</h1>
             <p class="text-sm text-gray-500">{{ competitor?.domain || 'Competitor analysis' }}</p>
@@ -242,6 +252,8 @@ definePageMeta({
   middleware: 'auth',
   layout: 'dashboard'
 })
+
+const { getFaviconUrl } = useFavicon()
 
 const route = useRoute()
 const router = useRouter()
@@ -523,14 +535,14 @@ const renderChart = (labels: string[], brandData: (number | null)[], competitorD
     {
       label: 'Your Brand',
       data: brandData,
-      borderColor: '#6366f1',
-      backgroundColor: '#6366f120',
+      borderColor: '#F29901',
+      backgroundColor: '#F2990120',
       borderWidth: 2.5,
       fill: true,
       tension: 0.3,
       pointRadius: 3,
       pointHoverRadius: 5,
-      pointBackgroundColor: '#6366f1',
+      pointBackgroundColor: '#F29901',
       spanGaps: true
     },
     {

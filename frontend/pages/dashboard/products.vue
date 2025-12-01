@@ -60,8 +60,15 @@
           >
             <div class="flex items-start justify-between mb-4">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center text-brand font-semibold shadow-sm">
-                  {{ product.name.charAt(0).toUpperCase() }}
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center text-brand font-semibold shadow-sm overflow-hidden">
+                  <img
+                    v-if="product.icon_url || product.domain"
+                    :src="product.icon_url || getFaviconUrl(product.domain, 64)"
+                    :alt="product.name"
+                    class="w-6 h-6"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'; ($event.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden')"
+                  />
+                  <span class="hidden">{{ product.name.charAt(0).toUpperCase() }}</span>
                 </div>
                 <div>
                   <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
@@ -298,11 +305,14 @@ definePageMeta({
   layout: 'dashboard'
 })
 
+const { getFaviconUrl } = useFavicon()
+
 interface Product {
   id: string
   name: string
   domain: string
   description: string | null
+  icon_url: string | null
   aeo_score: number | null
   calculated_aeo_score: number | null
   last_analyzed_at: string | null

@@ -35,53 +35,31 @@
           <div class="text-2xl font-bold text-gray-900">{{ visibilityScore?.overall || 0 }}<span class="text-sm font-medium text-gray-300 ml-0.5">/100</span></div>
         </div>
 
-        <!-- ChatGPT -->
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-[#10a37f]"></div>
-            ChatGPT
+        <!-- Platform Cards -->
+        <a
+          v-for="platform in platforms"
+          :key="platform.id"
+          :href="platform.website_url"
+          target="_blank"
+          class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-200 px-4 py-3 border border-white/50 group hover:border-gray-200"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-50 group-hover:bg-gray-100 transition-colors">
+              <img
+                :src="platform.logo_url"
+                :alt="platform.name"
+                class="w-6 h-6 object-contain"
+                @error="($event.target as HTMLImageElement).style.display = 'none'"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.[platform.id] || 0 }}%</span>
+              </div>
+              <div class="text-[10px] text-gray-500 truncate">Visibility on {{ platform.name }}</div>
+            </div>
           </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.chatgpt || 0 }}</span>
-            <span v-if="modelStats.chatgpt.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.chatgpt.mentions }} hits</span>
-          </div>
-        </div>
-
-        <!-- Claude -->
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-[#d97757]"></div>
-            Claude
-          </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.claude || 0 }}</span>
-            <span v-if="modelStats.claude.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.claude.mentions }} hits</span>
-          </div>
-        </div>
-
-        <!-- Gemini -->
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-[#4285f4]"></div>
-            Gemini
-          </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.gemini || 0 }}</span>
-            <span v-if="modelStats.gemini.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.gemini.mentions }} hits</span>
-          </div>
-        </div>
-
-        <!-- Perplexity -->
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50 group">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-[#20b8cd]"></div>
-            Perplexity
-          </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.perplexity || 0 }}</span>
-            <span v-if="modelStats.perplexity.mentions" class="text-[10px] text-gray-400 font-medium">{{ modelStats.perplexity.mentions }} hits</span>
-          </div>
-        </div>
+        </a>
 
         <!-- Mention Rate -->
         <div class="bg-gradient-to-br from-brand/5 to-brand/10 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-brand/10">
@@ -216,6 +194,23 @@ const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
 
+// Platform data from database
+interface Platform {
+  id: string
+  name: string
+  logo_url: string
+  color: string
+  description: string
+  website_url: string
+}
+const platforms = ref<Platform[]>([
+  // Default fallback data in case DB fetch fails
+  { id: 'chatgpt', name: 'ChatGPT', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg', color: '#10a37f', description: 'OpenAI\'s conversational AI', website_url: 'https://chat.openai.com' },
+  { id: 'claude', name: 'Claude', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/7/78/Anthropic_logo.svg', color: '#d97757', description: 'Anthropic\'s AI assistant', website_url: 'https://claude.ai' },
+  { id: 'gemini', name: 'Gemini', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg', color: '#4285f4', description: 'Google\'s AI model', website_url: 'https://gemini.google.com' },
+  { id: 'perplexity', name: 'Perplexity', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Perplexity_AI_logo.svg', color: '#20b8cd', description: 'AI search engine', website_url: 'https://perplexity.ai' }
+])
+
 const onPeriodChange = (days: number) => {
   selectedPeriodDays.value = days
   // Reload stats with new date range
@@ -334,6 +329,22 @@ const loadVisibilityScore = async (productId: string) => {
   }
 }
 
+const loadPlatforms = async () => {
+  try {
+    const { data } = await supabase
+      .from('ai_platforms')
+      .select('*')
+      .order('id')
+
+    if (data && data.length > 0) {
+      platforms.value = data
+    }
+  } catch (error) {
+    console.error('Error loading platforms:', error)
+    // Keep default fallback data
+  }
+}
+
 const loadDashboardData = async () => {
   const productId = activeProductId.value
   if (!productId) {
@@ -343,6 +354,9 @@ const loadDashboardData = async () => {
 
   loading.value = true
   try {
+    // Load platforms from database
+    await loadPlatforms()
+
     // Load visibility score from history filtered by date range
     await loadVisibilityScore(productId)
 
