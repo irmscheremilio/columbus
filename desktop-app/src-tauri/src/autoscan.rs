@@ -64,15 +64,15 @@ async fn check_and_run_auto_scans(app: &AppHandle) {
         }
     };
 
-    // Check if user is authenticated
-    let is_authenticated = {
-        let auth = state.auth.lock();
-        auth.user.is_some() && auth.access_token.is_some()
-    };
-
-    if !is_authenticated {
-        println!("[AutoScan] Not authenticated, skipping auto-scan check");
-        return;
+    // Ensure we have a valid (non-expired) auth token, refreshing if needed
+    match crate::commands::auth::ensure_valid_token(&state).await {
+        Ok(_) => {
+            println!("[AutoScan] Auth token is valid");
+        }
+        Err(e) => {
+            println!("[AutoScan] Not authenticated or token refresh failed: {}", e);
+            return;
+        }
     }
 
     // Get current date and hour

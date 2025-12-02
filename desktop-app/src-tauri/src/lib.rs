@@ -267,6 +267,7 @@ pub fn run() {
             commands::api::get_prompts,
             commands::api::submit_scan_result,
             commands::api::finalize_scan,
+            commands::api::get_ai_platforms,
             commands::scan::start_scan,
             commands::scan::cancel_scan,
             commands::scan::get_scan_progress,

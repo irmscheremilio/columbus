@@ -39,10 +39,7 @@
           class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
         >
           <option value="overall">All Models</option>
-          <option value="chatgpt">ChatGPT</option>
-          <option value="claude">Claude</option>
-          <option value="gemini">Gemini</option>
-          <option value="perplexity">Perplexity</option>
+          <option v-for="p in platforms" :key="p.name" :value="p.name">{{ p.label }}</option>
         </select>
         <!-- Grouping Toggle -->
         <select
@@ -129,10 +126,7 @@
                   class="text-sm bg-gray-100 border-0 rounded-lg px-3 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
                 >
                   <option value="overall">All Models</option>
-                  <option value="chatgpt">ChatGPT</option>
-                  <option value="claude">Claude</option>
-                  <option value="gemini">Gemini</option>
-                  <option value="perplexity">Perplexity</option>
+                  <option v-for="p in platforms" :key="p.name" :value="p.name">{{ p.label }}</option>
                 </select>
                 <select
                   v-model="groupingMode"
@@ -215,13 +209,14 @@ const emit = defineEmits<{
 }>()
 
 const supabase = useSupabaseClient()
+const { platforms: aiPlatforms, loadPlatforms, platformIds } = useAIPlatforms()
 
 const loading = ref(false)
 const selectedPeriod = ref('30')
 const viewMode = ref<'platforms' | 'competitors'>('platforms')
 const groupingMode = ref<'session' | 'day'>('day')
 const selectedMetric = ref<'mention_rate' | 'position'>('mention_rate')
-const competitorModel = ref<'overall' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity'>('overall')
+const competitorModel = ref<string>('overall')
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 const fullscreenChartCanvas = ref<HTMLCanvasElement | null>(null)
 const competitorLegend = ref<{ name: string; color: string }[]>([])
@@ -241,12 +236,14 @@ const periods = [
   { value: '90', label: '90d' }
 ]
 
-const platforms = [
-  { name: 'chatgpt', label: 'ChatGPT', color: '#10a37f' },
-  { name: 'claude', label: 'Claude', color: '#d97757' },
-  { name: 'gemini', label: 'Gemini', color: '#4285f4' },
-  { name: 'perplexity', label: 'Perplexity', color: '#20b8cd' }
-]
+// Transform platforms for chart display
+const platforms = computed(() =>
+  aiPlatforms.value.map(p => ({
+    name: p.id,
+    label: p.name,
+    color: p.color
+  }))
+)
 
 const competitorColors = [
   '#ef4444', // red
@@ -549,20 +546,38 @@ const processCompetitorDataBySession = (
       const sessionEnd = new Date(session.timestamp.getTime() + 5 * 60 * 1000)
 
       // Count mentions for this competitor in this session
+      // Filter by detected_at time within the session window
       const sessionMentions = competitorMentions.filter(m => {
         const t = new Date(m.detected_at)
         return m.competitor_id === c.id && t >= session.timestamp && t < sessionEnd
       })
 
+      // Deduplicate by prompt_result_id to avoid counting duplicates
+      // (both visibility-scanner and prompt-evaluation may insert mentions)
+      const uniquePromptResults = new Set(sessionMentions.map(m => m.prompt_result_id))
+      const uniqueMentionCount = uniquePromptResults.size
+
       if (metric === 'mention_rate') {
-        // Mention rate = mentions / total prompts in session
-        const rate = session.promptCount > 0 ? (sessionMentions.length / session.promptCount) * 100 : 0
-        dataArray.push(sessionMentions.length > 0 ? Math.round(rate * 10) / 10 : null)
+        // Mention rate = unique prompt results with mention / total prompts in session
+        const rate = session.promptCount > 0 ? (uniqueMentionCount / session.promptCount) * 100 : 0
+        // Cap at 100% to handle any edge cases
+        const cappedRate = Math.min(100, rate)
+        dataArray.push(uniqueMentionCount > 0 ? Math.round(cappedRate * 10) / 10 : null)
       } else {
         // Position metric - calculate average position from competitor mentions
-        const mentionsWithPosition = sessionMentions.filter(m => m.position !== null && m.position !== undefined)
-        if (mentionsWithPosition.length > 0) {
-          const avgPos = mentionsWithPosition.reduce((sum, m) => sum + m.position, 0) / mentionsWithPosition.length
+        // Use one mention per prompt_result (prefer lowest position if duplicates)
+        const positionByPromptResult = new Map<string, number>()
+        for (const m of sessionMentions) {
+          if (m.position !== null && m.position !== undefined) {
+            const existing = positionByPromptResult.get(m.prompt_result_id)
+            if (existing === undefined || m.position < existing) {
+              positionByPromptResult.set(m.prompt_result_id, m.position)
+            }
+          }
+        }
+        if (positionByPromptResult.size > 0) {
+          const positions = Array.from(positionByPromptResult.values())
+          const avgPos = positions.reduce((sum, p) => sum + p, 0) / positions.length
           dataArray.push(Math.round(avgPos * 10) / 10)
         } else {
           dataArray.push(null)
@@ -629,15 +644,20 @@ const processCompetitorDataByDay = (
       }
     })
 
-    // Map competitor mention rate by day
-    const competitorsByDay = new Map<string, Map<string, number>>()
+    // Map competitor mention rate by day (deduplicate by prompt_result_id)
+    // competitorsByDay: competitor_id -> date -> Set of prompt_result_ids
+    const competitorsByDay = new Map<string, Map<string, Set<string>>>()
     for (const m of competitorMentions) {
       const dateKey = new Date(m.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       if (!competitorsByDay.has(m.competitor_id)) {
         competitorsByDay.set(m.competitor_id, new Map())
       }
       const dayMap = competitorsByDay.get(m.competitor_id)!
-      dayMap.set(dateKey, (dayMap.get(dateKey) || 0) + 1)
+      if (!dayMap.has(dateKey)) {
+        dayMap.set(dateKey, new Set())
+      }
+      // Add prompt_result_id to deduplicate
+      dayMap.get(dateKey)!.add(m.prompt_result_id)
     }
 
     for (const c of competitors) {
@@ -645,10 +665,12 @@ const processCompetitorDataByDay = (
       const dayData = competitorsByDay.get(c.id)
       if (dayData) {
         labels.forEach((label, i) => {
-          const mentions = dayData.get(label) || 0
+          const uniqueMentions = dayData.get(label)?.size || 0
           const totalForDay = promptsPerDay.get(label) || 0
-          if (mentions > 0 && totalForDay > 0) {
-            dataArray[i] = Math.round((mentions / totalForDay) * 100 * 10) / 10
+          if (uniqueMentions > 0 && totalForDay > 0) {
+            // Cap at 100% to handle edge cases
+            const rate = Math.min(100, (uniqueMentions / totalForDay) * 100)
+            dataArray[i] = Math.round(rate * 10) / 10
           }
         })
       }
@@ -672,8 +694,9 @@ const processCompetitorDataByDay = (
       }
     })
 
-    // Map competitor position by day
-    const competitorPosByDay = new Map<string, Map<string, { total: number; count: number }>>()
+    // Map competitor position by day (deduplicate by prompt_result_id, keep best position)
+    // competitorPosByDay: competitor_id -> date -> prompt_result_id -> best position
+    const competitorPosByDay = new Map<string, Map<string, Map<string, number>>>()
     for (const m of competitorMentions) {
       if (m.position === null || m.position === undefined) continue
       const dateKey = new Date(m.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -682,11 +705,14 @@ const processCompetitorDataByDay = (
       }
       const dayMap = competitorPosByDay.get(m.competitor_id)!
       if (!dayMap.has(dateKey)) {
-        dayMap.set(dateKey, { total: 0, count: 0 })
+        dayMap.set(dateKey, new Map())
       }
-      const d = dayMap.get(dateKey)!
-      d.total += m.position
-      d.count++
+      const promptMap = dayMap.get(dateKey)!
+      const existing = promptMap.get(m.prompt_result_id)
+      // Keep the best (lowest) position if duplicate
+      if (existing === undefined || m.position < existing) {
+        promptMap.set(m.prompt_result_id, m.position)
+      }
     }
 
     for (const c of competitors) {
@@ -694,9 +720,12 @@ const processCompetitorDataByDay = (
       const dayData = competitorPosByDay.get(c.id)
       if (dayData) {
         labels.forEach((label, i) => {
-          const d = dayData.get(label)
-          if (d && d.count > 0) {
-            dataArray[i] = Math.round((d.total / d.count) * 10) / 10
+          const promptPositions = dayData.get(label)
+          if (promptPositions && promptPositions.size > 0) {
+            // Calculate average position from deduplicated values
+            const positions = Array.from(promptPositions.values())
+            const avgPos = positions.reduce((sum, p) => sum + p, 0) / positions.length
+            dataArray[i] = Math.round(avgPos * 10) / 10
           }
         })
       }
@@ -889,15 +918,15 @@ const processHistoryBySession = (
       if (currentSession) {
         scanSessions.push(currentSession)
       }
+      // Initialize with all platforms as null, then set the current one
+      const initialPlatforms: Record<string, { total: number; count: number } | null> = {}
+      for (const p of platforms.value) {
+        initialPlatforms[p.name] = null
+      }
+      initialPlatforms[platform] = { total: value, count: 1 }
       currentSession = {
         timestamp: entryTime,
-        platforms: {
-          chatgpt: null,
-          claude: null,
-          gemini: null,
-          perplexity: null,
-          [platform]: { total: value, count: 1 }
-        }
+        platforms: initialPlatforms
       }
     }
   }
@@ -918,11 +947,12 @@ const processHistoryBySession = (
   })
 
   // Calculate averages for each platform in each session
-  const platformData: Record<string, (number | null)[]> = {
-    chatgpt: scanSessions.map(s => s.platforms.chatgpt ? Math.round((s.platforms.chatgpt.total / s.platforms.chatgpt.count) * 10) / 10 : null),
-    claude: scanSessions.map(s => s.platforms.claude ? Math.round((s.platforms.claude.total / s.platforms.claude.count) * 10) / 10 : null),
-    gemini: scanSessions.map(s => s.platforms.gemini ? Math.round((s.platforms.gemini.total / s.platforms.gemini.count) * 10) / 10 : null),
-    perplexity: scanSessions.map(s => s.platforms.perplexity ? Math.round((s.platforms.perplexity.total / s.platforms.perplexity.count) * 10) / 10 : null)
+  const platformData: Record<string, (number | null)[]> = {}
+  for (const p of platforms.value) {
+    platformData[p.name] = scanSessions.map(s => {
+      const platformEntry = s.platforms[p.name]
+      return platformEntry ? Math.round((platformEntry.total / platformEntry.count) * 10) / 10 : null
+    })
   }
 
   return { labels, platformData }
@@ -948,11 +978,9 @@ const processHistoryByDay = (
   }
 
   // Initialize platform data arrays with nulls
-  const platformData: Record<string, (number | null)[]> = {
-    chatgpt: new Array(daysAgo).fill(null),
-    claude: new Array(daysAgo).fill(null),
-    gemini: new Array(daysAgo).fill(null),
-    perplexity: new Array(daysAgo).fill(null)
+  const platformData: Record<string, (number | null)[]> = {}
+  for (const p of platforms.value) {
+    platformData[p.name] = new Array(daysAgo).fill(null)
   }
 
   if (isPositionMetric) {
@@ -1039,14 +1067,13 @@ const processHistoryByDay = (
   }
 
   if (firstDataIndex === -1) {
+    const emptyPlatformData: Record<string, (number | null)[]> = {}
+    for (const p of platforms.value) {
+      emptyPlatformData[p.name] = [null]
+    }
     return {
       labels: [labels[labels.length - 1]],
-      platformData: {
-        chatgpt: [null],
-        claude: [null],
-        gemini: [null],
-        perplexity: [null]
-      }
+      platformData: emptyPlatformData
     }
   }
 
@@ -1066,14 +1093,13 @@ const generateEmptyChartData = () => {
   const todayLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   // Return minimal chart with just today's date when there's no data
+  const emptyPlatformData: Record<string, (number | null)[]> = {}
+  for (const p of platforms.value) {
+    emptyPlatformData[p.name] = [null]
+  }
   return {
     labels: [todayLabel],
-    platformData: {
-      chatgpt: [null],
-      claude: [null],
-      gemini: [null],
-      perplexity: [null]
-    }
+    platformData: emptyPlatformData
   }
 }
 
@@ -1092,7 +1118,7 @@ const renderChart = (
 
   const isPositionMetric = metric === 'position'
 
-  const datasets = platforms.map(platform => ({
+  const datasets = platforms.value.map(platform => ({
     label: platform.label,
     data: chartData.platformData[platform.name] || [],
     borderColor: platform.color,
@@ -1206,7 +1232,7 @@ const renderFullscreenChart = (
 
   const isPositionMetric = metric === 'position'
 
-  const datasets = platforms.map(platform => ({
+  const datasets = platforms.value.map(platform => ({
     label: platform.label,
     data: chartData.platformData[platform.name] || [],
     borderColor: platform.color,
@@ -1384,18 +1410,30 @@ const renderFullscreenCompetitorChart = (
   })
 }
 
+// Track if component is ready (platforms loaded)
+const isReady = ref(false)
+
+// Watch for productId changes - only load data if ready
 watch(() => props.productId, (newProductId) => {
-  if (newProductId) {
+  if (newProductId && isReady.value) {
     loadData()
   }
-}, { immediate: true })
+})
 
-onMounted(() => {
+// Watch for platforms being loaded - trigger initial load
+watch(isReady, (ready) => {
+  if (ready && props.productId) {
+    loadData()
+  }
+})
+
+onMounted(async () => {
+  // Ensure platforms are loaded first
+  await loadPlatforms()
   // Emit initial period
   emit('period-change', parseInt(selectedPeriod.value))
-  if (props.productId) {
-    loadData()
-  }
+  // Mark as ready - this will trigger data load via watcher
+  isReady.value = true
 })
 
 onUnmounted(() => {

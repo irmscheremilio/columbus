@@ -284,18 +284,26 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const { platforms: aiPlatforms, loadPlatforms, platformIds } = useAIPlatforms()
 
-const platformStats = ref({
-  chatgpt: { score: 0, citations: 0, tests: 0, trend: 'stable' as 'up' | 'down' | 'stable' },
-  claude: { score: 0, citations: 0, tests: 0, trend: 'stable' as 'up' | 'down' | 'stable' },
-  perplexity: { score: 0, citations: 0, tests: 0, trend: 'stable' as 'up' | 'down' | 'stable' },
-  gemini: { score: 0, citations: 0, tests: 0, trend: 'stable' as 'up' | 'down' | 'stable' }
-})
+// Dynamic platformStats based on loaded platforms
+const platformStats = ref<Record<string, { score: number; citations: number; tests: number; trend: 'up' | 'down' | 'stable' }>>({})
+
+// Initialize platform stats when platforms are loaded
+const initializePlatformStats = () => {
+  const stats: Record<string, { score: number; citations: number; tests: number; trend: 'up' | 'down' | 'stable' }> = {}
+  for (const p of aiPlatforms.value) {
+    stats[p.id] = { score: 0, citations: 0, tests: 0, trend: 'stable' }
+  }
+  platformStats.value = stats
+}
 
 const bestPrompts = ref<any[]>([])
 const worstPrompts = ref<any[]>([])
 
 onMounted(async () => {
+  await loadPlatforms()
+  initializePlatformStats()
   await loadPlatformData()
 })
 
@@ -319,9 +327,7 @@ const loadPlatformData = async () => {
 
     if (scores) {
       // Group by platform and calculate stats
-      const platforms = ['chatgpt', 'claude', 'perplexity', 'gemini']
-
-      platforms.forEach(platform => {
+      platformIds.value.forEach(platform => {
         const platformScores = scores.filter(s => s.ai_model === platform)
         if (platformScores.length > 0) {
           const latestScore = platformScores[0]
@@ -329,7 +335,7 @@ const loadPlatformData = async () => {
             platformScores.reduce((sum, s) => sum + s.score, 0) / platformScores.length
           )
 
-          platformStats.value[platform as keyof typeof platformStats.value] = {
+          platformStats.value[platform] = {
             score: latestScore.score,
             citations: platformScores.filter(s => s.score > 0).length,
             tests: platformScores.length,

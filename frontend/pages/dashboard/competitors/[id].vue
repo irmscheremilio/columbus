@@ -254,6 +254,7 @@ definePageMeta({
 })
 
 const { getFaviconUrl } = useFavicon()
+const { formatModelName } = useAIPlatforms()
 
 const route = useRoute()
 const router = useRouter()
@@ -660,13 +661,7 @@ const getSentimentClass = (sentiment: string) => {
 }
 
 const formatModel = (model: string) => {
-  switch (model?.toLowerCase()) {
-    case 'chatgpt': return 'ChatGPT'
-    case 'claude': return 'Claude'
-    case 'gemini': return 'Gemini'
-    case 'perplexity': return 'Perplexity'
-    default: return model
-  }
+  return formatModelName(model)
 }
 
 const formatDate = (date: string) => {

@@ -1,6 +1,7 @@
 use crate::{
+    commands::api::get_platform_url,
     update_tray_status, webview::WebviewManager, AppState, PlatformState, Prompt, ScanComplete,
-    ScanProgress, ScanResult, PLATFORM_URLS,
+    ScanProgress, ScanResult,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -37,9 +38,9 @@ pub async fn start_scan_internal(
     app: AppHandle,
     state: Arc<AppState>,
 ) -> Result<(), String> {
-    // Default to all platforms if none specified
+    // Default to common platforms if none specified
     let selected_platforms: Vec<String> = platforms.unwrap_or_else(|| {
-        PLATFORM_URLS.iter().map(|(name, _)| name.to_string()).collect()
+        vec!["chatgpt".to_string(), "claude".to_string(), "gemini".to_string(), "perplexity".to_string()]
     });
     // Check if scan is already running
     {
@@ -49,12 +50,11 @@ pub async fn start_scan_internal(
         }
     }
 
+    // Ensure we have a valid auth token (refresh if expired)
+    let token = crate::commands::auth::ensure_valid_token(&state).await?;
+
     // Get prompts from API
     let prompts_response: crate::commands::api::PromptsResponse = {
-        let token = {
-            let auth = state.auth.lock();
-            auth.access_token.clone().ok_or("Not authenticated")?
-        };
 
         let client = reqwest::Client::new();
         let url = format!(
@@ -190,9 +190,7 @@ async fn run_scan(
 
     // Process each selected platform
     for platform_str in &selected_platforms {
-        let url = PLATFORM_URLS.iter()
-            .find(|(name, _)| *name == platform_str.as_str())
-            .map(|(_, url)| *url)
+        let url = get_platform_url(platform_str)
             .ok_or_else(|| format!("Unknown platform: {}", platform_str))?;
         let platform = platform_str.as_str();
 
@@ -208,7 +206,7 @@ async fn run_scan(
         // Check if user is logged in by creating a test webview
         let webview_label = format!("scan-{}-check", platform);
         let login_check = manager
-            .create_webview(&app, &webview_label, url, true)
+            .create_webview(&app, &webview_label, &url, true)
             .await;
 
         if login_check.is_err() {
@@ -260,7 +258,7 @@ async fn run_scan(
                 let webview_label = format!("scan-{}-{}-{}", platform, prompt_idx, sample);
 
                 // Create webview for this prompt
-                if let Err(e) = manager.create_webview(&app, &webview_label, url, false).await {
+                if let Err(e) = manager.create_webview(&app, &webview_label, &url, false).await {
                     eprintln!("Failed to create webview: {}", e);
                     {
                         let mut scan = state.scan.lock();
@@ -382,10 +380,13 @@ async fn run_scan(
                             chat_url: response.chat_url,
                         };
 
-                        // Submit to API with logging
-                        let token = {
-                            let auth = state.auth.lock();
-                            auth.access_token.clone()
+                        // Submit to API with logging - ensure token is still valid
+                        let token = match crate::commands::auth::ensure_valid_token(&state).await {
+                            Ok(t) => Some(t),
+                            Err(_) => {
+                                let auth = state.auth.lock();
+                                auth.access_token.clone()
+                            }
                         };
 
                         if let Some(token) = token {
@@ -457,11 +458,14 @@ async fn run_scan(
         emit_progress_with_state(&app, &state);
     }
 
-    // Finalize scan
+    // Finalize scan - refresh token if needed since scan might have taken a while
     {
-        let token = {
-            let auth = state.auth.lock();
-            auth.access_token.clone()
+        let token = match crate::commands::auth::ensure_valid_token(&state).await {
+            Ok(t) => Some(t),
+            Err(e) => {
+                eprintln!("[Scan] Token refresh failed before finalize: {}", e);
+                None
+            }
         };
 
         if let Some(token) = token {

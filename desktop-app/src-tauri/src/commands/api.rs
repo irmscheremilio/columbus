@@ -1,7 +1,27 @@
 use crate::{AppState, Product, Prompt, ScanResult, SUPABASE_ANON_KEY, SUPABASE_URL};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
+
+// Cached AI platforms
+lazy_static::lazy_static! {
+    static ref CACHED_PLATFORMS: Mutex<Option<Vec<AIPlatform>>> = Mutex::new(None);
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct AIPlatform {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub logo_url: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub website_url: Option<String>,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusResponse {
@@ -114,4 +134,67 @@ pub async fn finalize_scan(
         &state,
     )
     .await
+}
+
+/// Fetch AI platforms from the database (public, no auth required)
+#[tauri::command]
+pub async fn get_ai_platforms(force_refresh: Option<bool>) -> Result<Vec<AIPlatform>, String> {
+    // Check cache first
+    if force_refresh != Some(true) {
+        let cache = CACHED_PLATFORMS.lock();
+        if let Some(platforms) = cache.as_ref() {
+            return Ok(platforms.clone());
+        }
+    }
+
+    // Fetch from Supabase REST API (public table with RLS allowing SELECT)
+    let client = reqwest::Client::new();
+    let url = format!("{}/rest/v1/ai_platforms?select=*&order=name", SUPABASE_URL);
+
+    let response = client
+        .get(&url)
+        .header("apikey", SUPABASE_ANON_KEY)
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch platforms: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("API error {}: {}", status, error_text));
+    }
+
+    let platforms: Vec<AIPlatform> = response
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
+
+    // Cache the platforms
+    {
+        let mut cache = CACHED_PLATFORMS.lock();
+        *cache = Some(platforms.clone());
+    }
+
+    Ok(platforms)
+}
+
+/// Get platform URL for opening login. Uses cached platforms or fallback.
+pub fn get_platform_url(platform_id: &str) -> Option<String> {
+    // Try to get from cache
+    let cache = CACHED_PLATFORMS.lock();
+    if let Some(platforms) = cache.as_ref() {
+        if let Some(p) = platforms.iter().find(|p| p.id == platform_id) {
+            return p.website_url.clone();
+        }
+    }
+
+    // Fallback to hardcoded URLs for common platforms
+    match platform_id {
+        "chatgpt" => Some("https://chatgpt.com/".to_string()),
+        "claude" => Some("https://claude.ai/new".to_string()),
+        "gemini" => Some("https://gemini.google.com/app".to_string()),
+        "perplexity" => Some("https://www.perplexity.ai/".to_string()),
+        _ => None,
+    }
 }

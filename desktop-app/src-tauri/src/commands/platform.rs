@@ -1,12 +1,9 @@
-use crate::PLATFORM_URLS;
+use crate::commands::api::get_platform_url;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
 pub async fn open_platform_login(platform: String, app: AppHandle) -> Result<(), String> {
-    let url = PLATFORM_URLS
-        .iter()
-        .find(|(name, _)| *name == platform.as_str())
-        .map(|(_, url)| *url)
+    let url = get_platform_url(&platform)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
     let label = format!("login-{}", platform);
@@ -19,7 +16,8 @@ pub async fn open_platform_login(platform: String, app: AppHandle) -> Result<(),
     }
 
     // Create a visible webview for the user to log in
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(url.parse().unwrap()))
+    let parsed_url: url::Url = url.parse().map_err(|_| "Invalid platform URL")?;
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed_url))
         .title(format!("Login to {} - Columbus", platform_display_name(&platform)))
         .inner_size(1200.0, 800.0)
         .visible(true)

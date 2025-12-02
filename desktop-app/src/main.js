@@ -39,16 +39,9 @@ let timeWindowStart, timeWindowEnd, timeWindowRow;
 let scheduleInfoSection, nextScanTime, scansCompleted, scansTotal;
 let scanRunningSection, miniProgressFill, miniProgressText;
 
-// Platform elements
-const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
-
-// Platform URLs for login
-const PLATFORM_URLS = {
-    chatgpt: 'https://chat.openai.com',
-    claude: 'https://claude.ai',
-    gemini: 'https://gemini.google.com',
-    perplexity: 'https://perplexity.ai'
-};
+// Platform data - loaded dynamically from API
+let platforms = [];
+let PLATFORM_URLS = {};
 
 // Track which platforms user has marked as ready
 let readyPlatforms = new Set();
@@ -56,9 +49,109 @@ let readyPlatforms = new Set();
 // Dashboard URL
 const DASHBOARD_URL = 'https://columbus-aeo.vercel.app/dashboard';
 
+// Load AI platforms from API
+async function loadPlatforms() {
+    try {
+        const platformsData = await invoke('get_ai_platforms', { forceRefresh: false });
+        console.log('Loaded platforms:', platformsData);
+
+        // Transform to array of platform IDs
+        platforms = platformsData.map(p => p.id);
+
+        // Build URL map
+        PLATFORM_URLS = {};
+        platformsData.forEach(p => {
+            PLATFORM_URLS[p.id] = p.website_url || '';
+        });
+
+        // Update the UI if platform elements exist
+        updatePlatformUI(platformsData);
+
+        return platformsData;
+    } catch (error) {
+        console.error('Failed to load platforms:', error);
+        // Use fallback defaults
+        platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
+        PLATFORM_URLS = {
+            chatgpt: 'https://chat.openai.com',
+            claude: 'https://claude.ai',
+            gemini: 'https://gemini.google.com',
+            perplexity: 'https://perplexity.ai'
+        };
+        return null;
+    }
+}
+
+// Update platform UI elements dynamically
+function updatePlatformUI(platformsData) {
+    const platformsGrid = document.getElementById('platformsGrid');
+    const platformProgressGrid = document.getElementById('platformProgressGrid');
+
+    if (platformsGrid && platformsData) {
+        platformsGrid.innerHTML = platformsData.map(p => `
+            <div class="platform-login-item" data-platform="${p.id}">
+                <div class="platform-login-left">
+                    <div class="platform-icon" style="background-color: ${p.color || '#666'}"></div>
+                    <span class="platform-name">${p.name}</span>
+                </div>
+                <div class="platform-login-right">
+                    <label class="platform-checkbox">
+                        <input type="checkbox" id="ready-${p.id}" class="platform-ready-check">
+                        <span class="checkmark"></span>
+                    </label>
+                    <button class="btn-icon-only" id="open-${p.id}" title="Open ${p.name}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        // Re-attach event listeners
+        setupPlatformEventListeners();
+    }
+
+    if (platformProgressGrid && platformsData) {
+        platformProgressGrid.innerHTML = platformsData.map(p => `
+            <div class="platform-progress-item" data-platform="${p.id}">
+                <div class="platform-progress-header">
+                    <span class="platform-progress-icon" style="background-color: ${p.color || '#666'}"></span>
+                    <span class="platform-progress-name">${p.name}</span>
+                    <span class="platform-progress-status" id="progress-${p.id}-status">pending</span>
+                </div>
+                <div class="platform-progress-bar">
+                    <div class="platform-progress-fill" id="progress-${p.id}-fill" style="width: 0%"></div>
+                </div>
+                <span class="platform-progress-count" id="progress-${p.id}-count">0/0</span>
+            </div>
+        `).join('');
+    }
+}
+
+// Setup event listeners for dynamically created platform elements
+function setupPlatformEventListeners() {
+    platforms.forEach(platform => {
+        const openBtn = document.getElementById(`open-${platform}`);
+        const checkbox = document.getElementById(`ready-${platform}`);
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => openPlatform(platform));
+        }
+        if (checkbox) {
+            checkbox.addEventListener('change', (e) => handlePlatformReadyChange(platform, e.target.checked));
+        }
+    });
+}
+
 // Initialize app
 async function init() {
     console.log('Initializing Columbus Desktop...');
+
+    // Load platforms from API first (before DOM setup so we can render dynamic elements)
+    await loadPlatforms();
 
     // Initialize DOM elements
     loginView = document.getElementById('loginView');
@@ -114,7 +207,7 @@ async function init() {
 
     console.log('DOM elements loaded, googleLoginBtn:', googleLoginBtn);
 
-    // Setup event listeners
+    // Setup event listeners (platform listeners are setup in loadPlatforms -> updatePlatformUI)
     setupEventListeners();
 
     // Setup Tauri event listeners
@@ -202,18 +295,7 @@ function setupEventListeners() {
     // Product selection
     productSelect.addEventListener('change', handleProductChange);
 
-    // Platform login buttons and checkboxes
-    platforms.forEach(platform => {
-        const openBtn = document.getElementById(`open-${platform}`);
-        const checkbox = document.getElementById(`ready-${platform}`);
-
-        if (openBtn) {
-            openBtn.addEventListener('click', () => openPlatform(platform));
-        }
-        if (checkbox) {
-            checkbox.addEventListener('change', (e) => handlePlatformReadyChange(platform, e.target.checked));
-        }
-    });
+    // Platform login buttons and checkboxes are set up dynamically in setupPlatformEventListeners()
 
     // Samples per prompt
     samplesPerPrompt.addEventListener('change', handleSamplesChange);

@@ -57,10 +57,17 @@
         <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
           <h2 class="text-sm font-semibold text-gray-900 mb-4">By Platform</h2>
           <div class="space-y-4">
-            <div v-for="platform in platforms" :key="platform.name" class="group">
+            <div v-for="platform in platformsWithStats" :key="platform.id" class="group">
               <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-lg bg-gray-100/80 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200/80 transition-colors">
-                  <span class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
+                <div class="w-7 h-7 rounded-lg bg-gray-100/80 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200/80 transition-colors overflow-hidden">
+                  <img
+                    v-if="platform.logo_url"
+                    :src="platform.logo_url"
+                    :alt="platform.name"
+                    class="w-4 h-4 object-contain"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between mb-1.5">
@@ -68,7 +75,7 @@
                     <span class="text-xs font-semibold text-gray-900">{{ platform.score }}%</span>
                   </div>
                   <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-gradient-to-r from-brand to-brand/80 rounded-full transition-all duration-500" :style="{ width: `${platform.score}%` }"></div>
+                    <div class="h-full rounded-full transition-all duration-500" :style="{ width: `${platform.score}%`, backgroundColor: platform.color }"></div>
                   </div>
                 </div>
               </div>
@@ -310,6 +317,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
+const { platforms: aiPlatforms, loadPlatforms, formatModelName, getPlatformColor } = useAIPlatforms()
 
 const loading = ref(true)
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
@@ -320,12 +328,8 @@ const citationRate = ref(0)
 const avgPosition = ref(0)
 const positiveSentiment = ref(0)
 
-const platforms = ref([
-  { name: 'ChatGPT', score: 0, mentions: 0, tests: 0 },
-  { name: 'Claude', score: 0, mentions: 0, tests: 0 },
-  { name: 'Gemini', score: 0, mentions: 0, tests: 0 },
-  { name: 'Perplexity', score: 0, mentions: 0, tests: 0 }
-])
+// Platform stats (keyed by platform id)
+const platformStats = ref<Record<string, { score: number; mentions: number; tests: number }>>({})
 
 const results = ref<any[]>([])
 const showDetailModal = ref(false)
@@ -339,13 +343,23 @@ const onPeriodChange = (days: number) => {
   }
 }
 
+// Combine platform data with stats for display
+const platformsWithStats = computed(() => {
+  return aiPlatforms.value.map(p => ({
+    ...p,
+    score: platformStats.value[p.id]?.score || 0,
+    mentions: platformStats.value[p.id]?.mentions || 0,
+    tests: platformStats.value[p.id]?.tests || 0
+  }))
+})
+
 const bestPlatform = computed(() => {
-  const sorted = [...platforms.value].sort((a, b) => b.score - a.score)
+  const sorted = [...platformsWithStats.value].sort((a, b) => b.score - a.score)
   return sorted[0]?.score > 0 ? sorted[0].name : '-'
 })
 
 const totalMentions = computed(() => {
-  return platforms.value.reduce((sum, p) => sum + p.mentions, 0)
+  return Object.values(platformStats.value).reduce((sum, p) => sum + p.mentions, 0)
 })
 
 watch(activeProductId, async (newProductId) => {
@@ -376,6 +390,9 @@ const loadVisibilityData = async () => {
 
   loading.value = true
   try {
+    // Load platforms first
+    await loadPlatforms()
+
     // Calculate date range based on selected period
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
@@ -428,17 +445,19 @@ const loadVisibilityData = async () => {
       // Overall score = mention rate (primary metric)
       overallScore.value = mentionRate.value
 
-      // Calculate platform stats from ALL results
-      for (const platform of platforms.value) {
-        const modelKey = platform.name.toLowerCase()
-        const platformResults = statsData.filter(r => r.ai_model === modelKey)
-
-        platform.tests = platformResults.length
-        platform.mentions = platformResults.filter(r => r.brand_mentioned).length
-        platform.score = platform.tests > 0
-          ? Math.round((platform.mentions / platform.tests) * 100)
-          : 0
+      // Calculate platform stats dynamically from loaded platforms
+      const newStats: Record<string, { score: number; mentions: number; tests: number }> = {}
+      for (const platform of aiPlatforms.value) {
+        const platformResults = statsData.filter(r => r.ai_model === platform.id)
+        const tests = platformResults.length
+        const mentions = platformResults.filter(r => r.brand_mentioned).length
+        newStats[platform.id] = {
+          tests,
+          mentions,
+          score: tests > 0 ? Math.round((mentions / tests) * 100) : 0
+        }
       }
+      platformStats.value = newStats
     } else {
       // Reset all stats when no data
       totalTests.value = 0
@@ -447,11 +466,7 @@ const loadVisibilityData = async () => {
       avgPosition.value = 0
       positiveSentiment.value = 0
       overallScore.value = 0
-      for (const platform of platforms.value) {
-        platform.tests = 0
-        platform.mentions = 0
-        platform.score = 0
-      }
+      platformStats.value = {}
     }
   } catch (error) {
     console.error('Error loading visibility data:', error)
@@ -462,16 +477,6 @@ const loadVisibilityData = async () => {
 
 const refreshData = async () => {
   await loadVisibilityData()
-}
-
-const formatModelName = (model: string) => {
-  switch (model?.toLowerCase()) {
-    case 'chatgpt': return 'GPT'
-    case 'claude': return 'Claude'
-    case 'gemini': return 'Gemini'
-    case 'perplexity': return 'Pplx'
-    default: return model
-  }
 }
 
 const formatDate = (date: string) => {
@@ -499,13 +504,10 @@ const closeDetailModal = () => {
 }
 
 const getPlatformClass = (model: string) => {
-  switch (model?.toLowerCase()) {
-    case 'chatgpt': return 'bg-emerald-100 text-emerald-700'
-    case 'claude': return 'bg-orange-100 text-orange-700'
-    case 'gemini': return 'bg-blue-100 text-blue-700'
-    case 'perplexity': return 'bg-cyan-100 text-cyan-700'
-    default: return 'bg-gray-100 text-gray-700'
-  }
+  const color = getPlatformColor(model)
+  // Generate a class based on the platform color - use a generic approach
+  // since we can't dynamically generate Tailwind classes
+  return 'bg-gray-100 text-gray-700'
 }
 
 const getSentimentClass = (sentiment: string) => {

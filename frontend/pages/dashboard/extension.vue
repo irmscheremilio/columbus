@@ -364,6 +364,7 @@ definePageMeta({
 const config = useRuntimeConfig()
 const supabase = useSupabaseClient()
 const { activeProductId } = useActiveProduct()
+const { platforms: aiPlatforms, loadPlatforms } = useAIPlatforms()
 
 const loading = ref(true)
 const showInstructions = ref(false)
@@ -375,14 +376,27 @@ const totalScans = ref(0)
 // Download URL from config, with fallback
 const downloadUrl = computed(() => config.public.desktopAppDownloadUrl || '#')
 
-const platforms = [
-  { id: 'chatgpt', name: 'ChatGPT', signupUrl: 'https://chatgpt.com', color: '#10a37f', accountType: 'Free or Plus account' },
-  { id: 'claude', name: 'Claude', signupUrl: 'https://claude.ai', color: '#d97757', accountType: 'Free or Pro account' },
-  { id: 'gemini', name: 'Gemini', signupUrl: 'https://gemini.google.com', color: '#4285f4', accountType: 'Google account required' },
-  { id: 'perplexity', name: 'Perplexity', signupUrl: 'https://www.perplexity.ai', color: '#20b8cd', accountType: 'Free or Pro account' }
-]
+// Map AI platforms to include signup URLs
+const platforms = computed(() => aiPlatforms.value.map(p => ({
+  id: p.id,
+  name: p.name,
+  signupUrl: p.website_url,
+  color: p.color,
+  accountType: getAccountType(p.id)
+})))
+
+const getAccountType = (platformId: string) => {
+  switch (platformId) {
+    case 'chatgpt': return 'Free or Plus account'
+    case 'claude': return 'Free or Pro account'
+    case 'gemini': return 'Google account required'
+    case 'perplexity': return 'Free or Pro account'
+    default: return 'Free or paid account'
+  }
+}
 
 onMounted(async () => {
+  await loadPlatforms()
   await loadDesktopAppData()
 })
 

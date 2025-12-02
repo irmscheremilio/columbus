@@ -267,6 +267,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
+const { formatModelName: formatPlatformName } = useAIPlatforms()
 
 const loading = ref(true)
 const loadingResults = ref(false)
@@ -560,13 +561,7 @@ const formatDate = (date: string) => {
 }
 
 const formatModelName = (model: string) => {
-  switch (model?.toLowerCase()) {
-    case 'chatgpt': return 'GPT'
-    case 'claude': return 'Claude'
-    case 'gemini': return 'Gemini'
-    case 'perplexity': return 'Pplx'
-    default: return model
-  }
+  return formatPlatformName(model)
 }
 
 onUnmounted(() => {

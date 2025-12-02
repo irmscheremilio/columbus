@@ -190,7 +190,7 @@ pub async fn get_auth_status(state: State<'_, Arc<AppState>>) -> Result<AuthStat
 }
 
 /// Refresh an expired access token using the refresh token
-async fn refresh_access_token(refresh_token: &str) -> Result<(String, String, i64), String> {
+pub async fn refresh_access_token(refresh_token: &str) -> Result<(String, String, i64), String> {
     let client = reqwest::Client::new();
 
     let url = format!("{}/auth/v1/token?grant_type=refresh_token", SUPABASE_URL);
@@ -398,6 +398,65 @@ async fn finalize_oauth(
     }
 
     Ok(user)
+}
+
+/// Ensure the auth token is valid, refreshing if needed.
+/// Returns Ok(access_token) if valid, Err if not authenticated or refresh failed.
+/// This should be called before any API operation that requires authentication.
+pub async fn ensure_valid_token(state: &std::sync::Arc<AppState>) -> Result<String, String> {
+    let (access_token, refresh_token, expires_at, user) = {
+        let auth = state.auth.lock();
+        (
+            auth.access_token.clone(),
+            auth.refresh_token.clone(),
+            auth.expires_at,
+            auth.user.clone(),
+        )
+    };
+
+    // Check if we have auth data
+    let access_token = access_token.ok_or("Not authenticated")?;
+    let user = user.ok_or("Not authenticated")?;
+
+    // Check if token is expired or about to expire (within 5 minutes)
+    if let Some(expires_at) = expires_at {
+        let now = chrono::Utc::now().timestamp();
+        let is_expired = now >= expires_at - 300; // 5 minute buffer
+
+        if is_expired {
+            // Try to refresh the token
+            let refresh_token = refresh_token.ok_or("No refresh token available")?;
+            println!("[Auth] Token expired, attempting refresh...");
+
+            let (new_access, new_refresh, new_expires_in) = refresh_access_token(&refresh_token).await?;
+            let new_expires_at = chrono::Utc::now().timestamp() + new_expires_in;
+
+            // Update state
+            {
+                let mut auth = state.auth.lock();
+                auth.access_token = Some(new_access.clone());
+                auth.refresh_token = Some(new_refresh.clone());
+                auth.expires_at = Some(new_expires_at);
+            }
+
+            // Persist updated tokens
+            let persisted_auth = crate::PersistedAuth {
+                access_token: new_access.clone(),
+                refresh_token: new_refresh,
+                user_id: user.id.clone(),
+                user_email: user.email.clone(),
+                expires_at: new_expires_at,
+            };
+            if let Err(e) = crate::storage::update_auth(Some(persisted_auth)) {
+                eprintln!("[Auth] Failed to persist refreshed auth: {}", e);
+            }
+
+            println!("[Auth] Token refreshed successfully");
+            return Ok(new_access);
+        }
+    }
+
+    Ok(access_token)
 }
 
 fn parse_oauth_tokens(url: &str) -> Result<(String, String, i64), String> {

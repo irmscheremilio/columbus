@@ -187,29 +187,13 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
+const { platforms, loadPlatforms } = useAIPlatforms()
 
 const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
 const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
-
-// Platform data from database
-interface Platform {
-  id: string
-  name: string
-  logo_url: string
-  color: string
-  description: string
-  website_url: string
-}
-const platforms = ref<Platform[]>([
-  // Default fallback data in case DB fetch fails
-  { id: 'chatgpt', name: 'ChatGPT', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg', color: '#10a37f', description: 'OpenAI\'s conversational AI', website_url: 'https://chat.openai.com' },
-  { id: 'claude', name: 'Claude', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/7/78/Anthropic_logo.svg', color: '#d97757', description: 'Anthropic\'s AI assistant', website_url: 'https://claude.ai' },
-  { id: 'gemini', name: 'Gemini', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg', color: '#4285f4', description: 'Google\'s AI model', website_url: 'https://gemini.google.com' },
-  { id: 'perplexity', name: 'Perplexity', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Perplexity_AI_logo.svg', color: '#20b8cd', description: 'AI search engine', website_url: 'https://perplexity.ai' }
-])
 
 const onPeriodChange = (days: number) => {
   selectedPeriodDays.value = days
@@ -326,22 +310,6 @@ const loadVisibilityScore = async (productId: string) => {
     }
   } catch (error) {
     console.error('Error loading visibility score:', error)
-  }
-}
-
-const loadPlatforms = async () => {
-  try {
-    const { data } = await supabase
-      .from('ai_platforms')
-      .select('*')
-      .order('id')
-
-    if (data && data.length > 0) {
-      platforms.value = data
-    }
-  } catch (error) {
-    console.error('Error loading platforms:', error)
-    // Keep default fallback data
   }
 }
 

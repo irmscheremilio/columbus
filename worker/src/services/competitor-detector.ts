@@ -61,6 +61,8 @@ export class CompetitorDetector {
 
   /**
    * Quick regex-based competitor detection
+   * Only detects competitors from explicit competitor/alternative contexts
+   * Relies more on AI detection for nuanced competitor identification
    */
   private quickDetect(
     responseText: string,
@@ -74,38 +76,50 @@ export class CompetitorDetector {
     const brandMatches = responseText.match(brandRegex)
     const brandMentioned = !!brandMatches && brandMatches.length > 0
 
-    // Common competitor indicators
+    // Only match explicit competitor/alternative patterns
+    // Removed overly broad patterns like "like", "such as", "including"
+    // These patterns must have explicit competitor-related keywords
     const competitorPatterns = [
-      /(?:competitors?|alternatives?|similar (?:to|products?|services?|tools?)|(?:like|such as|including|versus|vs\.?|compared to))\s*[:.]?\s*([A-Z][A-Za-z0-9\s]+(?:,\s*[A-Z][A-Za-z0-9\s]+)*)/gi,
-      /(?:options? include|popular (?:choices?|options?)|top (?:\d+\s+)?(?:options?|choices?|tools?|products?))\s*[:.]?\s*([A-Z][A-Za-z0-9\s]+(?:,\s*[A-Z][A-Za-z0-9\s]+)*)/gi,
-      /(\d+)\.\s*\*?\*?([A-Z][A-Za-z0-9\s]+)\*?\*?\s*[-:]/gm // Numbered lists
+      // Explicit competitor mentions
+      /(?:main |major |key |top |direct |primary )?competitors?\s+(?:include|are|:)\s*([A-Z][A-Za-z0-9]+(?:(?:\s*,\s*|\s+and\s+)[A-Z][A-Za-z0-9]+)*)/gi,
+      // Explicit alternative mentions
+      /(?:popular |best |top )?alternatives?\s+(?:to\s+\S+\s+)?(?:include|are|:)\s*([A-Z][A-Za-z0-9]+(?:(?:\s*,\s*|\s+and\s+)[A-Z][A-Za-z0-9]+)*)/gi,
+      // "versus" or "vs" comparisons (both sides might be competitors)
+      /\b([A-Z][A-Za-z0-9]+)\s+(?:vs\.?|versus)\s+([A-Z][A-Za-z0-9]+)/gi
     ]
 
     for (const pattern of competitorPatterns) {
       let match
       while ((match = pattern.exec(responseText)) !== null) {
-        const names = this.extractNames(match[1] || match[2])
-        for (const name of names) {
-          // Skip if it's our brand or already known
-          if (name.toLowerCase() === brandName.toLowerCase()) continue
-          if (competitors.some(c => c.name.toLowerCase() === name.toLowerCase())) continue
+        // Get all captured groups
+        const groups = match.slice(1).filter(g => g)
+        for (const group of groups) {
+          const names = this.extractNames(group)
+          for (const name of names) {
+            // Skip if it's our brand or already known
+            if (name.toLowerCase() === brandName.toLowerCase()) continue
+            if (competitors.some(c => c.name.toLowerCase() === name.toLowerCase())) continue
 
-          // Get surrounding context
-          const startIdx = Math.max(0, match.index - 50)
-          const endIdx = Math.min(responseText.length, match.index + match[0].length + 50)
-          const context = responseText.substring(startIdx, endIdx).trim()
+            // Additional validation - must look like a company/product name
+            if (!this.looksLikeCompanyName(name)) continue
 
-          competitors.push({
-            name,
-            confidence: 70, // Medium confidence for regex matches
-            context,
-            category: this.inferCategory(responseText)
-          })
+            // Get surrounding context
+            const startIdx = Math.max(0, match.index - 50)
+            const endIdx = Math.min(responseText.length, match.index + match[0].length + 50)
+            const context = responseText.substring(startIdx, endIdx).trim()
+
+            competitors.push({
+              name,
+              confidence: 60, // Lower confidence for regex matches
+              context,
+              category: this.inferCategory(responseText)
+            })
+          }
         }
       }
     }
 
-    // Also check for existing competitors
+    // Check for existing competitors (high confidence for known competitors)
     for (const existing of existingCompetitors) {
       const regex = new RegExp(`\\b${this.escapeRegex(existing)}\\b`, 'gi')
       const matches = responseText.match(regex)
@@ -130,6 +144,43 @@ export class CompetitorDetector {
   }
 
   /**
+   * Check if a string looks like a company/product name
+   */
+  private looksLikeCompanyName(name: string): boolean {
+    if (!name || name.length < 2 || name.length > 40) return false
+
+    // Must start with capital letter
+    if (!/^[A-Z]/.test(name)) return false
+
+    const words = name.split(/\s+/)
+    const lower = name.toLowerCase()
+
+    // Single word names need extra validation
+    if (words.length === 1) {
+      // Too short single words are likely not companies
+      if (name.length < 3) return false
+
+      // Check for indicators of company names:
+      // - camelCase or unusual capitalization (HubSpot, GitHub, YouTube)
+      // - all caps (IBM, AWS)
+      // - has numbers (3M, 7-Eleven)
+      // - ends with common startup suffixes
+      const hasMixedCase = /[a-z][A-Z]/.test(name) || /[A-Z][a-z]+[A-Z]/.test(name)
+      const hasNumbers = /\d/.test(name)
+      const isAllCaps = name === name.toUpperCase() && name.length >= 2
+      const companySuffixes = ['ly', 'io', 'ai', 'ify', 'hub', 'lab', 'labs', 'base', 'bit', 'box', 'desk', 'flow', 'force', 'grid', 'path', 'stack', 'works', 'ware', 'spot', 'craft', 'bee']
+      const hasCompanySuffix = companySuffixes.some(s => lower.endsWith(s))
+
+      // If it's just a normal capitalized word without any company indicators, reject it
+      if (!hasMixedCase && !hasNumbers && !isAllCaps && !hasCompanySuffix) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
    * AI-powered competitor detection for deeper analysis
    */
   private async aiDetect(
@@ -137,15 +188,15 @@ export class CompetitorDetector {
     brandName: string,
     existingCompetitors: string[]
   ): Promise<CompetitorDetectionResult> {
-    const prompt = `Analyze this AI response and identify any companies, products, or services that could be competitors to "${brandName}".
+    const prompt = `Analyze this AI response and identify any DIRECT competitors to "${brandName}".
 
 Response text:
 ${responseText.substring(0, 4000)}
 
 Known competitors to look for: ${existingCompetitors.join(', ') || 'None specified'}
 
-Extract:
-1. Any company/product names mentioned that could be alternatives or competitors
+Extract ONLY:
+1. Companies/products explicitly mentioned as alternatives or competitors to "${brandName}" or similar products in the same space
 2. Whether "${brandName}" was mentioned
 3. If "${brandName}" was mentioned, the context/sentiment around it
 
@@ -156,7 +207,14 @@ Return JSON only:
   "brandContext": "quote where brand is mentioned" or null
 }
 
-Only include actual company/product names, not generic terms. Set confidence based on how clearly it's a competitor (direct alternative = 90+, tangentially related = 50-70).`
+IMPORTANT RULES:
+- Only include REAL company or product names (like "HubSpot", "Salesforce", "Mailchimp")
+- Do NOT include generic terms like "Software", "Platform", "Tools", "Solutions", "Services"
+- Do NOT include common words that happen to be capitalized
+- Do NOT include people's names unless they are clearly a brand/product
+- Set confidence HIGH (85+) only for direct competitors explicitly mentioned as alternatives
+- Set confidence MEDIUM (60-84) for products in the same category but not explicitly compared
+- Do NOT include anything with confidence below 60`
 
     try {
       let response: string
@@ -250,8 +308,8 @@ Only include actual company/product names, not generic terms. Set confidence bas
     let updated = 0
 
     for (const competitor of detectedCompetitors) {
-      // Skip low confidence detections
-      if (competitor.confidence < 50) continue
+      // Skip low confidence detections (raised from 50 to 60)
+      if (competitor.confidence < 60) continue
 
       // Check if competitor already exists for this product (by name OR domain, case-insensitive)
       let existing = null
@@ -374,12 +432,55 @@ Only include actual company/product names, not generic terms. Set confidence bas
     return parts
       .map(p => p.trim())
       .filter(p => {
-        // Filter out common non-company words
+        // Filter out common non-company words and generic terms
         const lower = p.toLowerCase()
-        const skipWords = ['the', 'a', 'an', 'and', 'or', 'but', 'with', 'for', 'of', 'to', 'in', 'on', 'at', 'by', 'from', 'many', 'some', 'several', 'various', 'other', 'more', 'others']
-        return p.length > 2 && !skipWords.includes(lower) && /^[A-Z]/.test(p)
+        const skipWords = [
+          // Articles and conjunctions
+          'the', 'a', 'an', 'and', 'or', 'but', 'with', 'for', 'of', 'to', 'in', 'on', 'at', 'by', 'from',
+          // Quantifiers
+          'many', 'some', 'several', 'various', 'other', 'more', 'others', 'all', 'any', 'each', 'every', 'most', 'few',
+          // Generic tech/business terms that aren't company names
+          'software', 'platform', 'tool', 'tools', 'service', 'services', 'solution', 'solutions',
+          'app', 'apps', 'application', 'applications', 'product', 'products', 'system', 'systems',
+          'website', 'websites', 'site', 'sites', 'company', 'companies', 'business', 'businesses',
+          'enterprise', 'startup', 'startups', 'provider', 'providers', 'vendor', 'vendors',
+          'option', 'options', 'choice', 'choices', 'alternative', 'alternatives',
+          'feature', 'features', 'benefit', 'benefits', 'advantage', 'advantages',
+          'technology', 'technologies', 'tech', 'digital', 'online', 'cloud', 'web',
+          'market', 'markets', 'industry', 'industries', 'sector', 'sectors',
+          'data', 'analytics', 'ai', 'machine', 'learning', 'automation',
+          'marketing', 'sales', 'customer', 'customers', 'user', 'users',
+          'free', 'paid', 'premium', 'pro', 'basic', 'standard', 'advanced',
+          'small', 'medium', 'large', 'best', 'top', 'popular', 'leading', 'major',
+          'new', 'old', 'modern', 'traditional', 'similar', 'different', 'unique',
+          'first', 'second', 'third', 'next', 'last', 'another', 'additional',
+          // Common sentence starters that get captured
+          'here', 'there', 'this', 'that', 'these', 'those', 'which', 'what', 'when', 'where', 'how', 'why',
+          'however', 'therefore', 'furthermore', 'moreover', 'additionally', 'alternatively',
+          'example', 'examples', 'instance', 'instances', 'case', 'cases',
+          'way', 'ways', 'method', 'methods', 'approach', 'approaches',
+          'type', 'types', 'kind', 'kinds', 'form', 'forms', 'category', 'categories'
+        ]
+
+        // Must start with capital letter, have reasonable length, and not be a skip word
+        if (!p || p.length < 3 || p.length > 50) return false
+        if (!(/^[A-Z]/.test(p))) return false
+        if (skipWords.includes(lower)) return false
+
+        // Filter out strings that are too generic (all lowercase except first letter and just one word)
+        const words = p.split(/\s+/)
+        if (words.length === 1 && p === p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()) {
+          // Single capitalized word - check if it looks like a proper noun (company name)
+          // Real company names are often all-caps, camelCase, or have unusual capitalization
+          if (lower.length < 4) return false
+          // Check if it's a common English word (not a company name)
+          const commonWords = ['people', 'things', 'world', 'years', 'times', 'point', 'group', 'number', 'great', 'place', 'right', 'little', 'state', 'government', 'night', 'country', 'story', 'school', 'family', 'water', 'house', 'moment', 'question', 'power', 'money', 'change', 'order', 'program', 'level', 'information', 'support', 'management', 'development', 'control', 'policy', 'research', 'process', 'project']
+          if (commonWords.includes(lower)) return false
+        }
+
+        return true
       })
-      .slice(0, 10) // Limit to prevent spam
+      .slice(0, 5) // Limit to prevent spam (reduced from 10)
   }
 
   private getBrandContext(text: string, brandName: string): string {
