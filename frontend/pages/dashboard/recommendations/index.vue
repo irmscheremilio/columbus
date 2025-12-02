@@ -7,7 +7,8 @@
           <h1 class="text-xl font-semibold text-gray-900">Recommendations</h1>
           <p class="text-sm text-gray-500">AEO improvements to boost visibility</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
           <button
             class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
             @click="refreshRecommendations"
@@ -192,6 +193,16 @@ const recommendations = ref<any[]>([])
 const filterStatus = ref('all')
 const filterImpact = ref('all')
 const filterCategory = ref('all')
+
+// Region filter
+const selectedRegion = ref<string | null>(null)
+
+const onRegionChange = (region: string | null) => {
+  selectedRegion.value = region
+  if (activeProductId.value) {
+    loadRecommendations()
+  }
+}
 
 const uniquePages = computed(() => {
   const pages = new Set<string>()

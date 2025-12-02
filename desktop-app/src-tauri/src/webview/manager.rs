@@ -1,7 +1,9 @@
 use crate::Citation;
+use crate::storage;
 use enigo::{Enigo, Keyboard, Key, Settings, Mouse, Button, Coordinate};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -70,19 +72,113 @@ impl WebviewManager {
         url: &str,
         visible: bool,
     ) -> Result<(), String> {
-        let user_agent = self.get_user_agent();
-        eprintln!("Creating webview {} with User-Agent: {}... (visible: {})", label, &user_agent[..50], visible);
+        self.create_webview_with_options(app, label, url, visible, None, None)
+    }
 
-        let _webview = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url.parse().unwrap()))
+    /// Create a webview with optional proxy and data directory for geo-targeting
+    fn create_webview_with_options(
+        &mut self,
+        app: &AppHandle,
+        label: &str,
+        url: &str,
+        visible: bool,
+        proxy_url: Option<&str>,
+        data_dir: Option<PathBuf>,
+    ) -> Result<(), String> {
+        let user_agent = self.get_user_agent();
+
+        if let Some(proxy) = &proxy_url {
+            eprintln!("Creating webview {} with proxy: {}... (visible: {})", label, proxy, visible);
+        } else {
+            eprintln!("Creating webview {} without proxy (visible: {})", label, visible);
+        }
+
+        let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url.parse().unwrap()))
             .title(format!("Columbus Scan - {}", label))
             .inner_size(1200.0, 800.0)
             .visible(visible)
-            .user_agent(user_agent)
+            .user_agent(user_agent);
+
+        // Add proxy if specified
+        if let Some(proxy) = proxy_url {
+            if let Ok(proxy_url_parsed) = proxy.parse() {
+                builder = builder.proxy_url(proxy_url_parsed);
+                eprintln!("Proxy URL set: {}", proxy);
+            } else {
+                eprintln!("Warning: Failed to parse proxy URL: {}", proxy);
+            }
+        }
+
+        // Add data directory for cookie isolation (Windows only, other platforms use dataStoreIdentifier)
+        #[cfg(target_os = "windows")]
+        if let Some(dir) = data_dir {
+            // Ensure directory exists
+            if let Err(e) = std::fs::create_dir_all(&dir) {
+                eprintln!("Warning: Failed to create data dir {:?}: {}", dir, e);
+            } else {
+                builder = builder.data_directory(dir.clone());
+                eprintln!("Data directory set: {:?}", dir);
+            }
+        }
+
+        let _webview = builder
             .build()
             .map_err(|e| format!("Failed to create webview: {}", e))?;
 
         self.active_webviews.insert(label.to_string());
         Ok(())
+    }
+
+    /// Create a webview for a specific country (with proxy and isolated cookies)
+    pub async fn create_webview_for_country(
+        &mut self,
+        app: &AppHandle,
+        label: &str,
+        url: &str,
+        visible: bool,
+        country_code: &str,
+        platform: &str,
+    ) -> Result<(), String> {
+        // Get proxy URL for this country (async - starts local proxy server)
+        let proxy_url = storage::build_proxy_url_async(country_code).await;
+
+        // Get isolated data directory for this country/platform
+        let data_dir = storage::ensure_webview_data_dir(country_code, platform)?;
+
+        eprintln!("Creating geo-targeted webview for country={}, platform={}", country_code, platform);
+
+        self.create_webview_with_options(
+            app,
+            label,
+            url,
+            visible,
+            proxy_url.as_deref(),
+            Some(data_dir),
+        )
+    }
+
+    /// Create a webview for local (user's actual location, no proxy, but still isolated cookies per platform)
+    pub fn create_webview_local(
+        &mut self,
+        app: &AppHandle,
+        label: &str,
+        url: &str,
+        visible: bool,
+        platform: &str,
+    ) -> Result<(), String> {
+        // Get isolated data directory for local/platform
+        let data_dir = storage::ensure_webview_data_dir_local(platform)?;
+
+        eprintln!("Creating local webview for platform={}", platform);
+
+        self.create_webview_with_options(
+            app,
+            label,
+            url,
+            visible,
+            None,
+            Some(data_dir),
+        )
     }
 
     /// Show the webview window (for captcha solving)
@@ -342,6 +438,139 @@ impl WebviewManager {
         }
 
         Err("Failed to create webview without captcha".to_string())
+    }
+
+    /// Create webview with captcha handling for a specific country (geo-targeted)
+    /// Uses proxy and isolated cookie storage for the country/platform combination
+    pub async fn create_webview_geo(
+        &mut self,
+        app: &AppHandle,
+        label: &str,
+        url: &str,
+        country_code: &str,
+        platform: &str,
+    ) -> Result<(), String> {
+        // Get proxy URL for this country
+        let proxy_url = storage::build_proxy_url(country_code);
+
+        // Get isolated data directory for this country/platform
+        let data_dir = storage::ensure_webview_data_dir(country_code, platform)?;
+
+        eprintln!("Creating geo-targeted webview: label={}, country={}, platform={}", label, country_code, platform);
+
+        for attempt in 0..MAX_CAPTCHA_RETRIES {
+            if attempt > 0 {
+                self.close_webview(app, label);
+                self.rotate_user_agent();
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                eprintln!("Retry {} for geo webview {} with new User-Agent", attempt + 1, label);
+            }
+
+            // Create the webview with proxy and data directory
+            self.create_webview_with_options(
+                app,
+                label,
+                url,
+                false,
+                proxy_url.as_deref(),
+                Some(data_dir.clone()),
+            )?;
+
+            // Wait for page to load
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+            // Check for captcha
+            if self.check_for_captcha(app, label).await {
+                eprintln!("Captcha detected on attempt {} (geo)", attempt + 1);
+                self.show_webview(app, label);
+
+                let solved = self.try_solve_captcha(app, label).await;
+
+                if solved {
+                    self.hide_webview(app, label);
+                    eprintln!("Captcha solved successfully on attempt {} (geo)", attempt + 1);
+                    return Ok(());
+                }
+
+                self.hide_webview(app, label);
+                eprintln!("Captcha not solved (geo), will retry with different User-Agent");
+
+                if attempt == MAX_CAPTCHA_RETRIES - 1 {
+                    self.close_webview(app, label);
+                    return Err(format!("Captcha detected after {} retries (geo)", MAX_CAPTCHA_RETRIES));
+                }
+                continue;
+            }
+
+            // No captcha, success!
+            return Ok(());
+        }
+
+        Err("Failed to create geo webview without captcha".to_string())
+    }
+
+    /// Create webview with captcha handling for local (no proxy, but isolated cookies per platform)
+    pub async fn create_webview_local_async(
+        &mut self,
+        app: &AppHandle,
+        label: &str,
+        url: &str,
+        platform: &str,
+    ) -> Result<(), String> {
+        // Get isolated data directory for local/platform
+        let data_dir = storage::ensure_webview_data_dir_local(platform)?;
+
+        eprintln!("Creating local webview: label={}, platform={}", label, platform);
+
+        for attempt in 0..MAX_CAPTCHA_RETRIES {
+            if attempt > 0 {
+                self.close_webview(app, label);
+                self.rotate_user_agent();
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                eprintln!("Retry {} for local webview {} with new User-Agent", attempt + 1, label);
+            }
+
+            // Create the webview with data directory (no proxy)
+            self.create_webview_with_options(
+                app,
+                label,
+                url,
+                false,
+                None,
+                Some(data_dir.clone()),
+            )?;
+
+            // Wait for page to load
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+            // Check for captcha
+            if self.check_for_captcha(app, label).await {
+                eprintln!("Captcha detected on attempt {} (local)", attempt + 1);
+                self.show_webview(app, label);
+
+                let solved = self.try_solve_captcha(app, label).await;
+
+                if solved {
+                    self.hide_webview(app, label);
+                    eprintln!("Captcha solved successfully on attempt {} (local)", attempt + 1);
+                    return Ok(());
+                }
+
+                self.hide_webview(app, label);
+                eprintln!("Captcha not solved (local), will retry with different User-Agent");
+
+                if attempt == MAX_CAPTCHA_RETRIES - 1 {
+                    self.close_webview(app, label);
+                    return Err(format!("Captcha detected after {} retries (local)", MAX_CAPTCHA_RETRIES));
+                }
+                continue;
+            }
+
+            // No captcha, success!
+            return Ok(());
+        }
+
+        Err("Failed to create local webview without captcha".to_string())
     }
 
     pub fn close_webview(&mut self, app: &AppHandle, label: &str) {

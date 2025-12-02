@@ -61,15 +61,19 @@ pub async fn set_product_config(
     scans_per_day: u32,
     time_window_start: u32,
     time_window_end: u32,
+    scan_countries: Option<Vec<String>>,
 ) -> Result<ProductConfig, String> {
-    println!("[Settings] set_product_config for {}: platforms={:?}, auto_run={}, scans_per_day={}, window={}-{}",
-        product_id, ready_platforms, auto_run_enabled, scans_per_day, time_window_start, time_window_end);
+    println!("[Settings] set_product_config for {}: platforms={:?}, auto_run={}, scans_per_day={}, window={}-{}, countries={:?}",
+        product_id, ready_platforms, auto_run_enabled, scans_per_day, time_window_start, time_window_end, scan_countries);
 
     let existing = storage::get_product_config(&product_id);
 
     let new_scans_per_day = scans_per_day.max(1).min(24);
     let new_time_window_start = time_window_start.min(23);
     let new_time_window_end = time_window_end.min(23);
+
+    // Use provided scan_countries or preserve existing
+    let new_scan_countries = scan_countries.unwrap_or(existing.scan_countries);
 
     // Check if schedule-affecting settings changed
     let schedule_changed = existing.scans_per_day != new_scans_per_day
@@ -98,6 +102,7 @@ pub async fn set_product_config(
         last_auto_scan_date: existing.last_auto_scan_date,
         scans_today,
         scheduled_times,
+        scan_countries: new_scan_countries,
     };
 
     // Persist config to disk

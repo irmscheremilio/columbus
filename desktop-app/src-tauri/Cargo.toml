@@ -28,6 +28,7 @@ urlencoding = "2"
 enigo = "0.2"
 dirs = "5"
 image = "0.24"
+base64 = "0.22"
 
 [features]
 default = ["custom-protocol"]

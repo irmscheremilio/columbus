@@ -7,7 +7,8 @@
           <h1 class="text-xl font-semibold text-gray-900">Content Freshness</h1>
           <p class="text-sm text-gray-500">Monitor content freshness for AI visibility</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
           <button
             @click="triggerFreshnessCheck"
             :disabled="checkingFreshness"
@@ -285,6 +286,16 @@ const newPage = ref({
   title: '',
   checkFrequencyHours: 72
 })
+
+// Region filter
+const selectedRegion = ref<string | null>(null)
+
+const onRegionChange = (region: string | null) => {
+  selectedRegion.value = region
+  if (activeProductId.value) {
+    loadData()
+  }
+}
 
 const freshCount = computed(() => stats.value.totalPages - stats.value.stalePages)
 

@@ -7,15 +7,18 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Scan History</h1>
           <p class="text-sm text-gray-500">View all scan sessions and their results</p>
         </div>
-        <NuxtLink
-          to="/dashboard/visibility"
-          class="inline-flex items-center gap-2 px-4 py-2 text-gray-600 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Visibility
-        </NuxtLink>
+        <div class="flex items-center gap-3">
+          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
+          <NuxtLink
+            to="/dashboard/visibility"
+            class="inline-flex items-center gap-2 px-4 py-2 text-gray-600 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Visibility
+          </NuxtLink>
+        </div>
       </div>
 
       <!-- Scan Sessions List -->
@@ -282,6 +285,18 @@ const pageSize = 10
 const totalScans = ref(0)
 let sourcesChart: Chart | null = null
 
+// Region filter
+const selectedRegion = ref<string | null>(null)
+
+const onRegionChange = (region: string | null) => {
+  selectedRegion.value = region
+  currentPage.value = 1
+  expandedSession.value = null
+  if (activeProductId.value) {
+    loadScanSessions()
+  }
+}
+
 const sourceColors = [
   '#10b981', // emerald (brand)
   '#3b82f6', // blue
@@ -337,19 +352,31 @@ const loadScanSessions = async () => {
   loading.value = true
   try {
     // Get count for pagination
-    const { count } = await supabase
+    let countQuery = supabase
       .from('prompt_results')
       .select('scan_session_id', { count: 'exact', head: true })
       .eq('product_id', productId)
       .not('scan_session_id', 'is', null)
 
+    if (selectedRegion.value) {
+      countQuery = countQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { count } = await countQuery
+
     // Get distinct scan sessions with stats
-    const { data } = await supabase
+    let dataQuery = supabase
       .from('prompt_results')
-      .select('scan_session_id, ai_model, brand_mentioned, citation_present, tested_at')
+      .select('scan_session_id, ai_model, brand_mentioned, citation_present, tested_at, request_country')
       .eq('product_id', productId)
       .not('scan_session_id', 'is', null)
       .order('tested_at', { ascending: false })
+
+    if (selectedRegion.value) {
+      dataQuery = dataQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data } = await dataQuery
 
     if (data) {
       // Group by scan_session_id and calculate stats

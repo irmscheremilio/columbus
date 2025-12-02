@@ -412,13 +412,23 @@ const DesktopIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke:
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25' })
 ])
 
+const PlatformIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' })
+])
+
+const GapsIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '2' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6' })
+])
+
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
   { name: 'Products', path: '/dashboard/products', icon: ProductIcon },
   { name: 'Visibility', path: '/dashboard/visibility', icon: ChartIcon },
+  { name: 'Platforms', path: '/dashboard/platforms', icon: PlatformIcon },
   { name: 'Sources', path: '/dashboard/sources', icon: LinkIcon },
   { name: 'Recommendations', path: '/dashboard/recommendations', icon: LightbulbIcon },
   { name: 'Freshness', path: '/dashboard/freshness', icon: ClockIcon },
+  { name: 'Gaps', path: '/dashboard/gaps', icon: GapsIcon },
   { name: 'Competitors', path: '/dashboard/competitors', icon: UsersIcon },
   { name: 'Prompts', path: '/dashboard/prompts', icon: ChatIcon },
   { name: 'Reports', path: '/dashboard/reports', icon: DocumentIcon },

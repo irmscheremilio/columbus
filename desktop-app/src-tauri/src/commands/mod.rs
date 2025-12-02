@@ -1,5 +1,9 @@
 pub mod api;
 pub mod auth;
+pub mod autologin;
+pub mod bulk_auth;
+pub mod credentials;
 pub mod platform;
+pub mod proxy;
 pub mod scan;
 pub mod settings;

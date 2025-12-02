@@ -65,6 +65,7 @@
               <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
                 <th class="text-left px-4 py-2 font-medium">Prompt</th>
                 <th class="text-center px-4 py-2 font-medium w-20">Level</th>
+                <th class="text-center px-4 py-2 font-medium hidden sm:table-cell">Regions</th>
                 <th class="text-center px-4 py-2 font-medium hidden sm:table-cell">Type</th>
                 <th class="text-right px-4 py-2 font-medium w-24">Actions</th>
               </tr>
@@ -86,6 +87,20 @@
                   >
                     {{ prompt.granularity_level }}
                   </span>
+                </td>
+                <td class="px-4 py-3 text-center hidden sm:table-cell">
+                  <div v-if="prompt.target_regions && prompt.target_regions.length > 0" class="flex items-center justify-center gap-0.5">
+                    <span
+                      v-for="code in prompt.target_regions.slice(0, 3)"
+                      :key="code"
+                      class="text-base"
+                      :title="getCountryName(code)"
+                    >{{ getCountryFlag(code) }}</span>
+                    <span v-if="prompt.target_regions.length > 3" class="text-xs text-gray-400 ml-1">
+                      +{{ prompt.target_regions.length - 3 }}
+                    </span>
+                  </div>
+                  <span v-else class="text-xs text-gray-400">Local</span>
                 </td>
                 <td class="px-4 py-3 text-center hidden sm:table-cell">
                   <span
@@ -166,6 +181,74 @@
                 />
               </div>
             </div>
+
+            <!-- Target Regions -->
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Target Regions</label>
+              <p class="text-xs text-gray-400 mb-2">Select countries where this prompt should be tested. Leave empty for your local region only.</p>
+              <div class="relative">
+                <button
+                  type="button"
+                  @click="showRegionDropdown = !showRegionDropdown"
+                  class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand text-left flex items-center justify-between bg-white"
+                >
+                  <span v-if="promptForm.targetRegions.length === 0" class="text-gray-400">
+                    Select regions...
+                  </span>
+                  <span v-else class="flex flex-wrap gap-1">
+                    <span
+                      v-for="code in promptForm.targetRegions"
+                      :key="code"
+                      class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-brand/10 text-brand rounded text-xs"
+                    >
+                      <span class="text-sm">{{ getCountryFlag(code) }}</span>
+                      {{ code.toUpperCase() }}
+                    </span>
+                  </span>
+                  <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                <!-- Dropdown -->
+                <div
+                  v-if="showRegionDropdown"
+                  class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                >
+                  <div
+                    v-for="country in availableCountries"
+                    :key="country.code"
+                    @click="toggleRegion(country.code)"
+                    class="px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 flex items-center gap-2"
+                    :class="{ 'bg-brand/5': promptForm.targetRegions.includes(country.code) }"
+                  >
+                    <span class="text-lg">{{ country.flag_emoji || '🌐' }}</span>
+                    <span class="flex-1">{{ country.name }}</span>
+                    <svg
+                      v-if="promptForm.targetRegions.includes(country.code)"
+                      class="w-4 h-4 text-brand"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div v-if="availableCountries.length === 0" class="px-3 py-4 text-sm text-gray-400 text-center">
+                    No regions available
+                  </div>
+                </div>
+              </div>
+
+              <!-- Clear button -->
+              <button
+                v-if="promptForm.targetRegions.length > 0"
+                type="button"
+                @click="promptForm.targetRegions = []"
+                class="mt-1 text-xs text-gray-400 hover:text-gray-600"
+              >
+                Clear all regions
+              </button>
+            </div>
           </div>
           <div class="flex gap-2 mt-5">
             <button
@@ -200,6 +283,8 @@ const prompts = ref<any[]>([])
 const filter = ref<'all' | 1 | 2 | 3 | 'custom'>('all')
 const showAddPrompt = ref(false)
 const editingPrompt = ref<any>(null)
+const showRegionDropdown = ref(false)
+const availableCountries = ref<Array<{ code: string; name: string; flag_emoji: string | null; region: string | null }>>([])
 
 const filters = [
   { label: 'All', value: 'all' as const },
@@ -212,7 +297,8 @@ const filters = [
 const promptForm = ref({
   text: '',
   level: 1,
-  category: ''
+  category: '',
+  targetRegions: [] as string[]
 })
 
 const promptsByLevel = computed(() => {
@@ -235,6 +321,9 @@ watch(activeProductId, async (newProductId) => {
 })
 
 onMounted(async () => {
+  // Load available countries for region selection
+  await loadCountries()
+
   if (productInitialized.value && activeProductId.value) {
     await loadPrompts()
   } else {
@@ -245,7 +334,59 @@ onMounted(async () => {
       }
     })
   }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', handleClickOutside)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+const handleClickOutside = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('.relative')) {
+    showRegionDropdown.value = false
+  }
+}
+
+const loadCountries = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('proxy_countries')
+      .select('code, name, flag_emoji, region')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      console.error('Error loading countries:', error)
+      return
+    }
+
+    availableCountries.value = data || []
+  } catch (error) {
+    console.error('Error loading countries:', error)
+  }
+}
+
+const toggleRegion = (code: string) => {
+  const index = promptForm.value.targetRegions.indexOf(code)
+  if (index === -1) {
+    promptForm.value.targetRegions.push(code)
+  } else {
+    promptForm.value.targetRegions.splice(index, 1)
+  }
+}
+
+const getCountryFlag = (code: string): string => {
+  const country = availableCountries.value.find(c => c.code === code)
+  return country?.flag_emoji || '🌐'
+}
+
+const getCountryName = (code: string): string => {
+  const country = availableCountries.value.find(c => c.code === code)
+  return country?.name || code.toUpperCase()
+}
 
 const loadPrompts = async () => {
   const productId = activeProductId.value
@@ -274,14 +415,17 @@ const editPrompt = (prompt: any) => {
   promptForm.value = {
     text: prompt.prompt_text,
     level: prompt.granularity_level || 1,
-    category: prompt.category || ''
+    category: prompt.category || '',
+    targetRegions: prompt.target_regions || []
   }
+  showRegionDropdown.value = false
 }
 
 const closeModal = () => {
   showAddPrompt.value = false
   editingPrompt.value = null
-  promptForm.value = { text: '', level: 1, category: '' }
+  showRegionDropdown.value = false
+  promptForm.value = { text: '', level: 1, category: '', targetRegions: [] }
 }
 
 const savePrompt = async () => {
@@ -297,7 +441,8 @@ const savePrompt = async () => {
         .update({
           prompt_text: promptForm.value.text,
           granularity_level: promptForm.value.level,
-          category: promptForm.value.category || null
+          category: promptForm.value.category || null,
+          target_regions: promptForm.value.targetRegions.length > 0 ? promptForm.value.targetRegions : null
         })
         .eq('id', editingPrompt.value.id)
     } else {
@@ -308,6 +453,7 @@ const savePrompt = async () => {
           prompt_text: promptForm.value.text,
           granularity_level: promptForm.value.level,
           category: promptForm.value.category || null,
+          target_regions: promptForm.value.targetRegions.length > 0 ? promptForm.value.targetRegions : null,
           is_custom: true
         })
     }

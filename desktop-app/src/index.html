@@ -17,6 +17,105 @@
       <span class="version">Desktop v1.0</span>
     </header>
 
+    <!-- Onboarding View (First-time credential setup) -->
+    <div id="onboardingView" class="view hidden">
+      <div class="onboarding-container">
+        <h2>Welcome to Columbus</h2>
+        <p class="subtitle">Enter your login credentials for each AI platform you want to scan.</p>
+        <p class="hint">Credentials are stored locally and never leave your computer.</p>
+
+        <div class="credentials-form" id="onboardingCredentialsForm">
+          <!-- Dynamic platform credential inputs -->
+        </div>
+
+        <div class="onboarding-actions">
+          <button type="button" class="btn btn-primary" id="saveCredentialsBtn">
+            <span class="btn-text">Save & Continue</span>
+            <span class="btn-loading hidden">
+              <svg class="spinner" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70"></circle>
+              </svg>
+            </span>
+          </button>
+          <button type="button" class="text-btn" id="skipOnboardingBtn">Skip for now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Auth View (Authenticate All Platforms) -->
+    <div id="bulkAuthView" class="view hidden">
+      <div class="bulk-auth-container">
+        <h2>Authenticating Platforms</h2>
+        <p class="subtitle" id="bulkAuthStatus">Preparing authentication...</p>
+
+        <div class="bulk-auth-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="bulkAuthProgressFill" style="width: 0%"></div>
+          </div>
+          <span class="progress-text" id="bulkAuthProgressText">0 / 0</span>
+        </div>
+
+        <div class="bulk-auth-tasks" id="bulkAuthTasks">
+          <!-- Dynamic task list -->
+        </div>
+
+        <!-- 2FA Input Modal -->
+        <div class="twofa-section hidden" id="twofaSection">
+          <div class="twofa-card">
+            <h3>Two-Factor Authentication Required</h3>
+            <p id="twofaPrompt">Enter the code from your authenticator app</p>
+            <div class="twofa-input-row">
+              <input type="text" id="twofaCode" class="twofa-input" maxlength="8" placeholder="000000" autocomplete="one-time-code">
+              <button type="button" class="btn btn-primary" id="submitTwofaBtn">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bulk-auth-actions">
+          <button type="button" class="text-btn" id="cancelBulkAuthBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-overlay" id="settingsModalOverlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button type="button" class="modal-close" id="closeSettingsBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="credentials">Platform Credentials</button>
+          </div>
+          <div class="settings-tab-content" id="credentialsTab">
+            <p class="section-hint">Manage login credentials for AI platforms. Stored locally on your computer.</p>
+            <div class="credentials-list" id="settingsCredentialsList">
+              <!-- Dynamic credentials list -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Warning Modal -->
+    <div id="authWarningModal" class="modal hidden">
+      <div class="modal-overlay" id="authWarningOverlay"></div>
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3 id="authWarningTitle">Authentication Required</h3>
+        </div>
+        <div class="modal-body">
+          <p id="authWarningMessage">Some platforms need to be authenticated before scanning.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="dismissAuthWarningBtn">Dismiss</button>
+          <button type="button" class="btn btn-primary" id="startBulkAuthBtn">Authenticate Now</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Login View -->
     <div id="loginView" class="view">
       <div class="login-container">
@@ -76,6 +175,12 @@
       <!-- User Info -->
       <div class="user-info">
         <span id="userEmail" class="user-email"></span>
+        <button id="settingsBtn" class="text-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
         <button id="logoutBtn" class="text-btn">Logout</button>
       </div>
 

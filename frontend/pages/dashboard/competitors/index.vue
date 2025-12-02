@@ -7,15 +7,18 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Competitors</h1>
           <p class="text-sm text-gray-500">Track visibility vs competitors</p>
         </div>
-        <button
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors shadow-sm"
-          @click="showAddModal = true"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Competitor
-        </button>
+        <div class="flex items-center gap-3">
+          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
+          <button
+            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors shadow-sm"
+            @click="showAddModal = true"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Competitor
+          </button>
+        </div>
       </div>
 
       <!-- Stats Row -->
@@ -427,6 +430,16 @@ const newCompetitor = ref({ name: '', domain: '' })
 const editingCompetitor = ref<any>(null)
 const editForm = ref({ name: '', domain: '' })
 
+// Region filter
+const selectedRegion = ref<string | null>(null)
+
+const onRegionChange = (region: string | null) => {
+  selectedRegion.value = region
+  if (activeProductId.value) {
+    loadCompetitors()
+  }
+}
+
 // Sorting
 const sortColumn = ref<'name' | 'mention_rate' | 'avg_position' | 'citation_rate' | 'detection_count'>('mention_rate')
 const sortDirection = ref<'asc' | 'desc'>('desc')
@@ -649,11 +662,17 @@ const loadBrandMetrics = async (productId: string) => {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  const { data: results } = await supabase
+  let query = supabase
     .from('prompt_results')
     .select('brand_mentioned, citation_present, position')
     .eq('product_id', productId)
     .gte('tested_at', startDate.toISOString())
+
+  if (selectedRegion.value) {
+    query = query.ilike('request_country', selectedRegion.value)
+  }
+
+  const { data: results } = await query
 
   if (results && results.length > 0) {
     const mentioned = results.filter(r => r.brand_mentioned).length
@@ -694,11 +713,17 @@ const loadCompetitorMetrics = async (productId: string) => {
     .gte('detected_at', startDate.toISOString())
 
   // Load total prompt results count for the period
-  const { data: promptResults } = await supabase
+  let promptResultsQuery = supabase
     .from('prompt_results')
     .select('id')
     .eq('product_id', productId)
     .gte('tested_at', startDate.toISOString())
+
+  if (selectedRegion.value) {
+    promptResultsQuery = promptResultsQuery.ilike('request_country', selectedRegion.value)
+  }
+
+  const { data: promptResults } = await promptResultsQuery
 
   const totalResults = promptResults?.length || 0
 
@@ -738,12 +763,18 @@ const loadChartData = async () => {
     startDate.setDate(startDate.getDate() - daysAgo)
 
     // Load brand data by day
-    const { data: brandResults } = await supabase
+    let brandQuery = supabase
       .from('prompt_results')
       .select('tested_at, brand_mentioned, citation_present, position')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
       .order('tested_at', { ascending: true })
+
+    if (selectedRegion.value) {
+      brandQuery = brandQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: brandResults } = await brandQuery
 
     // Load competitor mentions by day
     const competitorIds = chartCompetitors.value.map(c => c.id)

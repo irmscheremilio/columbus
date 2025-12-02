@@ -10,6 +10,7 @@ use tauri::{
 
 mod autoscan;
 mod commands;
+mod proxy_server;
 mod storage;
 mod webview;
 
@@ -282,6 +283,41 @@ pub fn run() {
             commands::settings::set_last_product_id,
             commands::settings::get_autostart_enabled,
             commands::settings::set_autostart_enabled,
+            commands::proxy::fetch_proxy_config,
+            commands::proxy::has_proxy_config,
+            commands::proxy::clear_proxy_config,
+            commands::proxy::get_country_auth_statuses,
+            commands::proxy::get_country_platform_auth,
+            commands::proxy::set_country_platform_auth,
+            commands::proxy::get_authenticated_platforms,
+            commands::proxy::get_authenticated_countries,
+            commands::proxy::set_product_scan_countries,
+            commands::proxy::get_product_scan_countries,
+            commands::autologin::open_country_login,
+            commands::autologin::open_local_login,
+            commands::autologin::detect_webview_login_state,
+            commands::autologin::auto_login,
+            commands::autologin::submit_2fa_code,
+            commands::autologin::verify_and_save_login,
+            commands::autologin::close_login_webview,
+            commands::autologin::perform_auto_login,
+            // Credentials management
+            commands::credentials::get_credentials_status,
+            commands::credentials::get_all_credentials,
+            commands::credentials::get_platform_credential_info,
+            commands::credentials::save_platform_credentials,
+            commands::credentials::save_bulk_credentials,
+            commands::credentials::delete_platform_credentials,
+            commands::credentials::complete_onboarding,
+            commands::credentials::get_authentication_status,
+            commands::credentials::compute_config_hash,
+            commands::credentials::update_authentication_tracking,
+            commands::credentials::clear_auth_tracking,
+            // Bulk authentication
+            commands::bulk_auth::start_bulk_auth,
+            commands::bulk_auth::submit_bulk_auth_2fa,
+            commands::bulk_auth::cancel_bulk_auth,
+            commands::bulk_auth::get_required_auth_tasks,
         ])
         .setup(|app| {
             println!("[Columbus] Setup starting...");

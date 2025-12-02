@@ -44,7 +44,7 @@
           class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-200 px-4 py-3 border border-white/50 group hover:border-gray-200"
         >
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-50 group-hover:bg-gray-100 transition-colors">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-gray-100 transition-colors">
               <img
                 :src="platform.logo_url"
                 :alt="platform.name"

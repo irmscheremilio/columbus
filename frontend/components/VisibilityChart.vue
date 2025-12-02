@@ -68,17 +68,25 @@
       <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10 rounded-lg">
         <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
       </div>
-      <canvas ref="chartCanvas"></canvas>
+      <!-- No data placeholder -->
+      <div v-else-if="!hasData" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+        </svg>
+        <p class="text-sm font-medium">No visibility data yet</p>
+        <p class="text-xs mt-1">Run a scan to start tracking</p>
+      </div>
+      <canvas ref="chartCanvas" :class="{ 'invisible': !hasData }"></canvas>
     </div>
     <!-- Platform Legend (for platforms view) -->
-    <div v-if="viewMode === 'platforms'" class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
+    <div v-if="viewMode === 'platforms' && hasData" class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
       <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-1.5 group cursor-default">
         <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125" :style="{ backgroundColor: platform.color }"></div>
         <span class="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{{ platform.label }}</span>
       </div>
     </div>
     <!-- Competitor Legend (for competitors view) -->
-    <div v-else class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
+    <div v-else-if="viewMode === 'competitors' && hasData" class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
       <div class="flex items-center gap-1.5 group cursor-default">
         <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125 bg-brand"></div>
         <span class="text-xs text-gray-700 font-medium group-hover:text-gray-900 transition-colors">Your Brand</span>
@@ -199,9 +207,11 @@ const props = withDefaults(defineProps<{
   title?: string
   productId: string | null
   chartHeight?: string
+  region?: string | null
 }>(), {
   title: 'Visibility Over Time',
-  chartHeight: '12rem'
+  chartHeight: '12rem',
+  region: null
 })
 
 const emit = defineEmits<{
@@ -212,6 +222,7 @@ const supabase = useSupabaseClient()
 const { platforms: aiPlatforms, loadPlatforms, platformIds } = useAIPlatforms()
 
 const loading = ref(false)
+const hasData = ref(false)
 const selectedPeriod = ref('30')
 const viewMode = ref<'platforms' | 'competitors'>('platforms')
 const groupingMode = ref<'session' | 'day'>('day')
@@ -293,15 +304,40 @@ const loadPlatformData = async () => {
   // Get position data from prompt_results if showing position metric
   let positionData: any[] = []
   if (metric === 'position') {
-    const { data } = await supabase
+    let posQuery = supabase
       .from('prompt_results')
       .select('tested_at, position, ai_model')
       .eq('product_id', props.productId)
       .eq('brand_mentioned', true)
       .not('position', 'is', null)
       .gte('tested_at', startDate.toISOString())
-      .order('tested_at', { ascending: true })
+
+    // Apply region filter if provided
+    if (props.region) {
+      posQuery = posQuery.ilike('request_country', props.region)
+    }
+
+    const { data } = await posQuery.order('tested_at', { ascending: true })
     positionData = data || []
+  }
+
+  // Check if there's any data
+  const dataSource = metric === 'position' ? positionData : (historyData || [])
+  if (dataSource.length === 0) {
+    hasData.value = false
+    return
+  }
+  hasData.value = true
+
+  // Count unique days in the data to determine if we should auto-switch to "By Scan"
+  const dateField = metric === 'position' ? 'tested_at' : 'recorded_at'
+  const uniqueDays = new Set(
+    dataSource.map((d: any) => new Date(d[dateField]).toDateString())
+  )
+
+  // Auto-switch to "By Scan" if there's only 1 day of data
+  if (uniqueDays.size <= 1 && groupingMode.value === 'day') {
+    groupingMode.value = 'session'
   }
 
   const chartData = groupingMode.value === 'session'
@@ -356,11 +392,17 @@ const loadCompetitorData = async () => {
       .eq('brand_mentioned', true)
       .not('position', 'is', null)
       .gte('tested_at', startDate.toISOString())
-      .order('tested_at', { ascending: true })
 
     if (selectedModel !== 'overall') {
       positionQuery = positionQuery.eq('ai_model', selectedModel)
     }
+
+    // Apply region filter if provided
+    if (props.region) {
+      positionQuery = positionQuery.ilike('request_country', props.region)
+    }
+
+    positionQuery = positionQuery.order('tested_at', { ascending: true })
 
     const { data } = await positionQuery
     brandPositionData = data || []
@@ -428,13 +470,17 @@ const loadCompetitorData = async () => {
     .select('tested_at, ai_model')
     .eq('product_id', props.productId)
     .gte('tested_at', startDate.toISOString())
-    .order('tested_at', { ascending: true })
 
   if (selectedModel !== 'overall') {
     promptQuery = promptQuery.eq('ai_model', selectedModel)
   }
 
-  const { data: promptResults } = await promptQuery
+  // Apply region filter if provided
+  if (props.region) {
+    promptQuery = promptQuery.ilike('request_country', props.region)
+  }
+
+  const { data: promptResults } = await promptQuery.order('tested_at', { ascending: true })
   totalPromptsByTime = promptResults || []
 
   // Update legend
@@ -442,6 +488,23 @@ const loadCompetitorData = async () => {
     name: c.name,
     color: competitorColors[i % competitorColors.length]
   }))
+
+  // Check if there's any data
+  if (totalPromptsByTime.length === 0) {
+    hasData.value = false
+    return
+  }
+  hasData.value = true
+
+  // Count unique days in the data to determine if we should auto-switch to "By Scan"
+  const uniqueDays = new Set(
+    totalPromptsByTime.map((d: any) => new Date(d.tested_at).toDateString())
+  )
+
+  // Auto-switch to "By Scan" if there's only 1 day of data
+  if (uniqueDays.size <= 1 && groupingMode.value === 'day') {
+    groupingMode.value = 'session'
+  }
 
   // Process into chart data based on grouping mode
   const chartData = groupingMode.value === 'session'
@@ -1416,6 +1479,13 @@ const isReady = ref(false)
 // Watch for productId changes - only load data if ready
 watch(() => props.productId, (newProductId) => {
   if (newProductId && isReady.value) {
+    loadData()
+  }
+})
+
+// Watch for region changes - reload data
+watch(() => props.region, () => {
+  if (props.productId && isReady.value) {
     loadData()
   }
 })

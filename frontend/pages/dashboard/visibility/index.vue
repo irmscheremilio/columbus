@@ -7,15 +7,18 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Visibility</h1>
           <p class="text-sm text-gray-500">Track brand presence across AI platforms</p>
         </div>
-        <button
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
-          @click="refreshData"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div class="flex items-center gap-3">
+          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
+          <button
+            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+            @click="refreshData"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       <!-- Stats Row -->
@@ -50,7 +53,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Chart Section -->
         <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" />
+          <VisibilityChart :product-id="activeProductId" :region="selectedRegion" @period-change="onPeriodChange" />
         </div>
 
         <!-- Platform Stats -->
@@ -321,6 +324,7 @@ const { platforms: aiPlatforms, loadPlatforms, formatModelName, getPlatformColor
 
 const loading = ref(true)
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
+const selectedRegion = ref<string | null>(null)
 const overallScore = ref(0)
 const totalTests = ref(0)
 const mentionRate = ref(0)
@@ -338,6 +342,13 @@ const selectedResult = ref<any>(null)
 const onPeriodChange = (days: number) => {
   selectedPeriodDays.value = days
   // Reload stats with new date range
+  if (activeProductId.value) {
+    loadVisibilityData()
+  }
+}
+
+const onRegionChange = (region: string | null) => {
+  selectedRegion.value = region
   if (activeProductId.value) {
     loadVisibilityData()
   }
@@ -398,19 +409,33 @@ const loadVisibilityData = async () => {
     startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
     startDate.setHours(0, 0, 0, 0)
 
-    // Load ALL results within date range for accurate stats calculation
-    const { data: allResults } = await supabase
+    // Build base query for ALL results within date range for accurate stats calculation
+    let allResultsQuery = supabase
       .from('prompt_results')
-      .select('id, ai_model, brand_mentioned, citation_present, position, sentiment')
+      .select('id, ai_model, brand_mentioned, citation_present, position, sentiment, request_country')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
 
+    // Apply region filter if selected
+    if (selectedRegion.value) {
+      allResultsQuery = allResultsQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: allResults } = await allResultsQuery
+
     // Load only 50 recent results for display table (with prompt text)
-    const { data: promptResults } = await supabase
+    let promptResultsQuery = supabase
       .from('prompt_results')
       .select('*, prompts(prompt_text)')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
+
+    // Apply region filter if selected
+    if (selectedRegion.value) {
+      promptResultsQuery = promptResultsQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: promptResults } = await promptResultsQuery
       .order('tested_at', { ascending: false })
       .limit(50)
 

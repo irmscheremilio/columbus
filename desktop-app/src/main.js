@@ -14,6 +14,12 @@ let products = [];
 let selectedProductId = null;
 let isScanning = false;
 let isInitializing = true; // Flag to prevent saving during initialization
+let onboardingCompleted = false;
+let storedCredentials = {}; // { platform: { email, hasPassword } }
+
+// Bulk auth state
+let bulkAuthInProgress = false;
+let currentBulkAuthConfig = null;
 
 // Per-product config (loaded when product is selected)
 let currentProductConfig = {
@@ -26,8 +32,10 @@ let currentProductConfig = {
 };
 
 // DOM Elements - get them after DOM is ready
-let loginView, mainView, scanningView, completeView;
+let loginView, mainView, scanningView, completeView, onboardingView, bulkAuthView;
 let loginForm, loginError, loginBtn, googleLoginBtn, signupLink;
+let settingsModal, settingsBtn, closeSettingsBtn, settingsCredentialsList;
+let authWarningModal, dismissAuthWarningBtn, startBulkAuthBtn;
 
 let userEmail, logoutBtn, productSelect;
 let samplesPerPrompt, samplesWarning, scanBtn, scanInfo, dashboardLink;
@@ -158,6 +166,19 @@ async function init() {
     mainView = document.getElementById('mainView');
     scanningView = document.getElementById('scanningView');
     completeView = document.getElementById('completeView');
+    onboardingView = document.getElementById('onboardingView');
+    bulkAuthView = document.getElementById('bulkAuthView');
+
+    // Settings modal elements
+    settingsModal = document.getElementById('settingsModal');
+    settingsBtn = document.getElementById('settingsBtn');
+    closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    settingsCredentialsList = document.getElementById('settingsCredentialsList');
+
+    // Auth warning modal elements
+    authWarningModal = document.getElementById('authWarningModal');
+    dismissAuthWarningBtn = document.getElementById('dismissAuthWarningBtn');
+    startBulkAuthBtn = document.getElementById('startBulkAuthBtn');
 
     loginForm = document.getElementById('loginForm');
     loginError = document.getElementById('loginError');
@@ -340,6 +361,9 @@ function setupEventListeners() {
     if (autostartEnabled) {
         autostartEnabled.addEventListener('change', handleAutostartChange);
     }
+
+    // Settings modal listeners
+    setupSettingsListeners();
 }
 
 async function setupTauriListeners() {
@@ -367,6 +391,9 @@ async function setupTauriListeners() {
         // Hide running indicator
         updateScanRunningIndicator(false);
     });
+
+    // Setup bulk auth listeners
+    await setupBulkAuthListeners();
 }
 
 // View management
@@ -375,6 +402,8 @@ function showView(viewName) {
     mainView.classList.add('hidden');
     scanningView.classList.add('hidden');
     completeView.classList.add('hidden');
+    onboardingView.classList.add('hidden');
+    bulkAuthView.classList.add('hidden');
 
     switch (viewName) {
         case 'login':
@@ -388,6 +417,12 @@ function showView(viewName) {
             break;
         case 'complete':
             completeView.classList.remove('hidden');
+            break;
+        case 'onboarding':
+            onboardingView.classList.remove('hidden');
+            break;
+        case 'bulk-auth':
+            bulkAuthView.classList.remove('hidden');
             break;
     }
 }
@@ -478,6 +513,9 @@ async function handleLogout() {
 async function onAuthenticated() {
     userEmail.textContent = currentUser.email;
 
+    // Check credentials and onboarding status
+    await loadCredentialsStatus();
+
     // Check if a scan is currently running
     try {
         const scanRunning = await invoke('is_scan_running');
@@ -489,6 +527,11 @@ async function onAuthenticated() {
             // Get current progress to update UI
             const progress = await invoke('get_scan_progress');
             updateScanProgress(progress);
+        } else if (!onboardingCompleted && Object.keys(storedCredentials).length === 0) {
+            // Show onboarding if no credentials are set up
+            console.log('No credentials stored, showing onboarding');
+            renderOnboardingForm();
+            showView('onboarding');
         } else {
             showView('main');
         }
@@ -873,6 +916,45 @@ async function handleStartScan() {
     const samples = parseInt(samplesPerPrompt.value) || 1;
     const selectedPlatforms = Array.from(readyPlatforms);
 
+    // Check authentication status before scanning (for geo-targeted scans)
+    try {
+        const authCheck = await checkAuthBeforeScan();
+        console.log('Auth check result:', authCheck);
+
+        if (authCheck.needsAuth) {
+            // Store config for bulk auth
+            currentBulkAuthConfig = {
+                platform_regions: authCheck.platformRegions,
+                config_hash: authCheck.configHash
+            };
+
+            // Show warning modal
+            showAuthWarningModal(
+                'Authentication Required',
+                'Some platform/region combinations need to be authenticated before scanning. Would you like to authenticate now?'
+            );
+            return;
+        }
+
+        if (authCheck.isStale) {
+            // Show stale warning but allow continuing
+            const continueAnyway = confirm(
+                'Your platform authentication is over 30 days old. It\'s recommended to re-authenticate.\n\nDo you want to continue anyway?'
+            );
+            if (!continueAnyway) {
+                currentBulkAuthConfig = {
+                    platform_regions: authCheck.platformRegions,
+                    config_hash: authCheck.configHash
+                };
+                startBulkAuth();
+                return;
+            }
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        // Continue with scan even if auth check fails
+    }
+
     try {
         scanBtn.disabled = true;
         isScanning = true;
@@ -1179,6 +1261,474 @@ async function loadAutostartSetting() {
     } catch (error) {
         console.error('Failed to load autostart setting:', error);
     }
+}
+
+// Helper function to capitalize first letter
+function capitalizeFirst(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ===== CREDENTIALS & ONBOARDING FUNCTIONS =====
+
+// Load credentials status from backend
+async function loadCredentialsStatus() {
+    try {
+        const status = await invoke('get_credentials_status');
+        console.log('Credentials status:', status);
+
+        onboardingCompleted = status.onboarding_completed;
+
+        // Load all credentials info
+        const allCredentials = await invoke('get_all_credentials');
+        storedCredentials = {};
+        for (const cred of allCredentials) {
+            storedCredentials[cred.platform] = {
+                email: cred.email,
+                hasPassword: cred.has_password
+            };
+        }
+
+        console.log('Stored credentials:', Object.keys(storedCredentials));
+    } catch (error) {
+        console.error('Failed to load credentials status:', error);
+    }
+}
+
+// Render the onboarding credentials form
+function renderOnboardingForm() {
+    const container = document.getElementById('onboardingCredentialsForm');
+    if (!container) return;
+
+    container.innerHTML = platforms.map(platform => `
+        <div class="credential-item" data-platform="${platform}">
+            <div class="credential-item-header">
+                <div class="credential-platform-icon ${platform}"></div>
+                <span class="credential-platform-name">${capitalizeFirst(platform)}</span>
+            </div>
+            <div class="credential-inputs">
+                <input type="email"
+                       class="credential-input"
+                       id="onboard-email-${platform}"
+                       placeholder="Email address"
+                       value="${storedCredentials[platform]?.email || ''}">
+                <input type="password"
+                       class="credential-input"
+                       id="onboard-password-${platform}"
+                       placeholder="Password">
+            </div>
+        </div>
+    `).join('');
+
+    // Setup event listeners
+    const saveBtn = document.getElementById('saveCredentialsBtn');
+    const skipBtn = document.getElementById('skipOnboardingBtn');
+
+    if (saveBtn) {
+        saveBtn.onclick = handleSaveOnboardingCredentials;
+    }
+    if (skipBtn) {
+        skipBtn.onclick = handleSkipOnboarding;
+    }
+}
+
+// Handle saving credentials from onboarding
+async function handleSaveOnboardingCredentials() {
+    const saveBtn = document.getElementById('saveCredentialsBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.querySelector('.btn-text').classList.add('hidden');
+        saveBtn.querySelector('.btn-loading').classList.remove('hidden');
+    }
+
+    try {
+        const credentials = [];
+
+        for (const platform of platforms) {
+            const emailInput = document.getElementById(`onboard-email-${platform}`);
+            const passwordInput = document.getElementById(`onboard-password-${platform}`);
+
+            if (emailInput && passwordInput) {
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+
+                // Only save if both email and password are provided
+                if (email && password) {
+                    credentials.push({ platform, email, password });
+                }
+            }
+        }
+
+        if (credentials.length > 0) {
+            await invoke('save_bulk_credentials', { credentials });
+            console.log('Saved credentials for', credentials.length, 'platforms');
+        }
+
+        // Mark onboarding as complete
+        await invoke('complete_onboarding');
+        onboardingCompleted = true;
+
+        // Reload credentials status
+        await loadCredentialsStatus();
+
+        // Show main view
+        showView('main');
+
+    } catch (error) {
+        console.error('Failed to save credentials:', error);
+        alert('Failed to save credentials: ' + error);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.querySelector('.btn-text').classList.remove('hidden');
+            saveBtn.querySelector('.btn-loading').classList.add('hidden');
+        }
+    }
+}
+
+// Handle skipping onboarding
+async function handleSkipOnboarding() {
+    try {
+        await invoke('complete_onboarding');
+        onboardingCompleted = true;
+        showView('main');
+    } catch (error) {
+        console.error('Failed to skip onboarding:', error);
+        showView('main');
+    }
+}
+
+// ===== SETTINGS MODAL FUNCTIONS =====
+
+function setupSettingsListeners() {
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', openSettingsModal);
+    }
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', closeSettingsModal);
+    }
+    if (document.getElementById('settingsModalOverlay')) {
+        document.getElementById('settingsModalOverlay').addEventListener('click', closeSettingsModal);
+    }
+}
+
+function openSettingsModal() {
+    renderSettingsCredentialsList();
+    settingsModal.classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+    settingsModal.classList.add('hidden');
+}
+
+function renderSettingsCredentialsList() {
+    if (!settingsCredentialsList) return;
+
+    settingsCredentialsList.innerHTML = platforms.map(platform => {
+        const cred = storedCredentials[platform];
+        const hasCredentials = cred && cred.email && cred.hasPassword;
+
+        return `
+            <div class="credentials-list-item" data-platform="${platform}">
+                <div class="credentials-list-item-icon ${platform}"></div>
+                <div class="credentials-list-item-info">
+                    <div class="credentials-list-item-name">${capitalizeFirst(platform)}</div>
+                    <div class="credentials-list-item-email">${cred?.email || 'No credentials'}</div>
+                </div>
+                <span class="credentials-list-item-status ${hasCredentials ? 'has-credentials' : 'no-credentials'}">
+                    ${hasCredentials ? 'Saved' : 'Not set'}
+                </span>
+                <div class="credentials-list-item-actions">
+                    <button class="btn-icon" onclick="editPlatformCredentials('${platform}')" title="Edit">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Edit credentials for a platform (shows a simple prompt for now)
+window.editPlatformCredentials = async function(platform) {
+    const email = prompt(`Email for ${capitalizeFirst(platform)}:`, storedCredentials[platform]?.email || '');
+    if (email === null) return;
+
+    const password = prompt(`Password for ${capitalizeFirst(platform)}:`);
+    if (password === null) return;
+
+    try {
+        await invoke('save_platform_credentials', { platform, email, password });
+        await loadCredentialsStatus();
+        renderSettingsCredentialsList();
+    } catch (error) {
+        console.error('Failed to save credentials:', error);
+        alert('Failed to save credentials: ' + error);
+    }
+};
+
+// ===== BULK AUTHENTICATION FUNCTIONS =====
+
+async function setupBulkAuthListeners() {
+    // Listen for bulk auth progress events
+    await listen('bulk-auth-progress', (event) => {
+        console.log('Bulk auth progress:', event.payload);
+        updateBulkAuthUI(event.payload);
+    });
+
+    await listen('bulk-auth-complete', (event) => {
+        console.log('Bulk auth complete:', event.payload);
+        handleBulkAuthComplete(event.payload);
+    });
+
+    await listen('bulk-auth-2fa-complete', (event) => {
+        console.log('Bulk auth 2FA complete:', event.payload);
+        // Hide 2FA section and continue
+        const twofaSection = document.getElementById('twofaSection');
+        if (twofaSection) {
+            twofaSection.classList.add('hidden');
+        }
+    });
+
+    // Auth warning modal buttons
+    if (dismissAuthWarningBtn) {
+        dismissAuthWarningBtn.addEventListener('click', closeAuthWarningModal);
+    }
+    if (startBulkAuthBtn) {
+        startBulkAuthBtn.addEventListener('click', () => {
+            closeAuthWarningModal();
+            startBulkAuth();
+        });
+    }
+    if (document.getElementById('authWarningOverlay')) {
+        document.getElementById('authWarningOverlay').addEventListener('click', closeAuthWarningModal);
+    }
+
+    // Cancel bulk auth button
+    const cancelBulkAuthBtn = document.getElementById('cancelBulkAuthBtn');
+    if (cancelBulkAuthBtn) {
+        cancelBulkAuthBtn.addEventListener('click', cancelBulkAuth);
+    }
+
+    // 2FA submit button
+    const submitTwofaBtn = document.getElementById('submitTwofaBtn');
+    if (submitTwofaBtn) {
+        submitTwofaBtn.addEventListener('click', submitTwoFactorCode);
+    }
+
+    // Allow Enter key in 2FA input
+    const twofaCode = document.getElementById('twofaCode');
+    if (twofaCode) {
+        twofaCode.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitTwoFactorCode();
+            }
+        });
+    }
+}
+
+function showAuthWarningModal(title, message) {
+    const titleEl = document.getElementById('authWarningTitle');
+    const messageEl = document.getElementById('authWarningMessage');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+
+    authWarningModal.classList.remove('hidden');
+}
+
+function closeAuthWarningModal() {
+    authWarningModal.classList.add('hidden');
+}
+
+async function startBulkAuth() {
+    if (!currentBulkAuthConfig) {
+        console.error('No bulk auth config set');
+        return;
+    }
+
+    bulkAuthInProgress = true;
+    showView('bulk-auth');
+
+    // Initialize bulk auth UI
+    const statusEl = document.getElementById('bulkAuthStatus');
+    if (statusEl) statusEl.textContent = 'Starting authentication...';
+
+    try {
+        await invoke('start_bulk_auth', { input: currentBulkAuthConfig });
+    } catch (error) {
+        console.error('Failed to start bulk auth:', error);
+        alert('Failed to start authentication: ' + error);
+        bulkAuthInProgress = false;
+        showView('main');
+    }
+}
+
+function updateBulkAuthUI(progress) {
+    const statusEl = document.getElementById('bulkAuthStatus');
+    const progressFill = document.getElementById('bulkAuthProgressFill');
+    const progressText = document.getElementById('bulkAuthProgressText');
+    const tasksContainer = document.getElementById('bulkAuthTasks');
+    const twofaSection = document.getElementById('twofaSection');
+
+    // Update status
+    if (statusEl) {
+        if (progress.needs_2fa) {
+            statusEl.textContent = `Waiting for 2FA code for ${progress.current_platform}...`;
+        } else {
+            statusEl.textContent = `Authenticating ${progress.current_platform} in ${progress.current_region}...`;
+        }
+    }
+
+    // Update progress bar
+    const percent = progress.total_tasks > 0
+        ? Math.round((progress.current_index / progress.total_tasks) * 100)
+        : 0;
+    if (progressFill) progressFill.style.width = `${percent}%`;
+    if (progressText) progressText.textContent = `${progress.current_index} / ${progress.total_tasks}`;
+
+    // Update task list
+    if (tasksContainer) {
+        let html = '';
+        for (const [key, status] of Object.entries(progress.task_statuses)) {
+            const [platform, region] = key.split(':');
+            const statusClass = status.toLowerCase().replace('_', '-');
+
+            html += `
+                <div class="bulk-auth-task ${statusClass}">
+                    <div class="bulk-auth-task-icon ${platform}"></div>
+                    <div class="bulk-auth-task-info">
+                        <div class="bulk-auth-task-name">${capitalizeFirst(platform)}</div>
+                        <div class="bulk-auth-task-region">${region.toUpperCase()}</div>
+                    </div>
+                    <span class="bulk-auth-task-status ${statusClass}">${formatTaskStatus(status)}</span>
+                </div>
+            `;
+        }
+        tasksContainer.innerHTML = html;
+    }
+
+    // Show/hide 2FA section
+    if (twofaSection) {
+        if (progress.needs_2fa) {
+            twofaSection.classList.remove('hidden');
+
+            // Store current 2FA context
+            currentBulkAuthConfig._currentTwoFa = {
+                webviewLabel: progress.webview_label,
+                platform: progress.current_platform,
+                region: progress.current_region,
+                method: progress.two_factor_method
+            };
+
+            // Update 2FA prompt
+            const prompt = document.getElementById('twofaPrompt');
+            if (prompt) {
+                const methodText = {
+                    'code': 'Enter the code from your authenticator app',
+                    'phone_push': 'Enter the code sent to your phone',
+                    'email_code': 'Enter the code sent to your email'
+                };
+                prompt.textContent = methodText[progress.two_factor_method] || 'Enter the verification code';
+            }
+
+            // Focus 2FA input
+            const input = document.getElementById('twofaCode');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+        } else {
+            twofaSection.classList.add('hidden');
+        }
+    }
+}
+
+function formatTaskStatus(status) {
+    const statusMap = {
+        'pending': 'Pending',
+        'in_progress': 'In Progress',
+        'waiting_for_2fa': '2FA Required',
+        'success': 'Success',
+        'failed': 'Failed',
+        'skipped': 'Skipped'
+    };
+    return statusMap[status] || status;
+}
+
+async function submitTwoFactorCode() {
+    const input = document.getElementById('twofaCode');
+    const code = input?.value?.trim();
+
+    if (!code) {
+        alert('Please enter the verification code');
+        return;
+    }
+
+    if (!currentBulkAuthConfig?._currentTwoFa) {
+        console.error('No 2FA context available');
+        return;
+    }
+
+    const { webviewLabel, platform, region } = currentBulkAuthConfig._currentTwoFa;
+
+    try {
+        const result = await invoke('submit_bulk_auth_2fa', {
+            webviewLabel,
+            platform,
+            region,
+            code,
+            configHash: currentBulkAuthConfig.config_hash
+        });
+
+        console.log('2FA result:', result);
+
+        // Clear 2FA context
+        currentBulkAuthConfig._currentTwoFa = null;
+
+    } catch (error) {
+        console.error('2FA submission failed:', error);
+        alert('2FA submission failed: ' + error);
+    }
+}
+
+async function cancelBulkAuth() {
+    try {
+        await invoke('cancel_bulk_auth', {
+            webviewLabel: currentBulkAuthConfig?._currentTwoFa?.webviewLabel || null
+        });
+    } catch (error) {
+        console.error('Failed to cancel bulk auth:', error);
+    }
+
+    bulkAuthInProgress = false;
+    currentBulkAuthConfig = null;
+    showView('main');
+}
+
+function handleBulkAuthComplete(result) {
+    bulkAuthInProgress = false;
+
+    if (result.success) {
+        alert(`Authentication complete!\n\nSuccessful: ${result.successful}\nSkipped: ${result.skipped}\nFailed: ${result.failed}`);
+    } else {
+        const errorMsg = result.errors.length > 0
+            ? `\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`
+            : '';
+        alert(`Authentication completed with some failures.\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}${errorMsg}`);
+    }
+
+    currentBulkAuthConfig = null;
+    showView('main');
+}
+
+// Check if authentication is needed before scanning
+// Regions are now managed at the prompt level, not in the desktop app
+async function checkAuthBeforeScan() {
+    // For now, we skip the pre-scan auth check since regions are managed per-prompt
+    // The backend scanner will handle authentication for each region as needed
+    return { needsAuth: false };
 }
 
 // Initialize on DOM ready

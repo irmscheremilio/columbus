@@ -1,5 +1,6 @@
 use crate::{
     commands::api::get_platform_url,
+    storage,
     update_tray_status, webview::WebviewManager, AppState, PlatformState, Prompt, ScanComplete,
     ScanProgress, ScanResult,
 };
@@ -86,6 +87,17 @@ pub async fn start_scan_internal(
     let scan_session_id = Uuid::new_v4().to_string();
     let platform_count = selected_platforms.len();
 
+    // Load product config to get scan countries
+    let product_config = storage::get_product_config(&product_id);
+    let scan_countries = if product_config.scan_countries.is_empty() {
+        // No countries configured - use "local" (user's actual location, no proxy)
+        vec!["local".to_string()]
+    } else {
+        product_config.scan_countries.clone()
+    };
+
+    eprintln!("[Scan] Scan countries: {:?}", scan_countries);
+
     // Initialize scan state
     {
         let mut scan = state.scan.lock();
@@ -125,6 +137,7 @@ pub async fn start_scan_internal(
     let brand = prompts_response.product.brand.clone();
     let competitors = prompts_response.competitors.clone();
     let platforms_for_scan = selected_platforms.clone();
+    let countries_for_scan = scan_countries.clone();
 
     // Spawn scan task
     tokio::spawn(async move {
@@ -138,6 +151,7 @@ pub async fn start_scan_internal(
             brand,
             competitors,
             platforms_for_scan,
+            countries_for_scan,
         )
         .await;
 
@@ -174,6 +188,7 @@ async fn run_scan(
     brand: String,
     competitors: Vec<String>,
     selected_platforms: Vec<String>,
+    scan_countries: Vec<String>,
 ) -> Result<ScanComplete, String> {
     let mut manager = WebviewManager::new();
 
@@ -188,115 +203,147 @@ async fn run_scan(
     let mut total_mentioned = 0;
     let mut total_cited = 0;
 
-    // Process each selected platform
-    for platform_str in &selected_platforms {
-        let url = get_platform_url(platform_str)
-            .ok_or_else(|| format!("Unknown platform: {}", platform_str))?;
-        let platform = platform_str.as_str();
+    // Process each country
+    for country_code in &scan_countries {
+        let is_local = country_code == "local";
+        eprintln!("[Scan] Processing country: {} (local={})", country_code, is_local);
 
-        // Update platform status
-        {
-            let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                ps.status = "submitting".to_string();
-            }
-        }
-        emit_progress_with_state(&app, &state);
+        // Process each selected platform for this country
+        for platform_str in &selected_platforms {
+            let url = get_platform_url(platform_str)
+                .ok_or_else(|| format!("Unknown platform: {}", platform_str))?;
+            let platform = platform_str.as_str();
 
-        // Check if user is logged in by creating a test webview
-        let webview_label = format!("scan-{}-check", platform);
-        let login_check = manager
-            .create_webview(&app, &webview_label, &url, true)
-            .await;
-
-        if login_check.is_err() {
-            // Mark platform as skipped
-            {
-                let mut scan = state.scan.lock();
-                if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                    ps.status = "skipped".to_string();
-                }
-            }
-            emit_progress_with_state(&app, &state);
-            continue;
-        }
-
-        // Wait for page to load
-        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-
-        // Check login status
-        let is_logged_in = manager
-            .check_login(&app, &webview_label, platform)
-            .await
-            .unwrap_or(false);
-
-        // Close check webview
-        manager.close_webview(&app, &webview_label);
-
-        if !is_logged_in {
-            {
-                let mut scan = state.scan.lock();
-                if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                    ps.status = "skipped".to_string();
-                }
-            }
-            emit_progress_with_state(&app, &state);
-            continue;
-        }
-
-        // Process prompts for this platform
-        for (prompt_idx, prompt) in prompts.iter().enumerate() {
-            for sample in 0..samples {
-                // Check if scan was cancelled
-                {
-                    let scan = state.scan.lock();
-                    if !scan.is_running {
-                        return Err("Scan cancelled".to_string());
-                    }
-                }
-
-                let webview_label = format!("scan-{}-{}-{}", platform, prompt_idx, sample);
-
-                // Create webview for this prompt
-                if let Err(e) = manager.create_webview(&app, &webview_label, &url, false).await {
-                    eprintln!("Failed to create webview: {}", e);
-                    {
-                        let mut scan = state.scan.lock();
-                        if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                            ps.failed += 1;
-                        }
-                    }
+            // For geo-targeted scans, check if this country/platform combo is authenticated
+            if !is_local {
+                let is_authenticated = storage::is_country_platform_authenticated(country_code, platform_str);
+                if !is_authenticated {
+                    eprintln!("[Scan] Country {} / Platform {} not authenticated, skipping", country_code, platform_str);
                     continue;
                 }
+            }
 
-                // Wait for page load
-                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-
-                // Submit prompt
-                let submit_result = manager
-                    .submit_prompt(&app, &webview_label, platform, &prompt.text)
-                    .await;
-
-                if submit_result.is_ok() {
-                    {
-                        let mut scan = state.scan.lock();
-                        if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                            ps.submitted += 1;
-                        }
-                    }
-                    emit_progress_with_state(&app, &state);
+            // Update platform status
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                    ps.status = "submitting".to_string();
                 }
             }
-        }
+            emit_progress_with_state(&app, &state);
 
-        // Update to waiting phase
-        {
-            let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                ps.status = "waiting".to_string();
+            // Check if user is logged in by creating a test webview
+            // Include scan_session_id and country in label to avoid conflicts
+            let webview_label = format!("scan-{}-{}-{}-check", &scan_session_id[..8], country_code, platform);
+
+            let login_check = if is_local {
+                manager.create_webview(&app, &webview_label, &url, true).await
+            } else {
+                manager.create_webview_for_country(&app, &webview_label, &url, true, country_code, platform_str).await
+            };
+
+            if let Err(e) = login_check {
+                // Mark platform as skipped
+                eprintln!("[Scan] Failed to create check webview for {} ({}): {}", platform_str, country_code, e);
+                {
+                    let mut scan = state.scan.lock();
+                    if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                        ps.status = "skipped".to_string();
+                    }
+                }
+                emit_progress_with_state(&app, &state);
+                continue;
             }
+
+            // Wait for page to load
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+            // Check login status
+            let is_logged_in = manager
+                .check_login(&app, &webview_label, platform)
+                .await
+                .unwrap_or(false);
+
+            eprintln!("[Scan] Platform {} ({}) login check result: {}", platform_str, country_code, is_logged_in);
+
+            // Close check webview
+            manager.close_webview(&app, &webview_label);
+
+            if !is_logged_in {
+                eprintln!("[Scan] Platform {} ({}) marked as not logged in, skipping", platform_str, country_code);
+                {
+                    let mut scan = state.scan.lock();
+                    if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                        ps.status = "skipped".to_string();
+                    }
+                }
+                emit_progress_with_state(&app, &state);
+                continue;
+            }
+
+            // Process prompts for this platform/country combo
+            eprintln!("[Scan] Platform {} ({}) passed login check, processing {} prompts x {} samples",
+                platform_str, country_code, prompts.len(), samples);
+            for (prompt_idx, prompt) in prompts.iter().enumerate() {
+                for sample in 0..samples {
+                    // Check if scan was cancelled
+                    {
+                        let scan = state.scan.lock();
+                        if !scan.is_running {
+                            return Err("Scan cancelled".to_string());
+                        }
+                    }
+
+                    // Include scan_session_id, country prefix to avoid label conflicts between scans
+                    let webview_label = format!("scan-{}-{}-{}-{}-{}", &scan_session_id[..8], country_code, platform, prompt_idx, sample);
+
+                    // Create webview for this prompt (with or without proxy based on country)
+                    let create_result = if is_local {
+                        manager.create_webview(&app, &webview_label, &url, false).await
+                    } else {
+                        manager.create_webview_for_country(&app, &webview_label, &url, false, country_code, platform_str).await
+                    };
+
+                    if let Err(e) = create_result {
+                        eprintln!("Failed to create webview: {}", e);
+                        {
+                            let mut scan = state.scan.lock();
+                            if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                                ps.failed += 1;
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Wait for page load
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+                    // Submit prompt
+                    let submit_result = manager
+                        .submit_prompt(&app, &webview_label, platform, &prompt.text)
+                        .await;
+
+                    if submit_result.is_ok() {
+                        {
+                            let mut scan = state.scan.lock();
+                            if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                                ps.submitted += 1;
+                            }
+                        }
+                        emit_progress_with_state(&app, &state);
+                    }
+                }
+            }
+
+            // Update to waiting phase
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                    ps.status = "waiting".to_string();
+                }
+            }
+            emit_progress_with_state(&app, &state);
         }
-        emit_progress_with_state(&app, &state);
     }
 
     // Wait for responses with countdown
@@ -321,24 +368,33 @@ async fn run_scan(
     }
     emit_progress_with_state(&app, &state);
 
-    // Collect responses from all webviews
-    for platform_str in &selected_platforms {
-        let platform = platform_str.as_str();
+    // Collect responses from all webviews (iterate through countries and platforms)
+    for country_code in &scan_countries {
+        let is_local = country_code == "local";
 
-        {
-            let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                if ps.status == "skipped" {
-                    continue;
-                }
-                ps.status = "collecting".to_string();
+        for platform_str in &selected_platforms {
+            let platform = platform_str.as_str();
+
+            // Skip if not authenticated for this country/platform combo (non-local)
+            if !is_local && !storage::is_country_platform_authenticated(country_code, platform_str) {
+                continue;
             }
-        }
-        emit_progress_with_state(&app, &state);
 
-        for (prompt_idx, prompt) in prompts.iter().enumerate() {
-            for sample in 0..samples {
-                let webview_label = format!("scan-{}-{}-{}", platform, prompt_idx, sample);
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                    if ps.status == "skipped" {
+                        continue;
+                    }
+                    ps.status = "collecting".to_string();
+                }
+            }
+            emit_progress_with_state(&app, &state);
+
+            for (prompt_idx, prompt) in prompts.iter().enumerate() {
+                for sample in 0..samples {
+                    // Use same label format as submission phase (includes country)
+                    let webview_label = format!("scan-{}-{}-{}-{}-{}", &scan_session_id[..8], country_code, platform, prompt_idx, sample);
 
                 // Collect response
                 let collect_result = manager
@@ -448,14 +504,15 @@ async fn run_scan(
             }
         }
 
-        // Mark platform complete
-        {
-            let mut scan = state.scan.lock();
-            if let Some(ps) = scan.platforms.get_mut(platform_str) {
-                ps.status = "complete".to_string();
+            // Mark platform complete
+            {
+                let mut scan = state.scan.lock();
+                if let Some(ps) = scan.platforms.get_mut(platform_str) {
+                    ps.status = "complete".to_string();
+                }
             }
+            emit_progress_with_state(&app, &state);
         }
-        emit_progress_with_state(&app, &state);
     }
 
     // Finalize scan - refresh token if needed since scan might have taken a while
