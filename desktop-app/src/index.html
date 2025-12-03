@@ -17,67 +17,80 @@
       <span class="version">Desktop v1.0</span>
     </header>
 
-    <!-- Onboarding View (First-time credential setup) -->
+    <!-- Onboarding View (First-time setup - select regions) -->
     <div id="onboardingView" class="view hidden">
       <div class="onboarding-container">
         <h2>Welcome to Columbus</h2>
-        <p class="subtitle">Enter your login credentials for each AI platform you want to scan.</p>
-        <p class="hint">Credentials are stored locally and never leave your computer.</p>
+        <p class="subtitle">Select the regions you want to scan from.</p>
+        <p class="hint">You can add more regions later in Settings.</p>
 
-        <div class="credentials-form" id="onboardingCredentialsForm">
-          <!-- Dynamic platform credential inputs -->
+        <div class="regions-selection" id="onboardingRegions">
+          <!-- Dynamically populated from API -->
+          <p class="loading-text">Loading available regions...</p>
         </div>
 
         <div class="onboarding-actions">
-          <button type="button" class="btn btn-primary" id="saveCredentialsBtn">
-            <span class="btn-text">Save & Continue</span>
-            <span class="btn-loading hidden">
-              <svg class="spinner" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70"></circle>
-              </svg>
-            </span>
+          <button type="button" class="btn btn-primary" id="continueToAuthBtn">
+            <span class="btn-text">Continue to Authentication</span>
           </button>
-          <button type="button" class="text-btn" id="skipOnboardingBtn">Skip for now</button>
         </div>
       </div>
     </div>
 
-    <!-- Bulk Auth View (Authenticate All Platforms) -->
-    <div id="bulkAuthView" class="view hidden">
-      <div class="bulk-auth-container">
-        <h2>Authenticating Platforms</h2>
-        <p class="subtitle" id="bulkAuthStatus">Preparing authentication...</p>
+    <!-- Region Authentication View -->
+    <div id="regionAuthView" class="view hidden">
+      <div class="region-auth-container">
+        <div class="region-auth-header">
+          <h2>Platform Authentication</h2>
+          <button type="button" class="text-btn" id="backToMainBtn">Done</button>
+        </div>
+        <p class="subtitle">Authenticate each platform for each region you want to scan.</p>
 
-        <div class="bulk-auth-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" id="bulkAuthProgressFill" style="width: 0%"></div>
-          </div>
-          <span class="progress-text" id="bulkAuthProgressText">0 / 0</span>
+        <!-- Region Tabs -->
+        <div class="region-tabs" id="regionTabs">
+          <!-- Dynamic region tabs -->
         </div>
 
-        <div class="bulk-auth-tasks" id="bulkAuthTasks">
-          <!-- Dynamic task list -->
-        </div>
+        <!-- Add Region Button -->
+        <button type="button" class="btn btn-small btn-secondary" id="addRegionBtn">+ Add Region</button>
 
-        <!-- 2FA Input Modal -->
-        <div class="twofa-section hidden" id="twofaSection">
-          <div class="twofa-card">
-            <h3>Two-Factor Authentication Required</h3>
-            <p id="twofaPrompt">Enter the code from your authenticator app</p>
-            <div class="twofa-input-row">
-              <input type="text" id="twofaCode" class="twofa-input" maxlength="8" placeholder="000000" autocomplete="one-time-code">
-              <button type="button" class="btn btn-primary" id="submitTwofaBtn">Submit</button>
-            </div>
+        <!-- Platform Auth Grid for Selected Region -->
+        <div class="region-auth-content" id="regionAuthContent">
+          <div class="auth-platforms-grid" id="authPlatformsGrid">
+            <!-- Dynamic platform auth cards -->
           </div>
         </div>
 
-        <div class="bulk-auth-actions">
-          <button type="button" class="text-btn" id="cancelBulkAuthBtn">Cancel</button>
+        <!-- Magic Link Input -->
+        <div class="magic-link-section">
+          <label class="section-label">Open Magic Link / 2FA URL</label>
+          <p class="section-hint">Paste authentication links here to open in Columbus browser</p>
+          <div class="magic-link-row">
+            <input type="url" id="magicLinkInput" class="magic-link-input" placeholder="Paste magic link or 2FA URL...">
+            <button type="button" id="openMagicLinkBtn" class="btn btn-small">Open</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Settings Modal -->
+    <!-- Add Region Modal -->
+    <div id="addRegionModal" class="modal hidden">
+      <div class="modal-overlay" id="addRegionOverlay"></div>
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3>Add Region</h3>
+          <button type="button" class="modal-close" id="closeAddRegionBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="section-hint">Select a region to add:</p>
+          <div class="add-region-options" id="addRegionOptions">
+            <!-- Dynamic region options -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal (simplified - just general settings) -->
     <div id="settingsModal" class="modal hidden">
       <div class="modal-overlay" id="settingsModalOverlay"></div>
       <div class="modal-content">
@@ -86,32 +99,31 @@
           <button type="button" class="modal-close" id="closeSettingsBtn">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="settings-tabs">
-            <button class="settings-tab active" data-tab="credentials">Platform Credentials</button>
-          </div>
-          <div class="settings-tab-content" id="credentialsTab">
-            <p class="section-hint">Manage login credentials for AI platforms. Stored locally on your computer.</p>
-            <div class="credentials-list" id="settingsCredentialsList">
-              <!-- Dynamic credentials list -->
-            </div>
+          <div class="settings-section">
+            <button type="button" class="btn btn-secondary btn-full" id="openRegionAuthBtn">
+              Manage Platform Authentication
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Auth Warning Modal -->
-    <div id="authWarningModal" class="modal hidden">
-      <div class="modal-overlay" id="authWarningOverlay"></div>
+    <!-- Auth Required Modal -->
+    <div id="authRequiredModal" class="modal hidden">
+      <div class="modal-overlay" id="authRequiredOverlay"></div>
       <div class="modal-content modal-small">
         <div class="modal-header">
-          <h3 id="authWarningTitle">Authentication Required</h3>
+          <h3>Authentication Required</h3>
         </div>
         <div class="modal-body">
-          <p id="authWarningMessage">Some platforms need to be authenticated before scanning.</p>
+          <p id="authRequiredMessage">Some platforms need to be authenticated before scanning.</p>
+          <div class="auth-required-list" id="authRequiredList">
+            <!-- Dynamic list of missing auth -->
+          </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" id="dismissAuthWarningBtn">Dismiss</button>
-          <button type="button" class="btn btn-primary" id="startBulkAuthBtn">Authenticate Now</button>
+          <button type="button" class="btn btn-secondary" id="dismissAuthRequiredBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="goToAuthBtn">Set Up Authentication</button>
         </div>
       </div>
     </div>
@@ -192,97 +204,14 @@
         </select>
       </div>
 
-      <!-- Platform Login Status -->
-      <div class="platforms-section">
-        <label class="section-label">Platform Logins</label>
-        <p class="section-hint">Log in to each platform before scanning. Click to open in browser.</p>
-        <div class="platforms-login-grid" id="platformsGrid">
-          <div class="platform-login-item" data-platform="chatgpt">
-            <div class="platform-login-left">
-              <div class="platform-icon chatgpt"></div>
-              <span class="platform-name">ChatGPT</span>
-            </div>
-            <div class="platform-login-right">
-              <label class="platform-checkbox">
-                <input type="checkbox" id="ready-chatgpt" class="platform-ready-check">
-                <span class="checkmark"></span>
-              </label>
-              <button class="btn-icon-only" id="open-chatgpt" title="Open ChatGPT">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="platform-login-item" data-platform="claude">
-            <div class="platform-login-left">
-              <div class="platform-icon claude"></div>
-              <span class="platform-name">Claude</span>
-            </div>
-            <div class="platform-login-right">
-              <label class="platform-checkbox">
-                <input type="checkbox" id="ready-claude" class="platform-ready-check">
-                <span class="checkmark"></span>
-              </label>
-              <button class="btn-icon-only" id="open-claude" title="Open Claude">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="platform-login-item" data-platform="gemini">
-            <div class="platform-login-left">
-              <div class="platform-icon gemini"></div>
-              <span class="platform-name">Gemini</span>
-            </div>
-            <div class="platform-login-right">
-              <label class="platform-checkbox">
-                <input type="checkbox" id="ready-gemini" class="platform-ready-check">
-                <span class="checkmark"></span>
-              </label>
-              <button class="btn-icon-only" id="open-gemini" title="Open Gemini">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="platform-login-item" data-platform="perplexity">
-            <div class="platform-login-left">
-              <div class="platform-icon perplexity"></div>
-              <span class="platform-name">Perplexity</span>
-            </div>
-            <div class="platform-login-right">
-              <label class="platform-checkbox">
-                <input type="checkbox" id="ready-perplexity" class="platform-ready-check">
-                <span class="checkmark"></span>
-              </label>
-              <button class="btn-icon-only" id="open-perplexity" title="Open Perplexity">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
+      <!-- Auth Status Overview -->
+      <div class="auth-status-section">
+        <div class="auth-status-header">
+          <label class="section-label">Authentication Status</label>
+          <button type="button" class="text-btn" id="manageAuthBtn">Manage</button>
         </div>
-        <p class="platforms-hint" id="platformsHint">Check platforms you're logged into</p>
-
-        <!-- URL Input for 2FA/Magic Links -->
-        <div class="url-input-section">
-          <label class="url-input-label">Open URL in Columbus browser (for 2FA links):</label>
-          <div class="url-input-row">
-            <input type="url" id="customUrlInput" class="url-input" placeholder="Paste 2FA or magic link here...">
-            <button type="button" id="openUrlBtn" class="btn btn-small">Open</button>
-          </div>
+        <div class="auth-status-grid" id="authStatusGrid">
+          <!-- Dynamic auth status badges -->
         </div>
       </div>
 

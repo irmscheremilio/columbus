@@ -34,9 +34,13 @@ pub struct PersistedState {
     /// Per-product configurations keyed by product_id
     #[serde(default)]
     pub product_configs: HashMap<String, ProductConfig>,
-    /// Cached proxy configuration (fetched from API for paid users)
+    /// Cached proxy configuration (fetched from API for paid users) - DEPRECATED
     #[serde(default)]
     pub proxy_config: Option<ProxyConfig>,
+    /// Static proxies per country code (e.g., "us" -> Vec<StaticProxy>)
+    /// Supports multiple proxies per country for load balancing
+    #[serde(default)]
+    pub static_proxies: HashMap<String, Vec<StaticProxy>>,
     /// Country/platform authentication status
     /// Key format: "{country_code}:{platform}" e.g., "us:chatgpt"
     #[serde(default)]
@@ -57,7 +61,7 @@ pub struct PersistedState {
     pub onboarding_completed: bool,
 }
 
-/// Proxy configuration from the API
+/// Proxy configuration from the API - DEPRECATED (use StaticProxy instead)
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
     pub provider: String,
@@ -68,6 +72,49 @@ pub struct ProxyConfig {
     pub password: String,
     /// When the config was last fetched
     pub fetched_at: i64,
+}
+
+/// Static proxy configuration for a specific country
+/// Supports various proxy formats: host:port, host:port:user:pass, etc.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct StaticProxy {
+    /// Unique identifier (from API)
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Country code (lowercase, e.g., "us", "de", "gb")
+    pub country_code: String,
+    /// Proxy host/IP
+    pub host: String,
+    /// Proxy port
+    pub port: u16,
+    /// Optional username for auth
+    pub username: Option<String>,
+    /// Optional password for auth
+    pub password: Option<String>,
+    /// Proxy type: "http", "https", "socks5"
+    #[serde(default = "default_proxy_type")]
+    pub proxy_type: String,
+    /// Display name for this country
+    pub country_name: Option<String>,
+    /// When this proxy was added
+    pub added_at: i64,
+    /// Priority for selection (higher = preferred)
+    #[serde(default)]
+    pub priority: i32,
+    /// Weight for load balancing
+    #[serde(default = "default_weight")]
+    pub weight: i32,
+    /// Local usage count for client-side load balancing
+    #[serde(default)]
+    pub local_usage_count: u32,
+}
+
+fn default_weight() -> i32 {
+    1
+}
+
+fn default_proxy_type() -> String {
+    "http".to_string()
 }
 
 /// Country information for geo-targeting
@@ -320,36 +367,265 @@ pub fn clear_proxy_config() -> Result<(), String> {
     save_state(&state)
 }
 
-/// Build a proxy URL for a specific country
-/// This now returns a local proxy URL that handles authentication automatically
+// ============== Static Proxy Management ==============
+
+/// Get all configured static proxies (grouped by country)
+pub fn get_static_proxies() -> HashMap<String, Vec<StaticProxy>> {
+    load_state().static_proxies
+}
+
+/// Get all static proxies for a specific country
+pub fn get_static_proxies_for_country(country_code: &str) -> Vec<StaticProxy> {
+    load_state().static_proxies
+        .get(&country_code.to_lowercase())
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Get static proxy for a specific country (best one based on priority and usage)
+/// Uses weighted round-robin: selects highest priority, then lowest (usage_count/weight)
+pub fn get_static_proxy(country_code: &str) -> Option<StaticProxy> {
+    let state = load_state();
+    let proxies = state.static_proxies.get(&country_code.to_lowercase())?;
+
+    if proxies.is_empty() {
+        return None;
+    }
+
+    // Sort by priority (desc), then by usage/weight ratio (asc)
+    let mut sorted = proxies.clone();
+    sorted.sort_by(|a, b| {
+        // First by priority (higher is better)
+        match b.priority.cmp(&a.priority) {
+            std::cmp::Ordering::Equal => {
+                // Then by usage/weight ratio (lower is better = less used)
+                let ratio_a = a.local_usage_count as f64 / a.weight.max(1) as f64;
+                let ratio_b = b.local_usage_count as f64 / b.weight.max(1) as f64;
+                ratio_a.partial_cmp(&ratio_b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            other => other
+        }
+    });
+
+    sorted.into_iter().next()
+}
+
+/// Add a static proxy for a country (appends to list)
+pub fn add_static_proxy(proxy: StaticProxy) -> Result<(), String> {
+    debug_log(&format!("add_static_proxy: adding proxy for {}", proxy.country_code));
+    let mut state = load_state();
+    let country_code = proxy.country_code.to_lowercase();
+
+    state.static_proxies
+        .entry(country_code)
+        .or_insert_with(Vec::new)
+        .push(proxy);
+
+    save_state(&state)
+}
+
+/// Set all static proxies for a country (replaces existing)
+pub fn set_static_proxies_for_country(country_code: &str, proxies: Vec<StaticProxy>) -> Result<(), String> {
+    debug_log(&format!("set_static_proxies_for_country: setting {} proxies for {}", proxies.len(), country_code));
+    let mut state = load_state();
+    state.static_proxies.insert(country_code.to_lowercase(), proxies);
+    save_state(&state)
+}
+
+/// Clear all static proxies and set new ones (for API refresh)
+pub fn replace_all_static_proxies(proxies_by_country: HashMap<String, Vec<StaticProxy>>) -> Result<(), String> {
+    debug_log(&format!("replace_all_static_proxies: replacing with {} countries", proxies_by_country.len()));
+    let mut state = load_state();
+    state.static_proxies = proxies_by_country;
+    save_state(&state)
+}
+
+/// Increment usage count for a proxy (for local load balancing)
+pub fn increment_proxy_usage(country_code: &str, proxy_id: Option<&str>) -> Result<(), String> {
+    let mut state = load_state();
+
+    if let Some(proxies) = state.static_proxies.get_mut(&country_code.to_lowercase()) {
+        // Find the proxy by ID or host:port
+        for proxy in proxies.iter_mut() {
+            let matches = match proxy_id {
+                Some(id) => proxy.id.as_deref() == Some(id),
+                None => false, // If no ID, increment first proxy
+            };
+
+            if matches || proxy_id.is_none() {
+                proxy.local_usage_count += 1;
+                break;
+            }
+        }
+    }
+
+    save_state(&state)
+}
+
+/// Remove all static proxies for a country
+pub fn remove_static_proxies_for_country(country_code: &str) -> Result<(), String> {
+    debug_log(&format!("remove_static_proxies_for_country: removing all proxies for {}", country_code));
+    let mut state = load_state();
+    state.static_proxies.remove(&country_code.to_lowercase());
+    save_state(&state)
+}
+
+/// Legacy: Add or update a single static proxy (backward compatibility)
+pub fn set_static_proxy(proxy: StaticProxy) -> Result<(), String> {
+    add_static_proxy(proxy)
+}
+
+/// Legacy: Remove proxies for a country
+pub fn remove_static_proxy(country_code: &str) -> Result<(), String> {
+    remove_static_proxies_for_country(country_code)
+}
+
+/// Parse a proxy string in various formats and create a StaticProxy
+/// Supported formats:
+/// - host:port
+/// - host:port:username:password
+/// - username:password@host:port
+/// - http://host:port
+/// - http://username:password@host:port
+pub fn parse_proxy_string(country_code: &str, proxy_str: &str, country_name: Option<String>) -> Result<StaticProxy, String> {
+    let proxy_str = proxy_str.trim();
+
+    // Remove protocol prefix if present
+    let (proxy_type, rest) = if proxy_str.starts_with("http://") {
+        ("http".to_string(), &proxy_str[7..])
+    } else if proxy_str.starts_with("https://") {
+        ("https".to_string(), &proxy_str[8..])
+    } else if proxy_str.starts_with("socks5://") {
+        ("socks5".to_string(), &proxy_str[9..])
+    } else {
+        ("http".to_string(), proxy_str)
+    };
+
+    // Check for username:password@host:port format
+    if let Some(at_pos) = rest.find('@') {
+        let auth_part = &rest[..at_pos];
+        let host_part = &rest[at_pos + 1..];
+
+        let (username, password) = auth_part.split_once(':')
+            .ok_or("Invalid auth format - expected username:password")?;
+
+        let (host, port_str) = host_part.rsplit_once(':')
+            .ok_or("Invalid host:port format")?;
+
+        let port: u16 = port_str.parse()
+            .map_err(|_| format!("Invalid port: {}", port_str))?;
+
+        return Ok(StaticProxy {
+            id: None,
+            country_code: country_code.to_lowercase(),
+            host: host.to_string(),
+            port,
+            username: Some(username.to_string()),
+            password: Some(password.to_string()),
+            proxy_type,
+            country_name,
+            added_at: chrono::Utc::now().timestamp(),
+            priority: 0,
+            weight: 1,
+            local_usage_count: 0,
+        });
+    }
+
+    // Parse host:port or host:port:username:password format
+    let parts: Vec<&str> = rest.split(':').collect();
+
+    match parts.len() {
+        2 => {
+            // host:port
+            let port: u16 = parts[1].parse()
+                .map_err(|_| format!("Invalid port: {}", parts[1]))?;
+            Ok(StaticProxy {
+                id: None,
+                country_code: country_code.to_lowercase(),
+                host: parts[0].to_string(),
+                port,
+                username: None,
+                password: None,
+                proxy_type,
+                country_name,
+                added_at: chrono::Utc::now().timestamp(),
+                priority: 0,
+                weight: 1,
+                local_usage_count: 0,
+            })
+        }
+        4 => {
+            // host:port:username:password
+            let port: u16 = parts[1].parse()
+                .map_err(|_| format!("Invalid port: {}", parts[1]))?;
+            Ok(StaticProxy {
+                id: None,
+                country_code: country_code.to_lowercase(),
+                host: parts[0].to_string(),
+                port,
+                username: Some(parts[2].to_string()),
+                password: Some(parts[3].to_string()),
+                proxy_type,
+                country_name,
+                added_at: chrono::Utc::now().timestamp(),
+                priority: 0,
+                weight: 1,
+                local_usage_count: 0,
+            })
+        }
+        _ => Err(format!("Invalid proxy format: {}. Expected host:port or host:port:username:password", proxy_str))
+    }
+}
+
+/// Build a proxy URL for a specific country (now uses static proxies)
 pub fn build_proxy_url(_country_code: &str) -> Option<String> {
     // We no longer use this synchronously - use build_proxy_url_async instead
-    // Return None to indicate async version should be used
     None
 }
 
 /// Build a proxy URL asynchronously (starts local proxy server if needed)
 pub async fn build_proxy_url_async(country_code: &str) -> Option<String> {
-    // Check if proxy config exists
-    if get_proxy_config().is_none() {
-        return None;
+    // First check for static proxy
+    if let Some(_static_proxy) = get_static_proxy(country_code) {
+        // Use local proxy server to handle auth
+        match crate::proxy_server::get_local_proxy_for_country(country_code).await {
+            Ok(url) => {
+                eprintln!("[Proxy] Using static proxy for country {}: {}", country_code, url);
+                return Some(url);
+            }
+            Err(e) => {
+                eprintln!("[Proxy] Failed to start local proxy for {}: {}", country_code, e);
+                return None;
+            }
+        }
     }
 
-    // Get local proxy URL (this starts a local proxy server that handles auth)
-    match crate::proxy_server::get_local_proxy_for_country(country_code).await {
-        Ok(url) => {
-            eprintln!("[Proxy] Using local proxy for country {}: {}", country_code, url);
-            Some(url)
-        }
-        Err(e) => {
-            eprintln!("[Proxy] Failed to get local proxy for {}: {}", country_code, e);
-            None
+    // Fallback to old IPRoyal config (deprecated)
+    if get_proxy_config().is_some() {
+        match crate::proxy_server::get_local_proxy_for_country(country_code).await {
+            Ok(url) => {
+                eprintln!("[Proxy] Using IPRoyal proxy for country {}: {}", country_code, url);
+                return Some(url);
+            }
+            Err(e) => {
+                eprintln!("[Proxy] Failed to get IPRoyal proxy for {}: {}", country_code, e);
+            }
         }
     }
+
+    None
 }
 
 /// Get proxy credentials for manual entry or display
 pub fn get_proxy_credentials(country_code: &str) -> Option<(String, String)> {
+    // First check static proxy
+    if let Some(proxy) = get_static_proxy(country_code) {
+        if let (Some(user), Some(pass)) = (proxy.username, proxy.password) {
+            return Some((user, pass));
+        }
+    }
+
+    // Fallback to old config
     let config = get_proxy_config()?;
     let password_with_country = format!("{}_country-{}", config.password, country_code.to_lowercase());
     Some((config.username.clone(), password_with_country))

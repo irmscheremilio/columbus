@@ -179,6 +179,24 @@ pub async fn get_ai_platforms(force_refresh: Option<bool>) -> Result<Vec<AIPlatf
     Ok(platforms)
 }
 
+/// Get prompt target regions for a product
+/// Returns a map of prompt_id -> target_regions
+#[tauri::command]
+pub async fn get_prompt_target_regions(
+    product_id: String,
+    state: State<'_, Arc<AppState>>,
+) -> Result<std::collections::HashMap<String, Vec<String>>, String> {
+    let prompts_response: PromptsResponse =
+        get_prompts(product_id, state).await?;
+
+    let mut result = std::collections::HashMap::new();
+    for prompt in prompts_response.prompts {
+        result.insert(prompt.id, prompt.target_regions);
+    }
+
+    Ok(result)
+}
+
 /// Get platform URL for opening login. Uses cached platforms or fallback.
 pub fn get_platform_url(platform_id: &str) -> Option<String> {
     // Try to get from cache

@@ -1,7 +1,11 @@
-//! Local proxy server that forwards requests to IPRoyal with authentication
+//! Local proxy server that forwards requests to upstream proxy with authentication
 //!
 //! This solves the WebView2 limitation where embedded proxy credentials are not supported.
-//! The webview connects to localhost:PORT (no auth), and this server forwards to IPRoyal with auth.
+//! The webview connects to localhost:PORT (no auth), and this server forwards to upstream with auth.
+//!
+//! Supports both:
+//! - Static proxies (per-country, configured by user)
+//! - IPRoyal rotating proxies (deprecated, legacy support)
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -37,28 +41,59 @@ impl ProxyServerManager {
             }
         }
 
-        // Get proxy config
-        let config = crate::storage::get_proxy_config()
-            .ok_or("No proxy config available")?;
-
         // Find an available port
         let port = {
             let servers = self.servers.read().await;
             self.base_port + servers.len() as u16
         };
 
-        // Build upstream proxy URL with auth
+        // First try static proxy for this country
+        if let Some(static_proxy) = crate::storage::get_static_proxy(country_code) {
+            let upstream_host = static_proxy.host.clone();
+            let upstream_port = static_proxy.port;
+            let username = static_proxy.username.clone();
+            let password = static_proxy.password.clone();
+            let country = country_code.to_string();
+
+            eprintln!("[ProxyServer] Starting static proxy for {} -> {}:{}",
+                     country_code, upstream_host, upstream_port);
+
+            tokio::spawn(async move {
+                if let Err(e) = run_proxy_server(port, upstream_host, upstream_port, username, password).await {
+                    eprintln!("[ProxyServer] Error running static proxy for {}: {}", country, e);
+                }
+            });
+
+            // Give the server a moment to start
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+            // Store the port
+            {
+                let mut servers = self.servers.write().await;
+                servers.insert(country_code.to_string(), port);
+            }
+
+            eprintln!("[ProxyServer] Started static proxy for {} on local port {}", country_code, port);
+            return Ok(port);
+        }
+
+        // Fallback to IPRoyal config (deprecated)
+        let config = crate::storage::get_proxy_config()
+            .ok_or_else(|| format!("No proxy configured for country: {}", country_code))?;
+
+        // Build upstream proxy URL with auth (IPRoyal format)
         let password_with_country = format!("{}_country-{}", config.password, country_code.to_lowercase());
         let upstream_host = config.hostname.clone();
         let upstream_port = config.port_http;
-        let username = config.username.clone();
+        let username = Some(config.username.clone());
+        let password = Some(password_with_country);
 
         // Start the proxy server
         let country = country_code.to_string();
 
         tokio::spawn(async move {
-            if let Err(e) = run_proxy_server(port, upstream_host, upstream_port, username, password_with_country).await {
-                eprintln!("[ProxyServer] Error running proxy for {}: {}", country, e);
+            if let Err(e) = run_proxy_server(port, upstream_host, upstream_port, username, password).await {
+                eprintln!("[ProxyServer] Error running IPRoyal proxy for {}: {}", country, e);
             }
         });
 
@@ -71,7 +106,7 @@ impl ProxyServerManager {
             servers.insert(country_code.to_string(), port);
         }
 
-        eprintln!("[ProxyServer] Started local proxy for {} on port {}", country_code, port);
+        eprintln!("[ProxyServer] Started IPRoyal proxy for {} on port {}", country_code, port);
         Ok(port)
     }
 
@@ -79,6 +114,16 @@ impl ProxyServerManager {
     pub async fn get_local_proxy_url(&self, country_code: &str) -> Result<String, String> {
         let port = self.get_proxy_port(country_code).await?;
         Ok(format!("http://127.0.0.1:{}", port))
+    }
+
+    /// Restart proxy server for a country (e.g., after config change)
+    pub async fn restart_proxy(&self, country_code: &str) -> Result<(), String> {
+        {
+            let mut servers = self.servers.write().await;
+            servers.remove(country_code);
+        }
+        // Next call to get_proxy_port will create a new server
+        Ok(())
     }
 }
 
@@ -88,13 +133,13 @@ impl Default for ProxyServerManager {
     }
 }
 
-/// Run a local proxy server that forwards to upstream with authentication
+/// Run a local proxy server that forwards to upstream with optional authentication
 async fn run_proxy_server(
     local_port: u16,
     upstream_host: String,
     upstream_port: u16,
-    username: String,
-    password: String,
+    username: Option<String>,
+    password: Option<String>,
 ) -> Result<(), String> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", local_port))
         .await
@@ -114,8 +159,8 @@ async fn run_proxy_server(
                         client_stream,
                         &upstream_host,
                         upstream_port,
-                        &username,
-                        &password,
+                        username.as_deref(),
+                        password.as_deref(),
                     ).await {
                         eprintln!("[ProxyServer] Error handling client {}: {}", addr, e);
                     }
@@ -133,8 +178,8 @@ async fn handle_client(
     mut client: TcpStream,
     upstream_host: &str,
     upstream_port: u16,
-    username: &str,
-    password: &str,
+    username: Option<&str>,
+    password: Option<&str>,
 ) -> Result<(), String> {
     // Read the initial request
     let mut buffer = vec![0u8; 8192];
@@ -161,24 +206,26 @@ async fn handle_connect_request(
     request: &str,
     upstream_host: &str,
     upstream_port: u16,
-    username: &str,
-    password: &str,
+    username: Option<&str>,
+    password: Option<&str>,
 ) -> Result<(), String> {
     // Connect to upstream proxy
     let mut upstream = TcpStream::connect(format!("{}:{}", upstream_host, upstream_port))
         .await
         .map_err(|e| format!("Failed to connect to upstream: {}", e))?;
 
-    // Build auth header
-    let auth = format!("{}:{}", username, password);
-    let auth_b64 = BASE64.encode(auth.as_bytes());
-
-    // Forward CONNECT request with auth
+    // Forward CONNECT request with optional auth
     let lines: Vec<&str> = request.lines().collect();
     let mut modified_request = String::new();
     modified_request.push_str(lines[0]); // CONNECT host:port HTTP/1.1
     modified_request.push_str("\r\n");
-    modified_request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", auth_b64));
+
+    // Add auth header if credentials are provided
+    if let (Some(user), Some(pass)) = (username, password) {
+        let auth = format!("{}:{}", user, pass);
+        let auth_b64 = BASE64.encode(auth.as_bytes());
+        modified_request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", auth_b64));
+    }
 
     // Add other headers except any existing Proxy-Authorization
     for line in &lines[1..] {
@@ -224,26 +271,28 @@ async fn handle_http_request(
     request: &[u8],
     upstream_host: &str,
     upstream_port: u16,
-    username: &str,
-    password: &str,
+    username: Option<&str>,
+    password: Option<&str>,
 ) -> Result<(), String> {
     // Connect to upstream proxy
     let mut upstream = TcpStream::connect(format!("{}:{}", upstream_host, upstream_port))
         .await
         .map_err(|e| format!("Failed to connect to upstream: {}", e))?;
 
-    // Build auth header
-    let auth = format!("{}:{}", username, password);
-    let auth_b64 = BASE64.encode(auth.as_bytes());
-
-    // Parse and modify request to add auth
+    // Parse and modify request to add optional auth
     let request_str = String::from_utf8_lossy(request);
     let lines: Vec<&str> = request_str.lines().collect();
 
     let mut modified_request = String::new();
     modified_request.push_str(lines[0]); // Request line
     modified_request.push_str("\r\n");
-    modified_request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", auth_b64));
+
+    // Add auth header if credentials are provided
+    if let (Some(user), Some(pass)) = (username, password) {
+        let auth = format!("{}:{}", user, pass);
+        let auth_b64 = BASE64.encode(auth.as_bytes());
+        modified_request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", auth_b64));
+    }
 
     for line in &lines[1..] {
         if !line.to_lowercase().starts_with("proxy-authorization:") {

@@ -83,20 +83,38 @@ pub async fn start_scan_internal(
         return Err("No prompts found for this product".to_string());
     }
 
+    // Debug: Log received prompts and their target_regions
+    eprintln!("[Scan] Received {} prompts from API:", prompts_response.prompts.len());
+    for (i, prompt) in prompts_response.prompts.iter().enumerate() {
+        eprintln!("[Scan]   Prompt {}: id={}, target_regions={:?}", i, prompt.id, prompt.target_regions);
+    }
+
     let samples = samples_per_prompt.unwrap_or(1);
     let scan_session_id = Uuid::new_v4().to_string();
     let platform_count = selected_platforms.len();
 
-    // Load product config to get scan countries
-    let product_config = storage::get_product_config(&product_id);
-    let scan_countries = if product_config.scan_countries.is_empty() {
-        // No countries configured - use "local" (user's actual location, no proxy)
+    // Collect all unique regions from prompts
+    // Each prompt can have target_regions array specifying where it should be tested
+    let mut all_regions: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for prompt in &prompts_response.prompts {
+        if prompt.target_regions.is_empty() {
+            // No regions specified for this prompt - use "local"
+            all_regions.insert("local".to_string());
+        } else {
+            for region in &prompt.target_regions {
+                all_regions.insert(region.to_lowercase());
+            }
+        }
+    }
+
+    // Convert to Vec for iteration
+    let scan_countries: Vec<String> = if all_regions.is_empty() {
         vec!["local".to_string()]
     } else {
-        product_config.scan_countries.clone()
+        all_regions.into_iter().collect()
     };
 
-    eprintln!("[Scan] Scan countries: {:?}", scan_countries);
+    eprintln!("[Scan] Scan countries (from prompt target_regions): {:?}", scan_countries);
 
     // Initialize scan state
     {
@@ -282,9 +300,21 @@ async fn run_scan(
             }
 
             // Process prompts for this platform/country combo
-            eprintln!("[Scan] Platform {} ({}) passed login check, processing {} prompts x {} samples",
-                platform_str, country_code, prompts.len(), samples);
-            for (prompt_idx, prompt) in prompts.iter().enumerate() {
+            // Only process prompts that target this specific country
+            let prompts_for_country: Vec<_> = prompts.iter().enumerate().filter(|(_, p)| {
+                if p.target_regions.is_empty() {
+                    // No regions specified - only run in "local"
+                    is_local
+                } else {
+                    // Check if this country is in the prompt's target regions
+                    p.target_regions.iter().any(|r| r.to_lowercase() == country_code.to_lowercase())
+                }
+            }).collect();
+
+            eprintln!("[Scan] Platform {} ({}) passed login check, processing {} prompts (of {} total) x {} samples",
+                platform_str, country_code, prompts_for_country.len(), prompts.len(), samples);
+
+            for (prompt_idx, prompt) in prompts_for_country {
                 for sample in 0..samples {
                     // Check if scan was cancelled
                     {
@@ -391,7 +421,16 @@ async fn run_scan(
             }
             emit_progress_with_state(&app, &state);
 
-            for (prompt_idx, prompt) in prompts.iter().enumerate() {
+            // Only collect prompts that target this specific country (same filter as submission)
+            let prompts_for_country: Vec<_> = prompts.iter().enumerate().filter(|(_, p)| {
+                if p.target_regions.is_empty() {
+                    is_local
+                } else {
+                    p.target_regions.iter().any(|r| r.to_lowercase() == country_code.to_lowercase())
+                }
+            }).collect();
+
+            for (prompt_idx, prompt) in prompts_for_country {
                 for sample in 0..samples {
                     // Use same label format as submission phase (includes country)
                     let webview_label = format!("scan-{}-{}-{}-{}-{}", &scan_session_id[..8], country_code, platform, prompt_idx, sample);
@@ -434,6 +473,7 @@ async fn run_scan(
                             citations: response.citations,
                             credits_exhausted: response.credits_exhausted,
                             chat_url: response.chat_url,
+                            request_country: Some(country_code.clone()),
                         };
 
                         // Submit to API with logging - ensure token is still valid

@@ -8,7 +8,6 @@
           <p class="text-sm text-gray-500">Track brand presence across AI platforms</p>
         </div>
         <div class="flex items-center gap-3">
-          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
           <button
             class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
             @click="refreshData"
@@ -321,10 +320,10 @@ definePageMeta({
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms: aiPlatforms, loadPlatforms, formatModelName, getPlatformColor } = useAIPlatforms()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(true)
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
-const selectedRegion = ref<string | null>(null)
 const overallScore = ref(0)
 const totalTests = ref(0)
 const mentionRate = ref(0)
@@ -347,12 +346,12 @@ const onPeriodChange = (days: number) => {
   }
 }
 
-const onRegionChange = (region: string | null) => {
-  selectedRegion.value = region
+// Watch for global region filter changes
+watch(selectedRegion, () => {
   if (activeProductId.value) {
     loadVisibilityData()
   }
-}
+})
 
 // Combine platform data with stats for display
 const platformsWithStats = computed(() => {

@@ -8,7 +8,6 @@
           <p class="text-sm text-gray-500">Track visibility vs competitors</p>
         </div>
         <div class="flex items-center gap-3">
-          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
           <button
             class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors shadow-sm"
             @click="showAddModal = true"
@@ -419,6 +418,7 @@ const { getFaviconUrl } = useFavicon()
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(true)
 const chartLoading = ref(false)
@@ -430,15 +430,12 @@ const newCompetitor = ref({ name: '', domain: '' })
 const editingCompetitor = ref<any>(null)
 const editForm = ref({ name: '', domain: '' })
 
-// Region filter
-const selectedRegion = ref<string | null>(null)
-
-const onRegionChange = (region: string | null) => {
-  selectedRegion.value = region
+// Watch for global region filter changes
+watch(selectedRegion, () => {
   if (activeProductId.value) {
     loadCompetitors()
   }
-}
+})
 
 // Sorting
 const sortColumn = ref<'name' | 'mention_rate' | 'avg_position' | 'citation_rate' | 'detection_count'>('mention_rate')

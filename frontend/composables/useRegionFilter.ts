@@ -1,99 +1,86 @@
 /**
  * Composable for managing region/country filtering across dashboard pages
- * Loads available regions from scanned data and provides filtering state
+ * Loads available regions from static_proxies (configured proxy countries)
+ * Provides global state for filtering prompt_results by region
  */
 
-interface RegionInfo {
+export interface RegionInfo {
   code: string
   name: string
   flag: string
 }
 
-// Map of country codes to names and flags
-const COUNTRY_DATA: Record<string, { name: string; flag: string }> = {
-  us: { name: 'United States', flag: '🇺🇸' },
-  uk: { name: 'United Kingdom', flag: '🇬🇧' },
-  gb: { name: 'United Kingdom', flag: '🇬🇧' },
-  de: { name: 'Germany', flag: '🇩🇪' },
-  fr: { name: 'France', flag: '🇫🇷' },
-  es: { name: 'Spain', flag: '🇪🇸' },
-  it: { name: 'Italy', flag: '🇮🇹' },
-  nl: { name: 'Netherlands', flag: '🇳🇱' },
-  be: { name: 'Belgium', flag: '🇧🇪' },
-  at: { name: 'Austria', flag: '🇦🇹' },
-  ch: { name: 'Switzerland', flag: '🇨🇭' },
-  pl: { name: 'Poland', flag: '🇵🇱' },
-  se: { name: 'Sweden', flag: '🇸🇪' },
-  no: { name: 'Norway', flag: '🇳🇴' },
-  dk: { name: 'Denmark', flag: '🇩🇰' },
-  fi: { name: 'Finland', flag: '🇫🇮' },
-  pt: { name: 'Portugal', flag: '🇵🇹' },
-  ie: { name: 'Ireland', flag: '🇮🇪' },
-  ca: { name: 'Canada', flag: '🇨🇦' },
-  au: { name: 'Australia', flag: '🇦🇺' },
-  nz: { name: 'New Zealand', flag: '🇳🇿' },
-  jp: { name: 'Japan', flag: '🇯🇵' },
-  kr: { name: 'South Korea', flag: '🇰🇷' },
-  sg: { name: 'Singapore', flag: '🇸🇬' },
-  hk: { name: 'Hong Kong', flag: '🇭🇰' },
-  in: { name: 'India', flag: '🇮🇳' },
-  br: { name: 'Brazil', flag: '🇧🇷' },
-  mx: { name: 'Mexico', flag: '🇲🇽' },
-  ar: { name: 'Argentina', flag: '🇦🇷' },
-  za: { name: 'South Africa', flag: '🇿🇦' },
-  local: { name: 'Local', flag: '🏠' }
-}
+// Global state for region filter (persists across page navigation)
+const availableRegions = ref<RegionInfo[]>([])
+const selectedRegion = ref<string | null>(null) // null = all regions
+const loadingRegions = ref(false)
+const initialized = ref(false)
 
 export const useRegionFilter = () => {
   const supabase = useSupabaseClient()
-  const { activeProductId } = useActiveProduct()
-
-  // Available regions (loaded from scan data)
-  const availableRegions = ref<RegionInfo[]>([])
-
-  // Currently selected region (null = all regions)
-  const selectedRegion = ref<string | null>(null)
-
-  // Loading state
-  const loadingRegions = ref(false)
 
   /**
-   * Load available regions from the product's scan data
+   * Load available regions from static_proxies via RPC function
+   * Only shows countries that have proxies configured
    */
   const loadAvailableRegions = async () => {
-    const productId = activeProductId.value
-    if (!productId) {
-      availableRegions.value = []
-      return
-    }
+    if (initialized.value) return // Already loaded
 
     loadingRegions.value = true
     try {
-      // Get distinct request_country values from prompt_results for this product
-      const { data, error } = await supabase
-        .from('prompt_results')
-        .select('request_country')
-        .eq('product_id', productId)
-        .not('request_country', 'is', null)
+      // Get countries that have static proxies configured via RPC function
+      const { data: configuredCountries, error: proxyError } = await supabase
+        .rpc('get_configured_proxy_countries')
 
-      if (error) {
-        console.error('Error loading regions:', error)
+      if (proxyError) {
+        console.error('Error loading configured proxies:', proxyError)
         return
       }
 
-      // Get unique country codes
-      const uniqueCodes = [...new Set(data?.map(r => r.request_country?.toLowerCase()).filter(Boolean))]
+      // Get unique country codes that have proxies
+      const countryCodes = (configuredCountries || []).map((p: { country_code: string }) => p.country_code)
 
-      // Map to region info
-      availableRegions.value = uniqueCodes.map(code => {
-        const countryData = COUNTRY_DATA[code] || { name: code.toUpperCase(), flag: '🌍' }
-        return {
-          code,
-          name: countryData.name,
-          flag: countryData.flag
-        }
-      }).sort((a, b) => a.name.localeCompare(b.name))
+      if (countryCodes.length === 0) {
+        // Always include "local" as an option even if no proxies configured
+        availableRegions.value = [{
+          code: 'local',
+          name: 'Local',
+          flag: '🏠'
+        }]
+        initialized.value = true
+        return
+      }
 
+      // Fetch country details for those countries
+      const { data: countries, error } = await supabase
+        .from('proxy_countries')
+        .select('code, name, flag_emoji')
+        .eq('is_active', true)
+        .in('code', countryCodes)
+        .order('sort_order', { ascending: true })
+
+      if (error) {
+        console.error('Error loading countries:', error)
+        return
+      }
+
+      // Build region list with "Local" first, then configured countries
+      const regions: RegionInfo[] = [{
+        code: 'local',
+        name: 'Local',
+        flag: '🏠'
+      }]
+
+      for (const country of (countries || [])) {
+        regions.push({
+          code: country.code,
+          name: country.name,
+          flag: country.flag_emoji || '🌍'
+        })
+      }
+
+      availableRegions.value = regions
+      initialized.value = true
     } catch (error) {
       console.error('Error loading regions:', error)
     } finally {
@@ -110,39 +97,76 @@ export const useRegionFilter = () => {
   })
 
   /**
-   * Set the selected region
+   * Set the selected region filter
+   * @param code - Region code or null for "All Regions"
    */
   const setSelectedRegion = (code: string | null) => {
     selectedRegion.value = code
   }
 
   /**
+   * Get the display label for the current selection
+   */
+  const selectedRegionLabel = computed(() => {
+    if (!selectedRegion.value) return 'All Regions'
+    const region = availableRegions.value.find(r => r.code === selectedRegion.value)
+    return region ? `${region.flag} ${region.name}` : selectedRegion.value.toUpperCase()
+  })
+
+  /**
    * Get country name from code
    */
   const getCountryName = (code: string): string => {
-    return COUNTRY_DATA[code.toLowerCase()]?.name || code.toUpperCase()
+    const region = availableRegions.value.find(r => r.code === code.toLowerCase())
+    return region?.name || code.toUpperCase()
   }
 
   /**
    * Get country flag emoji from code
    */
   const getCountryFlag = (code: string): string => {
-    return COUNTRY_DATA[code.toLowerCase()]?.flag || '🌍'
+    const region = availableRegions.value.find(r => r.code === code.toLowerCase())
+    return region?.flag || '🌍'
   }
 
-  // Reload regions when product changes
-  watch(activeProductId, () => {
-    selectedRegion.value = null
-    loadAvailableRegions()
-  })
+  /**
+   * Build a Supabase query filter for the selected region
+   * Use this in queries that fetch prompt_results
+   * @param query - Supabase query builder
+   * @returns Modified query with region filter applied
+   */
+  const applyRegionFilter = <T>(query: T): T => {
+    if (selectedRegion.value) {
+      // @ts-ignore - Query builder typing
+      return query.eq('request_country', selectedRegion.value)
+    }
+    return query
+  }
+
+  /**
+   * Refresh regions (e.g., after proxy config changes)
+   */
+  const refreshRegions = async () => {
+    initialized.value = false
+    await loadAvailableRegions()
+  }
 
   return {
-    availableRegions,
-    selectedRegion,
+    // State
+    availableRegions: readonly(availableRegions),
+    selectedRegion: readonly(selectedRegion),
     selectedRegionInfo,
-    loadingRegions,
+    selectedRegionLabel,
+    loadingRegions: readonly(loadingRegions),
+    initialized: readonly(initialized),
+
+    // Actions
     loadAvailableRegions,
     setSelectedRegion,
+    refreshRegions,
+    applyRegionFilter,
+
+    // Helpers
     getCountryName,
     getCountryFlag
   }

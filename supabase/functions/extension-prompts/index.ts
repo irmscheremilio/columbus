@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     // Get prompts for this product
     const { data: prompts, error: promptsError } = await supabaseAdmin
       .from('prompts')
-      .select('id, prompt_text, category')
+      .select('id, prompt_text, category, target_regions')
       .eq('product_id', productId)
       .order('created_at', { ascending: true })
 
@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
       id: prompt.id,
       text: prompt.prompt_text,
       category: prompt.category,
+      targetRegions: prompt.target_regions || [],
       testedToday: {
         chatgpt: testedMap[prompt.id]?.has('chatgpt') || false,
         claude: testedMap[prompt.id]?.has('claude') || false,

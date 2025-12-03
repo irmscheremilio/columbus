@@ -28,6 +28,8 @@ interface ScanResult {
   creditsExhausted?: boolean
   chatUrl?: string
   chat_url?: string  // Support both camelCase and snake_case
+  requestCountry?: string  // Region code (e.g., 'us', 'uk', 'de') or 'local'
+  request_country?: string  // Support both camelCase and snake_case
   metadata?: {
     modelUsed?: string
     hadWebSearch?: boolean
@@ -133,6 +135,7 @@ Deno.serve(async (req) => {
     // Support both snake_case (from Rust) and camelCase field names
     const chatUrl = result.chat_url || result.chatUrl || null
     const creditsExhausted = result.creditsExhausted ?? false
+    const requestCountry = result.request_country || result.requestCountry || null
 
     const { data: promptResult, error: insertError } = await supabaseAdmin
       .from('prompt_results')
@@ -150,6 +153,7 @@ Deno.serve(async (req) => {
         competitor_mentions: result.competitorMentions,
         credits_exhausted: creditsExhausted,
         chat_url: chatUrl,
+        request_country: requestCountry,
         metadata: {
           ...result.metadata,
           aiEvaluated: false,  // Mark as not yet evaluated by AI

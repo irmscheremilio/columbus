@@ -8,6 +8,20 @@ const corsHeaders = {
 // Paid plans that have access to proxy/geo-targeting feature
 const PAID_PLANS = ['pro', 'agency', 'enterprise']
 
+interface StaticProxy {
+  id: string
+  countryCode: string
+  countryName: string
+  flagEmoji: string | null
+  host: string
+  port: number
+  username: string | null
+  password: string | null
+  proxyType: string
+  priority: number
+  weight: number
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -84,22 +98,31 @@ Deno.serve(async (req) => {
       )
     }
 
-    // User has paid plan - fetch proxy credentials
-    const { data: proxyConfig, error: proxyError } = await supabaseAdmin
-      .from('proxy_config')
-      .select('provider, hostname, port_http, port_socks5, username, password')
+    // Fetch all static proxies with country info (supports multiple per country)
+    const { data: staticProxies, error: staticError } = await supabaseAdmin
+      .from('static_proxies')
+      .select(`
+        id,
+        country_code,
+        host,
+        port,
+        username,
+        password,
+        proxy_type,
+        priority,
+        weight,
+        proxy_countries (
+          name,
+          flag_emoji
+        )
+      `)
       .eq('is_active', true)
-      .single()
 
-    if (proxyError || !proxyConfig) {
-      console.error('Failed to fetch proxy config:', proxyError)
-      return new Response(
-        JSON.stringify({ error: 'Proxy configuration not available' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (staticError) {
+      console.error('Failed to fetch static proxies:', staticError)
     }
 
-    // Fetch available countries
+    // Fetch all available countries (even those without proxies configured)
     const { data: countries, error: countriesError } = await supabaseAdmin
       .from('proxy_countries')
       .select('code, name, flag_emoji, region')
@@ -110,22 +133,47 @@ Deno.serve(async (req) => {
       console.error('Failed to fetch countries:', countriesError)
     }
 
-    // Return proxy config and countries
-    // The desktop app will construct the full proxy URL with country targeting
+    // Build proxies array with country info
+    // Desktop app will receive all proxies and can do local selection
+    const proxies: StaticProxy[] = (staticProxies || []).map((p: any) => ({
+      id: p.id,
+      countryCode: p.country_code,
+      countryName: p.proxy_countries?.name || p.country_code.toUpperCase(),
+      flagEmoji: p.proxy_countries?.flag_emoji || null,
+      host: p.host,
+      port: p.port,
+      username: p.username,
+      password: p.password,
+      proxyType: p.proxy_type,
+      priority: p.priority,
+      weight: p.weight,
+    }))
+
+    // Get list of countries that have proxies configured (unique)
+    const configuredCountries = [...new Set(proxies.map(p => p.countryCode))]
+
+    // Group proxies by country for the response
+    const proxiesByCountry: Record<string, StaticProxy[]> = {}
+    for (const proxy of proxies) {
+      if (!proxiesByCountry[proxy.countryCode]) {
+        proxiesByCountry[proxy.countryCode] = []
+      }
+      proxiesByCountry[proxy.countryCode].push(proxy)
+    }
+
+    // Return static proxies and all available countries
     return new Response(
       JSON.stringify({
-        proxy: {
-          provider: proxyConfig.provider,
-          hostname: proxyConfig.hostname,
-          portHttp: proxyConfig.port_http,
-          portSocks5: proxyConfig.port_socks5,
-          username: proxyConfig.username,
-          password: proxyConfig.password,
-        },
+        // All proxies (desktop app caches these)
+        proxies,
+        // Proxies grouped by country (easier for selection)
+        proxiesByCountry,
+        // All available countries (for UI selection)
         countries: countries || [],
-        // Helper: how to construct proxy URL for IPRoyal
-        // Format: http://username:password_country-{code}@hostname:port
-        urlTemplate: `http://${proxyConfig.username}:${proxyConfig.password}_country-{countryCode}@${proxyConfig.hostname}:${proxyConfig.port_http}`
+        // Countries that have proxies configured
+        configuredCountries,
+        // Type of proxy system being used
+        proxyType: 'static',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

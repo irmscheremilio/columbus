@@ -293,7 +293,6 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
-const user = useSupabaseUser()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { formatModelName } = useAIPlatforms()
 
@@ -424,20 +423,15 @@ onMounted(async () => {
 })
 
 const loadCompetitors = async () => {
+  const productId = activeProductId.value
+  if (!productId) return
+
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) return
-
     const { data } = await supabase
       .from('competitors')
       .select('id, name')
-      .eq('organization_id', userData.organization_id)
-      .eq('is_active', true)
+      .eq('product_id', productId)
+      .eq('status', 'tracking')
 
     competitors.value = data || []
   } catch (error) {
@@ -446,19 +440,14 @@ const loadCompetitors = async () => {
 }
 
 const loadGaps = async () => {
+  const productId = activeProductId.value
+  if (!productId) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   try {
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.value?.id)
-      .single()
-
-    if (!userData?.organization_id) {
-      loading.value = false
-      return
-    }
-
     const { data, error } = await supabase
       .from('visibility_gaps')
       .select(`
@@ -466,7 +455,7 @@ const loadGaps = async () => {
         prompts (prompt_text),
         competitors (name)
       `)
-      .eq('organization_id', userData.organization_id)
+      .eq('product_id', productId)
       .order('detected_at', { ascending: false })
 
     if (error) {

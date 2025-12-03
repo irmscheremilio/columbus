@@ -352,10 +352,29 @@ const handleClickOutside = (e: MouseEvent) => {
 
 const loadCountries = async () => {
   try {
+    // Get countries that have static proxies configured via RPC function
+    const { data: configuredCountries, error: proxyError } = await supabase
+      .rpc('get_configured_proxy_countries')
+
+    if (proxyError) {
+      console.error('Error loading configured proxies:', proxyError)
+      return
+    }
+
+    // Get unique country codes that have proxies
+    const countryCodes = (configuredCountries || []).map((p: { country_code: string }) => p.country_code)
+
+    if (countryCodes.length === 0) {
+      availableCountries.value = []
+      return
+    }
+
+    // Then fetch country details for only those countries
     const { data, error } = await supabase
       .from('proxy_countries')
       .select('code, name, flag_emoji, region')
       .eq('is_active', true)
+      .in('code', countryCodes)
       .order('sort_order', { ascending: true })
 
     if (error) {

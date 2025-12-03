@@ -105,10 +105,13 @@ pub struct Product {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Prompt {
     pub id: String,
     pub text: String,
     pub category: Option<String>,
+    #[serde(default)]
+    pub target_regions: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -147,6 +150,7 @@ pub struct ScanResult {
     pub citations: Vec<Citation>,
     pub credits_exhausted: bool,
     pub chat_url: Option<String>,
+    pub request_country: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -269,6 +273,7 @@ pub fn run() {
             commands::api::submit_scan_result,
             commands::api::finalize_scan,
             commands::api::get_ai_platforms,
+            commands::api::get_prompt_target_regions,
             commands::scan::start_scan,
             commands::scan::cancel_scan,
             commands::scan::get_scan_progress,
@@ -293,31 +298,21 @@ pub fn run() {
             commands::proxy::get_authenticated_countries,
             commands::proxy::set_product_scan_countries,
             commands::proxy::get_product_scan_countries,
+            commands::proxy::get_static_proxies,
+            commands::proxy::get_static_proxies_by_country,
+            commands::proxy::get_static_proxies_for_country,
+            commands::proxy::add_static_proxy,
+            commands::proxy::remove_static_proxy,
+            commands::proxy::test_static_proxy,
+            commands::proxy::has_static_proxy,
+            commands::proxy::get_configured_proxy_countries,
             commands::autologin::open_country_login,
             commands::autologin::open_local_login,
+            commands::autologin::open_magic_link,
+            commands::autologin::set_platform_auth_status,
             commands::autologin::detect_webview_login_state,
-            commands::autologin::auto_login,
-            commands::autologin::submit_2fa_code,
             commands::autologin::verify_and_save_login,
             commands::autologin::close_login_webview,
-            commands::autologin::perform_auto_login,
-            // Credentials management
-            commands::credentials::get_credentials_status,
-            commands::credentials::get_all_credentials,
-            commands::credentials::get_platform_credential_info,
-            commands::credentials::save_platform_credentials,
-            commands::credentials::save_bulk_credentials,
-            commands::credentials::delete_platform_credentials,
-            commands::credentials::complete_onboarding,
-            commands::credentials::get_authentication_status,
-            commands::credentials::compute_config_hash,
-            commands::credentials::update_authentication_tracking,
-            commands::credentials::clear_auth_tracking,
-            // Bulk authentication
-            commands::bulk_auth::start_bulk_auth,
-            commands::bulk_auth::submit_bulk_auth_2fa,
-            commands::bulk_auth::cancel_bulk_auth,
-            commands::bulk_auth::get_required_auth_tasks,
         ])
         .setup(|app| {
             println!("[Columbus] Setup starting...");

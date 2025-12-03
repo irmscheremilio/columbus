@@ -224,6 +224,94 @@
           </div>
         </div>
 
+        <!-- Region Selector -->
+        <div v-if="availableRegions.length > 1" class="px-3 py-3 border-b border-gray-200/50" data-region-switcher>
+          <div class="relative">
+            <button
+              @click.stop="showRegionSwitcher = !showRegionSwitcher"
+              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-7 h-7 rounded bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <span class="text-base">{{ selectedRegion ? (availableRegions.find(r => r.code === selectedRegion)?.flag || '🌍') : '🌐' }}</span>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                  <span class="text-xs text-gray-400 block">Region</span>
+                  <span class="text-sm font-medium text-gray-900 truncate block">
+                    {{ selectedRegion ? (availableRegions.find(r => r.code === selectedRegion)?.name || selectedRegion) : 'All Regions' }}
+                  </span>
+                </div>
+              </div>
+              <svg
+                class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform"
+                :class="showRegionSwitcher && 'rotate-180'"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Dropdown -->
+            <Transition
+              enter-active-class="transition ease-out duration-100"
+              enter-from-class="transform opacity-0 scale-95"
+              enter-to-class="transform opacity-100 scale-100"
+              leave-active-class="transition ease-in duration-75"
+              leave-from-class="transform opacity-100 scale-100"
+              leave-to-class="transform opacity-0 scale-95"
+            >
+              <div
+                v-if="showRegionSwitcher"
+                class="absolute left-0 right-0 mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200/50 shadow-lg py-1 z-10 max-h-64 overflow-y-auto"
+              >
+                <!-- All Regions option -->
+                <button
+                  @click="selectRegion(null)"
+                  class="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+                  :class="!selectedRegion && 'bg-emerald-50'"
+                >
+                  <span class="text-lg">🌐</span>
+                  <span class="flex-1 text-sm font-medium text-gray-900 text-left">All Regions</span>
+                  <svg
+                    v-if="!selectedRegion"
+                    class="w-4 h-4 text-emerald-600 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <!-- Available regions -->
+                <button
+                  v-for="region in availableRegions"
+                  :key="region.code"
+                  @click="selectRegion(region.code)"
+                  class="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+                  :class="selectedRegion === region.code && 'bg-emerald-50'"
+                >
+                  <span class="text-lg">{{ region.flag }}</span>
+                  <span class="flex-1 text-sm font-medium text-gray-900 text-left">{{ region.name }}</span>
+                  <svg
+                    v-if="selectedRegion === region.code"
+                    class="w-4 h-4 text-emerald-600 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
         <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           <NuxtLink
@@ -290,10 +378,18 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { products, activeProductId, activeProduct, setActiveProduct, loadProducts } = useActiveProduct()
 const { getFaviconUrl } = useFavicon()
+const {
+  availableRegions,
+  selectedRegion,
+  selectedRegionLabel,
+  loadAvailableRegions,
+  setSelectedRegion
+} = useRegionFilter()
 
 const mobileMenuOpen = ref(false)
 const showOrgSwitcher = ref(false)
 const showProductSwitcher = ref(false)
+const showRegionSwitcher = ref(false)
 const organizations = ref<any[]>([])
 
 // Close mobile menu and switchers on route change
@@ -301,11 +397,12 @@ watch(() => route.path, () => {
   mobileMenuOpen.value = false
   showOrgSwitcher.value = false
   showProductSwitcher.value = false
+  showRegionSwitcher.value = false
 })
 
 // Close switchers when clicking outside
 onMounted(async () => {
-  await Promise.all([loadOrganizations(), loadProducts()])
+  await Promise.all([loadOrganizations(), loadProducts(), loadAvailableRegions()])
 
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
@@ -314,6 +411,9 @@ onMounted(async () => {
     }
     if (!target.closest('[data-product-switcher]')) {
       showProductSwitcher.value = false
+    }
+    if (!target.closest('[data-region-switcher]')) {
+      showRegionSwitcher.value = false
     }
   })
 })
@@ -447,6 +547,11 @@ const isActive = (path: string) => {
     return route.path === '/dashboard'
   }
   return route.path.startsWith(path)
+}
+
+const selectRegion = (code: string | null) => {
+  setSelectedRegion(code)
+  showRegionSwitcher.value = false
 }
 
 const handleLogout = async () => {

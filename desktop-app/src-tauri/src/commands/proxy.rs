@@ -1,4 +1,4 @@
-use crate::storage::{self, CountryPlatformAuth, ProxyConfig};
+use crate::storage::{self, CountryPlatformAuth, StaticProxy};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,24 +7,47 @@ use std::sync::Arc;
 // Use the same Supabase URL as the rest of the app
 const API_BASE_URL: &str = "https://yvhzxuoqodutmllfhcsa.supabase.co/functions/v1";
 
+/// Response from the proxy-config API (new static proxy format)
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ProxyConfigResponse {
-    pub proxy: ProxyInfo,
+    /// Static proxies (flat list)
+    pub proxies: Vec<ApiStaticProxy>,
+    /// Proxies grouped by country (for easier access)
+    #[serde(default)]
+    pub proxies_by_country: HashMap<String, Vec<ApiStaticProxy>>,
+    /// All available countries
     pub countries: Vec<CountryInfo>,
-    #[serde(rename = "urlTemplate")]
-    pub url_template: String,
+    /// Countries that have proxies configured
+    pub configured_countries: Vec<String>,
+    /// Type of proxy system ('static')
+    pub proxy_type: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProxyInfo {
-    pub provider: String,
-    pub hostname: String,
-    #[serde(rename = "portHttp")]
-    pub port_http: u16,
-    #[serde(rename = "portSocks5")]
-    pub port_socks5: u16,
-    pub username: String,
-    pub password: String,
+/// Static proxy info from API
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStaticProxy {
+    /// Unique ID from database
+    pub id: String,
+    pub country_code: String,
+    pub country_name: String,
+    pub flag_emoji: Option<String>,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub proxy_type: String,
+    /// Priority for selection (higher = preferred)
+    #[serde(default)]
+    pub priority: i32,
+    /// Weight for load balancing
+    #[serde(default = "default_weight")]
+    pub weight: i32,
+}
+
+fn default_weight() -> i32 {
+    1
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -44,6 +67,7 @@ pub struct CountryAuthStatus {
 }
 
 /// Fetch proxy configuration from the API (only works for paid users)
+/// Returns list of countries that have proxies configured
 #[tauri::command]
 pub async fn fetch_proxy_config(
     state: tauri::State<'_, Arc<AppState>>,
@@ -86,23 +110,52 @@ pub async fn fetch_proxy_config(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    // Store proxy config locally
-    let proxy_config = ProxyConfig {
-        provider: config_response.proxy.provider,
-        hostname: config_response.proxy.hostname,
-        port_http: config_response.proxy.port_http,
-        port_socks5: config_response.proxy.port_socks5,
-        username: config_response.proxy.username,
-        password: config_response.proxy.password,
-        fetched_at: chrono::Utc::now().timestamp(),
-    };
+    // Group proxies by country and convert to storage format
+    let mut proxies_by_country: HashMap<String, Vec<StaticProxy>> = HashMap::new();
 
-    storage::update_proxy_config(proxy_config)
-        .map_err(|e| format!("Failed to store proxy config: {}", e))?;
+    for api_proxy in &config_response.proxies {
+        let static_proxy = StaticProxy {
+            id: Some(api_proxy.id.clone()),
+            country_code: api_proxy.country_code.to_lowercase(),
+            host: api_proxy.host.clone(),
+            port: api_proxy.port,
+            username: api_proxy.username.clone(),
+            password: api_proxy.password.clone(),
+            proxy_type: api_proxy.proxy_type.clone(),
+            country_name: Some(api_proxy.country_name.clone()),
+            added_at: chrono::Utc::now().timestamp(),
+            priority: api_proxy.priority,
+            weight: api_proxy.weight,
+            local_usage_count: 0,
+        };
 
-    println!("[Proxy] Fetched and stored proxy config, {} countries available", config_response.countries.len());
+        proxies_by_country
+            .entry(api_proxy.country_code.to_lowercase())
+            .or_insert_with(Vec::new)
+            .push(static_proxy);
+    }
 
-    Ok(config_response.countries)
+    // Replace all local proxies with the new ones from API
+    if let Err(e) = storage::replace_all_static_proxies(proxies_by_country.clone()) {
+        eprintln!("[Proxy] Failed to store proxies: {}", e);
+    }
+
+    println!(
+        "[Proxy] Fetched and stored {} static proxies across {} countries, {} total countries available",
+        config_response.proxies.len(),
+        proxies_by_country.len(),
+        config_response.countries.len()
+    );
+
+    // Return countries that have proxies configured
+    // Filter countries list to only those with configured proxies
+    let configured_set: std::collections::HashSet<_> = config_response.configured_countries.iter().collect();
+    let available_countries: Vec<CountryInfo> = config_response.countries
+        .into_iter()
+        .filter(|c| configured_set.contains(&c.code))
+        .collect();
+
+    Ok(available_countries)
 }
 
 /// Check if proxy config is available (user has paid plan and config is cached)
@@ -196,4 +249,163 @@ pub async fn set_product_scan_countries(
 pub async fn get_product_scan_countries(product_id: String) -> Result<Vec<String>, String> {
     let config = storage::get_product_config(&product_id);
     Ok(config.scan_countries)
+}
+
+// ============== Static Proxy Management ==============
+
+/// Response type for static proxy list
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StaticProxyInfo {
+    pub id: Option<String>,
+    pub country_code: String,
+    pub country_name: Option<String>,
+    pub host: String,
+    pub port: u16,
+    pub has_auth: bool,
+    pub proxy_type: String,
+    pub added_at: i64,
+    pub priority: i32,
+    pub weight: i32,
+    pub local_usage_count: u32,
+}
+
+impl From<StaticProxy> for StaticProxyInfo {
+    fn from(p: StaticProxy) -> Self {
+        StaticProxyInfo {
+            id: p.id,
+            country_code: p.country_code,
+            country_name: p.country_name,
+            host: p.host,
+            port: p.port,
+            has_auth: p.username.is_some() && p.password.is_some(),
+            proxy_type: p.proxy_type,
+            added_at: p.added_at,
+            priority: p.priority,
+            weight: p.weight,
+            local_usage_count: p.local_usage_count,
+        }
+    }
+}
+
+/// Response type for proxies grouped by country
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CountryProxiesInfo {
+    pub country_code: String,
+    pub proxy_count: usize,
+    pub proxies: Vec<StaticProxyInfo>,
+}
+
+/// Get all configured static proxies (flat list)
+#[tauri::command]
+pub fn get_static_proxies() -> Result<Vec<StaticProxyInfo>, String> {
+    let proxies_by_country = storage::get_static_proxies();
+    let mut result: Vec<StaticProxyInfo> = proxies_by_country
+        .into_values()
+        .flatten()
+        .map(|p| p.into())
+        .collect();
+    result.sort_by(|a, b| a.country_code.cmp(&b.country_code));
+    Ok(result)
+}
+
+/// Get all configured static proxies grouped by country
+#[tauri::command]
+pub fn get_static_proxies_by_country() -> Result<Vec<CountryProxiesInfo>, String> {
+    let proxies_by_country = storage::get_static_proxies();
+    let mut result: Vec<CountryProxiesInfo> = proxies_by_country
+        .into_iter()
+        .map(|(country_code, proxies)| {
+            let proxy_infos: Vec<StaticProxyInfo> = proxies.into_iter().map(|p| p.into()).collect();
+            CountryProxiesInfo {
+                country_code,
+                proxy_count: proxy_infos.len(),
+                proxies: proxy_infos,
+            }
+        })
+        .collect();
+    result.sort_by(|a, b| a.country_code.cmp(&b.country_code));
+    Ok(result)
+}
+
+/// Get static proxies for a specific country
+#[tauri::command]
+pub fn get_static_proxies_for_country(country_code: String) -> Result<Vec<StaticProxyInfo>, String> {
+    let proxies = storage::get_static_proxies_for_country(&country_code);
+    Ok(proxies.into_iter().map(|p| p.into()).collect())
+}
+
+/// Add or update a static proxy for a country
+/// proxy_string can be in formats:
+/// - host:port
+/// - host:port:username:password
+/// - username:password@host:port
+/// - http://host:port
+/// - http://username:password@host:port
+#[tauri::command]
+pub fn add_static_proxy(
+    country_code: String,
+    proxy_string: String,
+    country_name: Option<String>,
+) -> Result<StaticProxyInfo, String> {
+    let proxy = storage::parse_proxy_string(&country_code, &proxy_string, country_name)?;
+    storage::set_static_proxy(proxy.clone())?;
+    println!("[Proxy] Added static proxy for {}: {}:{}",
+             proxy.country_code, proxy.host, proxy.port);
+    Ok(proxy.into())
+}
+
+/// Remove a static proxy for a country
+#[tauri::command]
+pub fn remove_static_proxy(country_code: String) -> Result<(), String> {
+    storage::remove_static_proxy(&country_code)?;
+    println!("[Proxy] Removed static proxy for {}", country_code);
+    Ok(())
+}
+
+/// Test a static proxy connection
+#[tauri::command]
+pub async fn test_static_proxy(country_code: String) -> Result<String, String> {
+    let proxy = storage::get_static_proxy(&country_code)
+        .ok_or_else(|| format!("No proxy configured for {}", country_code))?;
+
+    // Try to connect through the proxy to a test URL
+    let proxy_url = if let (Some(user), Some(pass)) = (&proxy.username, &proxy.password) {
+        format!("http://{}:{}@{}:{}", user, pass, proxy.host, proxy.port)
+    } else {
+        format!("http://{}:{}", proxy.host, proxy.port)
+    };
+
+    let client = reqwest::Client::builder()
+        .proxy(reqwest::Proxy::all(&proxy_url).map_err(|e| format!("Invalid proxy: {}", e))?)
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create client: {}", e))?;
+
+    // Use a simple IP check service
+    let response = client
+        .get("https://api.ipify.org?format=json")
+        .send()
+        .await
+        .map_err(|e| format!("Proxy connection failed: {}", e))?;
+
+    if response.status().is_success() {
+        let text = response.text().await.unwrap_or_default();
+        Ok(format!("Proxy working! Response: {}", text))
+    } else {
+        Err(format!("Proxy returned error: {}", response.status()))
+    }
+}
+
+/// Check if a country has a static proxy configured
+#[tauri::command]
+pub fn has_static_proxy(country_code: String) -> bool {
+    storage::get_static_proxy(&country_code).is_some()
+}
+
+/// Get list of countries that have static proxies configured
+#[tauri::command]
+pub fn get_configured_proxy_countries() -> Vec<String> {
+    storage::get_static_proxies().keys().cloned().collect()
 }

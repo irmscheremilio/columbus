@@ -188,6 +188,7 @@ definePageMeta({
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms, loadPlatforms } = useAIPlatforms()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
@@ -229,6 +230,13 @@ const totalMentionRate = computed(() => {
 watch(activeProductId, async (newProductId) => {
   if (newProductId) {
     await loadDashboardData()
+  }
+})
+
+// Watch for global region filter changes
+watch(selectedRegion, () => {
+  if (activeProductId.value) {
+    loadDashboardData()
   }
 })
 
@@ -390,12 +398,18 @@ const loadGranularityStats = async (productId: string) => {
     }, {} as Record<number, number>)
 
     const promptIds = prompts.map(p => p.id)
-    // Filter by date range
-    const { data: results } = await supabase
+    // Filter by date range and region
+    let resultsQuery = supabase
       .from('prompt_results')
       .select('prompt_id, brand_mentioned')
       .in('prompt_id', promptIds)
       .gte('tested_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      resultsQuery = resultsQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: results } = await resultsQuery
 
     if (results && results.length > 0) {
       const statsByLevel: Record<number, { total: number; cited: number }> = {
@@ -451,12 +465,18 @@ const loadModelStats = async (productId: string) => {
     startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
     startDate.setHours(0, 0, 0, 0)
 
-    // Filter by date range
-    const { data: results } = await supabase
+    // Filter by date range and region
+    let query = supabase
       .from('prompt_results')
       .select('ai_model, brand_mentioned')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      query = query.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: results } = await query
 
     const stats: Record<string, { mentions: number; total: number }> = {
       chatgpt: { mentions: 0, total: 0 },

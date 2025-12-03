@@ -50,12 +50,18 @@ impl From<LoginState> for LoginStateResponse {
 
 /// Open a platform login webview for a specific country
 /// This creates an isolated session with proxy for that country
+/// For "local" region, no proxy is used
 #[tauri::command]
 pub async fn open_country_login(
     app: AppHandle,
     country_code: String,
     platform: String,
 ) -> Result<String, String> {
+    // For "local" region, use the local login (no proxy)
+    if country_code.to_lowercase() == "local" {
+        return open_local_login(app, platform).await;
+    }
+
     let platform_urls = crate::PLATFORM_URLS;
     let url = platform_urls
         .iter()
@@ -63,7 +69,35 @@ pub async fn open_country_login(
         .map(|(_, u)| *u)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
-    let label = format!("login-{}-{}", country_code, platform);
+    let base_label = format!("login-{}-{}", country_code, platform);
+
+    // Close any existing webview with the base label pattern
+    for i in 0..10 {
+        let label_to_check = if i == 0 {
+            base_label.clone()
+        } else {
+            format!("{}-{}", base_label, i)
+        };
+
+        if let Some(existing) = app.get_webview_window(&label_to_check) {
+            eprintln!("[AutoLogin] Closing existing webview: {}", label_to_check);
+            let _ = existing.close();
+        }
+    }
+
+    // Wait for windows to close
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+    // Find a unique label
+    let mut label = base_label.clone();
+    let mut counter = 1;
+    while app.get_webview_window(&label).is_some() {
+        label = format!("{}-{}", base_label, counter);
+        counter += 1;
+        if counter > 100 {
+            return Err("Too many existing webviews".to_string());
+        }
+    }
 
     // Create webview manager
     let mut manager = WebviewManager::new();
@@ -92,7 +126,36 @@ pub async fn open_local_login(app: AppHandle, platform: String) -> Result<String
         .map(|(_, u)| *u)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
-    let label = format!("login-local-{}", platform);
+    let base_label = format!("login-local-{}", platform);
+
+    // Close any existing webview with the base label pattern
+    // Try multiple times with increasing delay
+    for i in 0..10 {
+        let label_to_check = if i == 0 {
+            base_label.clone()
+        } else {
+            format!("{}-{}", base_label, i)
+        };
+
+        if let Some(existing) = app.get_webview_window(&label_to_check) {
+            eprintln!("[AutoLogin] Closing existing webview: {}", label_to_check);
+            let _ = existing.close();
+        }
+    }
+
+    // Wait for windows to close
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+    // Find a unique label
+    let mut label = base_label.clone();
+    let mut counter = 1;
+    while app.get_webview_window(&label).is_some() {
+        label = format!("{}-{}", base_label, counter);
+        counter += 1;
+        if counter > 100 {
+            return Err("Too many existing webviews".to_string());
+        }
+    }
 
     // Create webview manager
     let mut manager = WebviewManager::new();
@@ -105,6 +168,94 @@ pub async fn open_local_login(app: AppHandle, platform: String) -> Result<String
     eprintln!("[AutoLogin] Opened local login webview for platform={}", platform);
 
     Ok(label)
+}
+
+/// Open a magic link or custom URL in a webview for a specific region
+/// This is used for 2FA links, email verification links, etc.
+#[tauri::command]
+pub async fn open_magic_link(
+    app: AppHandle,
+    country_code: String,
+    url: String,
+) -> Result<String, String> {
+    // Validate URL
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Invalid URL - must start with http:// or https://".to_string());
+    }
+
+    // Determine platform from URL for cookie isolation
+    let platform = if url.contains("claude.ai") {
+        "claude"
+    } else if url.contains("gemini.google") || url.contains("google.com") {
+        "gemini"
+    } else if url.contains("perplexity") {
+        "perplexity"
+    } else if url.contains("openai") || url.contains("chatgpt") {
+        "chatgpt"
+    } else {
+        "other"
+    };
+
+    let is_local = country_code.to_lowercase() == "local";
+    let base_label = format!("magic-{}-{}", country_code, platform);
+
+    // Close any existing webview with similar label
+    for i in 0..10 {
+        let label_to_check = if i == 0 {
+            base_label.clone()
+        } else {
+            format!("{}-{}", base_label, i)
+        };
+
+        if let Some(existing) = app.get_webview_window(&label_to_check) {
+            let _ = existing.close();
+        }
+    }
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+    // Find a unique label
+    let mut label = base_label.clone();
+    let mut counter = 1;
+    while app.get_webview_window(&label).is_some() {
+        label = format!("{}-{}", base_label, counter);
+        counter += 1;
+        if counter > 100 {
+            return Err("Too many existing webviews".to_string());
+        }
+    }
+
+    let mut manager = WebviewManager::new();
+
+    if is_local {
+        manager
+            .create_webview_local(&app, &label, &url, true, platform)
+            .map_err(|e| format!("Failed to create webview: {}", e))?;
+    } else {
+        manager
+            .create_webview_for_country(&app, &label, &url, true, &country_code, platform)
+            .await
+            .map_err(|e| format!("Failed to create webview: {}", e))?;
+    }
+
+    eprintln!("[AutoLogin] Opened magic link webview for URL: {}", url);
+
+    Ok(label)
+}
+
+/// Manually set the authentication status for a platform/region combination
+#[tauri::command]
+pub fn set_platform_auth_status(
+    country_code: String,
+    platform: String,
+    authenticated: bool,
+) -> Result<(), String> {
+    storage::update_country_platform_auth(&country_code, &platform, authenticated)?;
+    eprintln!(
+        "[AutoLogin] Manually set auth status: country={}, platform={}, authenticated={}",
+        country_code, platform, authenticated
+    );
+    Ok(())
 }
 
 /// Detect the current login state for a webview

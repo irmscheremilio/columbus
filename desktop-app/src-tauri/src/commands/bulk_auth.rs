@@ -312,8 +312,10 @@ async fn authenticate_single(
     let mut manager = WebviewManager::new();
 
     // Create webview with country proxy
+    // In debug builds, make webviews visible for debugging
+    let visible = cfg!(debug_assertions);
     manager
-        .create_webview_for_country(app, &label, url, false, region, platform)
+        .create_webview_for_country(app, &label, url, visible, region, platform)
         .await
         .map_err(|e| format!("Failed to create webview: {}", e))?;
 
