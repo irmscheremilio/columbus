@@ -103,8 +103,8 @@ async function gatherReportData(organizationId: string, productId: string | unde
       prompts(prompt_text, category, granularity_level)
     `)
     .eq('organization_id', organizationId)
-    .gte('scanned_at', startDate.toISOString())
-    .lte('scanned_at', endDate.toISOString())
+    .gte('tested_at', startDate.toISOString())
+    .lte('tested_at', endDate.toISOString())
 
   if (productId) {
     promptResultsQuery = promptResultsQuery.eq('product_id', productId)

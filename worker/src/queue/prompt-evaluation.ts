@@ -181,27 +181,27 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
         }
       }
 
-      // 6. Auto-detect new competitors from response and save as 'proposed'
+      // 6. AI-powered competitor detection - detect and save new competitors as 'proposed'
       try {
         const detection = await competitorDetector.detectCompetitors(
           promptResult.response_text,
           productName,
-          competitorNames // Pass existing tracked competitors to avoid duplicates
+          competitorNames // Pass existing tracked competitors for context
         )
 
         if (detection.competitors.length > 0 && promptResult.product_id) {
-          console.log(`[Prompt Evaluation] Detected ${detection.competitors.length} potential new competitors`)
+          console.log(`[Prompt Evaluation] AI detected ${detection.competitors.length} potential competitors`)
           const { added, updated } = await competitorDetector.saveDetectedCompetitors(
             promptResult.organization_id,
             promptResult.product_id,
             detection.competitors
           )
-          if (added > 0 || updated > 0) {
-            console.log(`[Prompt Evaluation] Auto-detected competitors: ${added} new, ${updated} updated`)
+          if (added > 0) {
+            console.log(`[Prompt Evaluation] Added ${added} new proposed competitors`)
           }
         }
       } catch (detectionError) {
-        console.error(`[Prompt Evaluation] Competitor auto-detection error:`, detectionError)
+        console.error(`[Prompt Evaluation] Competitor detection error:`, detectionError)
         // Don't fail the evaluation for detection errors
       }
 

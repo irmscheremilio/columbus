@@ -40,22 +40,23 @@ export class CompetitorDetector {
   }
 
   /**
-   * Detect competitors from an AI response
+   * Detect competitors from an AI response using AI analysis
    */
   async detectCompetitors(
     responseText: string,
     brandName: string,
     existingCompetitors: string[] = []
   ): Promise<CompetitorDetectionResult> {
-    // First, do a quick regex-based detection for common patterns
-    const quickResults = this.quickDetect(responseText, brandName, existingCompetitors)
-
-    // If we found competitors with regex, return those
-    if (quickResults.competitors.length > 0 || !this.hasAI()) {
-      return quickResults
+    // Always use AI for competitor detection - more accurate than regex
+    if (!this.hasAI()) {
+      console.warn('[Competitor Detector] No AI client available, skipping detection')
+      return {
+        competitors: [],
+        brandMentioned: responseText.toLowerCase().includes(brandName.toLowerCase()),
+        brandContext: undefined
+      }
     }
 
-    // Use AI for deeper analysis
     return this.aiDetect(responseText, brandName, existingCompetitors)
   }
 
@@ -285,13 +286,17 @@ IMPORTANT RULES:
           return { competitors, brandMentioned, brandContext: undefined }
         }
 
-        // If nothing could be salvaged, fall back to quick detect
+        // If nothing could be salvaged, return empty results
         throw parseError
       }
     } catch (error) {
       console.error('[Competitor Detector] AI detection error:', error)
-      // Fall back to quick detect
-      return this.quickDetect(responseText, brandName, existingCompetitors)
+      // Return empty results on error - no regex fallback
+      return {
+        competitors: [],
+        brandMentioned: responseText.toLowerCase().includes(brandName.toLowerCase()),
+        brandContext: undefined
+      }
     }
   }
 

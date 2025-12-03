@@ -707,7 +707,7 @@ const loadPerformanceData = async (promptId: string) => {
     .select('*')
     .eq('prompt_id', promptId)
     .eq('product_id', productId)
-    .order('scanned_at', { ascending: true })
+    .order('tested_at', { ascending: true })
 
   if (error) {
     console.error('Error loading performance data:', error)
@@ -763,10 +763,26 @@ const loadPerformanceData = async (promptId: string) => {
   // Calculate competitor stats
   await loadCompetitorStats(promptId, productId, results)
 
-  // Render charts after data is loaded
-  await nextTick()
-  renderTimeChart(results)
-  renderComparisonChart()
+  // Render charts after data is loaded - use setTimeout to ensure DOM is ready
+  // Retry a few times in case the canvas isn't available immediately
+  const tryRenderCharts = (attempts = 0) => {
+    if (attempts > 5) {
+      console.log('[Chart] Failed to render charts after 5 attempts')
+      return
+    }
+
+    setTimeout(() => {
+      if (timeChartCanvas.value && comparisonChartCanvas.value) {
+        renderTimeChart(results)
+        renderComparisonChart()
+      } else {
+        console.log(`[Chart] Canvas not ready, retrying... (attempt ${attempts + 1})`)
+        tryRenderCharts(attempts + 1)
+      }
+    }, 100)
+  }
+
+  tryRenderCharts()
 }
 
 const loadCompetitorStats = async (promptId: string, productId: string, brandResults: any[]) => {
@@ -783,9 +799,18 @@ const loadCompetitorStats = async (promptId: string, productId: string, brandRes
     .select('id, name')
     .eq('product_id', productId)
 
-  if (!competitors) {
+  if (!competitors || competitors.length === 0) {
     competitorStats.value = []
     return
+  }
+
+  // Deduplicate competitors by name (case-insensitive)
+  const uniqueCompetitors = new Map<string, { id: string; name: string }>()
+  for (const comp of competitors) {
+    const key = comp.name.toLowerCase()
+    if (!uniqueCompetitors.has(key)) {
+      uniqueCompetitors.set(key, comp)
+    }
   }
 
   // Calculate brand mention rate
@@ -796,7 +821,7 @@ const loadCompetitorStats = async (promptId: string, productId: string, brandRes
   ]
 
   // Get competitor mention rates from the response texts
-  for (const comp of competitors) {
+  for (const comp of uniqueCompetitors.values()) {
     let compMentions = 0
     for (const result of brandResults) {
       const responseText = (result.response_text || '').toLowerCase()
@@ -816,11 +841,20 @@ const loadCompetitorStats = async (promptId: string, productId: string, brandRes
 }
 
 const renderTimeChart = (results: any[]) => {
-  if (!timeChartCanvas.value) return
+  if (!timeChartCanvas.value) {
+    console.log('[Chart] Time chart canvas not available')
+    return
+  }
+
+  if (!results || results.length === 0) {
+    console.log('[Chart] No results for time chart')
+    return
+  }
 
   // Destroy existing chart
   if (timeChart) {
     timeChart.destroy()
+    timeChart = null
   }
 
   // Group results by date and platform
@@ -839,7 +873,7 @@ const renderTimeChart = (results: any[]) => {
   const dateGroups = new Map<string, Map<string, { total: number; mentions: number }>>()
 
   for (const r of results) {
-    const date = new Date(r.scanned_at)
+    const date = new Date(r.tested_at)
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 
     if (!dateGroups.has(monthKey)) {
@@ -928,11 +962,20 @@ const renderTimeChart = (results: any[]) => {
 }
 
 const renderComparisonChart = () => {
-  if (!comparisonChartCanvas.value || competitorStats.value.length === 0) return
+  if (!comparisonChartCanvas.value) {
+    console.log('[Chart] Comparison chart canvas not available')
+    return
+  }
+
+  if (competitorStats.value.length === 0) {
+    console.log('[Chart] No competitor stats for comparison chart')
+    return
+  }
 
   // Destroy existing chart
   if (comparisonChart) {
     comparisonChart.destroy()
+    comparisonChart = null
   }
 
   const labels = competitorStats.value.map(c => c.name)
