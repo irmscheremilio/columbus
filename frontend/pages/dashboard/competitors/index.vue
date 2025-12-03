@@ -42,47 +42,86 @@
         </div>
       </div>
 
-      <!-- Comparison Chart -->
-      <div v-if="trackingCompetitors.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-900">Performance Comparison</h2>
-          <div class="flex items-center gap-2">
-            <select
-              v-model="chartMetric"
-              class="text-xs bg-gray-100 border-0 rounded-lg pl-2 pr-6 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
-            >
-              <option value="mention_rate">Mention Rate</option>
-              <option value="position">Avg Position</option>
-              <option value="citation_rate">Brand Cited Rate</option>
-            </select>
-            <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-              <button
-                v-for="period in periods"
-                :key="period.value"
-                @click="chartPeriod = period.value"
-                class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
-                :class="chartPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-              >
-                {{ period.label }}
-              </button>
+      <!-- Visibility Bar Chart - Brand vs Competitors -->
+      <div v-if="trackingCompetitors.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 bg-brand rounded-full"></div>
+              <h2 class="text-sm font-semibold text-gray-900">Visibility Comparison</h2>
+            </div>
+            <div class="flex items-center gap-3 text-[10px]">
+              <div class="flex items-center gap-1.5">
+                <div class="w-2 h-2 rounded-sm bg-brand"></div>
+                <span class="text-gray-500 font-medium">Your Brand</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-2 h-2 rounded-sm bg-gray-300"></div>
+                <span class="text-gray-500 font-medium">Competitors</span>
+              </div>
             </div>
           </div>
+          <p class="text-[11px] text-gray-400 mt-1 ml-3">AI mention rate comparison · Last 30 days</p>
         </div>
-        <div class="relative h-64">
-          <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
-            <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+        <div class="p-4">
+          <div class="h-72">
+            <canvas ref="visibilityBarChartCanvas"></canvas>
           </div>
-          <canvas ref="comparisonChartCanvas"></canvas>
         </div>
-        <!-- Legend -->
-        <div class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100">
-          <div class="flex items-center gap-1.5">
-            <div class="w-2.5 h-2.5 rounded-full bg-brand"></div>
-            <span class="text-xs text-gray-700 font-medium">Your Brand</span>
+      </div>
+
+      <!-- Trend Chart -->
+      <div v-if="trackingCompetitors.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 bg-emerald-500 rounded-full"></div>
+              <h2 class="text-sm font-semibold text-gray-900">Performance Over Time</h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <select
+                v-model="chartMetric"
+                class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2.5 pr-6 py-1.5 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:14px_14px] bg-[right_6px_center] bg-no-repeat"
+              >
+                <option value="mention_rate">Mention Rate</option>
+                <option value="position">Avg Position</option>
+                <option value="citation_rate">Citation Rate</option>
+              </select>
+              <div class="flex items-center bg-gray-100/80 rounded-md p-0.5">
+                <button
+                  v-for="period in periods"
+                  :key="period.value"
+                  @click="chartPeriod = period.value"
+                  class="px-2 py-1 text-[11px] font-medium rounded transition-all duration-200"
+                  :class="chartPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                >
+                  {{ period.label }}
+                </button>
+              </div>
+            </div>
           </div>
-          <div v-for="(competitor, idx) in chartCompetitors" :key="competitor.id" class="flex items-center gap-1.5">
-            <div class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: competitorColors[idx % competitorColors.length] }"></div>
-            <span class="text-xs text-gray-500">{{ competitor.name }}</span>
+          <p class="text-[11px] text-gray-400 mt-1 ml-3">Track visibility trends · {{ chartMetricLabel }}</p>
+        </div>
+        <div class="p-4">
+          <div class="relative h-72">
+            <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-lg">
+              <div class="flex flex-col items-center gap-2">
+                <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+                <span class="text-[11px] text-gray-400">Loading data...</span>
+              </div>
+            </div>
+            <canvas ref="comparisonChartCanvas"></canvas>
+          </div>
+          <!-- Legend -->
+          <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100/80">
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-[3px] rounded-full bg-brand"></div>
+              <span class="text-[11px] text-gray-700 font-medium">Your Brand</span>
+            </div>
+            <div v-for="(competitor, idx) in chartCompetitors" :key="competitor.id" class="flex items-center gap-1.5">
+              <div class="w-3 h-[2px] rounded-full opacity-70" :style="{ backgroundColor: competitorColors[idx % competitorColors.length] }"></div>
+              <span class="text-[11px] text-gray-500">{{ competitor.name }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -444,9 +483,11 @@ const sortDirection = ref<'asc' | 'desc'>('desc')
 
 // Chart state
 const comparisonChartCanvas = ref<HTMLCanvasElement | null>(null)
+const visibilityBarChartCanvas = ref<HTMLCanvasElement | null>(null)
 const chartMetric = ref<'mention_rate' | 'position' | 'citation_rate'>('mention_rate')
 const chartPeriod = ref('30')
 let comparisonChart: Chart | null = null
+let visibilityBarChart: Chart | null = null
 
 const periods = [
   { value: '7', label: '7D' },
@@ -555,6 +596,15 @@ const trackingCompetitors = computed(() => {
 
 const chartCompetitors = computed(() => trackingCompetitorsRaw.value.slice(0, 8))
 
+const chartMetricLabel = computed(() => {
+  switch (chartMetric.value) {
+    case 'mention_rate': return 'Mention Rate %'
+    case 'position': return 'Average Position'
+    case 'citation_rate': return 'Citation Rate %'
+    default: return ''
+  }
+})
+
 const proposedCompetitors = computed(() =>
   allCompetitors.value
     .filter(c => c.status === 'proposed')
@@ -611,6 +661,9 @@ onUnmounted(() => {
   if (comparisonChart) {
     comparisonChart.destroy()
   }
+  if (visibilityBarChart) {
+    visibilityBarChart.destroy()
+  }
 })
 
 const loadCompetitors = async () => {
@@ -647,7 +700,13 @@ const loadCompetitors = async () => {
     // Load competitor metrics
     await loadCompetitorMetrics(productId)
 
-    // Load chart data
+    // Render visibility bar chart
+    await nextTick()
+    setTimeout(() => {
+      renderVisibilityBarChart()
+    }, 100)
+
+    // Load trend chart data
     await loadChartData()
   } catch (error) {
     console.error('Error loading competitors:', error)
@@ -911,33 +970,43 @@ const renderComparisonChart = (
 
   const isPositionMetric = chartMetric.value === 'position'
 
+  // Create gradient for brand line fill
+  const brandGradient = ctx.createLinearGradient(0, 0, 0, 300)
+  brandGradient.addColorStop(0, 'rgba(242, 153, 1, 0.15)')
+  brandGradient.addColorStop(1, 'rgba(242, 153, 1, 0)')
+
   const datasets = [
     {
       label: 'Your Brand',
       data: brandData,
       borderColor: '#F29901',
-      backgroundColor: '#F2990120',
+      backgroundColor: brandGradient,
       borderWidth: 2.5,
-      fill: false,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      fill: true,
+      tension: 0.4,
+      pointRadius: 0,
+      pointHoverRadius: 6,
       pointBackgroundColor: '#F29901',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      pointHoverBorderWidth: 2,
       spanGaps: true
     },
     ...chartCompetitors.value.map((competitor, idx) => ({
       label: competitor.name,
       data: competitorData.get(competitor.id) || [],
-      borderColor: competitorColors[idx % competitorColors.length],
-      backgroundColor: competitorColors[idx % competitorColors.length] + '20',
-      borderWidth: 2,
+      borderColor: competitorColors[idx % competitorColors.length] + 'AA',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
       fill: false,
-      tension: 0.3,
-      pointRadius: 2,
+      tension: 0.4,
+      pointRadius: 0,
       pointHoverRadius: 4,
       pointBackgroundColor: competitorColors[idx % competitorColors.length],
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
       spanGaps: true,
-      borderDash: [5, 5]
+      borderDash: [4, 4]
     }))
   ]
 
@@ -965,34 +1034,220 @@ const renderComparisonChart = (
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 11, weight: '600', family: 'system-ui' },
+          bodyFont: { size: 11, family: 'system-ui' },
+          padding: { x: 12, y: 10 },
+          cornerRadius: 8,
+          boxPadding: 4,
+          usePointStyle: true,
           callbacks: {
+            title: (items) => items[0].label,
             label: (context) => {
               const value = context.parsed.y
-              if (value === null) return `${context.dataset.label}: No data`
-              if (isPositionMetric) return `${context.dataset.label}: #${value}`
-              return `${context.dataset.label}: ${value}%`
+              if (value === null) return ` ${context.dataset.label}: No data`
+              if (isPositionMetric) return ` ${context.dataset.label}: #${value}`
+              return ` ${context.dataset.label}: ${value}%`
             }
           }
         }
       },
       scales: {
         x: {
-          grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#9ca3af', maxRotation: 0 }
+          grid: {
+            display: false
+          },
+          border: { display: false },
+          ticks: {
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            maxRotation: 0,
+            padding: 8
+          }
         },
         y: {
           min: isPositionMetric ? 1 : 0,
           max: maxValue,
           reverse: isPositionMetric,
-          grid: { color: '#f3f4f6' },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
-            font: { size: 10 },
-            color: '#9ca3af',
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            padding: 8,
             callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
           }
         }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
       }
     }
+  })
+}
+
+const renderVisibilityBarChart = () => {
+  if (!visibilityBarChartCanvas.value) return
+
+  if (visibilityBarChart) {
+    visibilityBarChart.destroy()
+    visibilityBarChart = null
+  }
+
+  // Build data for the chart - brand + competitors sorted by mention rate
+  const chartData: Array<{ name: string; mentionRate: number; isYou: boolean; rank: number }> = []
+
+  // Add brand
+  if (brandMentionRate.value !== null) {
+    chartData.push({
+      name: product.value?.name || 'Your Brand',
+      mentionRate: brandMentionRate.value,
+      isYou: true,
+      rank: 0
+    })
+  }
+
+  // Add competitors with metrics
+  for (const competitor of trackingCompetitorsRaw.value) {
+    if (competitor.mention_rate !== null) {
+      chartData.push({
+        name: competitor.name,
+        mentionRate: competitor.mention_rate,
+        isYou: false,
+        rank: 0
+      })
+    }
+  }
+
+  if (chartData.length === 0) return
+
+  // Sort by mention rate descending and assign ranks
+  chartData.sort((a, b) => b.mentionRate - a.mentionRate)
+  chartData.forEach((d, i) => d.rank = i + 1)
+
+  // Limit to top 10 for cleaner display
+  const displayData = chartData.slice(0, 10)
+
+  const labels = displayData.map(d => d.name)
+  const data = displayData.map(d => d.mentionRate)
+
+  // Create gradient colors for brand bar
+  const ctx = visibilityBarChartCanvas.value.getContext('2d')
+  if (!ctx) return
+
+  const brandGradient = ctx.createLinearGradient(0, 0, 400, 0)
+  brandGradient.addColorStop(0, '#F29901')
+  brandGradient.addColorStop(1, '#FBBF24')
+
+  const competitorGradient = ctx.createLinearGradient(0, 0, 400, 0)
+  competitorGradient.addColorStop(0, '#E5E7EB')
+  competitorGradient.addColorStop(1, '#F3F4F6')
+
+  const colors = displayData.map(d => d.isYou ? brandGradient : competitorGradient)
+  const borderColors = displayData.map(d => d.isYou ? '#F29901' : '#D1D5DB')
+
+  visibilityBarChart = new Chart(visibilityBarChartCanvas.value, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+        barThickness: 24,
+        maxBarThickness: 28
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      layout: {
+        padding: { right: 50 }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 12, weight: '600' },
+          bodyFont: { size: 11 },
+          padding: 10,
+          cornerRadius: 6,
+          displayColors: false,
+          callbacks: {
+            title: (items) => {
+              const idx = items[0].dataIndex
+              const item = displayData[idx]
+              return `#${item.rank} ${item.name}`
+            },
+            label: (ctx) => `Mention Rate: ${ctx.parsed.x}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: (value) => `${value}%`,
+            font: { size: 9, family: 'system-ui' },
+            color: '#9CA3AF',
+            stepSize: 25
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false }
+        },
+        y: {
+          ticks: {
+            font: { size: 11, family: 'system-ui', weight: '500' },
+            color: '#4B5563',
+            padding: 8,
+            callback: function(value, index) {
+              const item = displayData[index]
+              return item.isYou ? `● ${item.name}` : item.name
+            }
+          },
+          grid: { display: false },
+          border: { display: false }
+        }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
+      }
+    },
+    plugins: [{
+      id: 'valueLabels',
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i)
+          meta.data.forEach((bar, index) => {
+            const value = dataset.data[index] as number
+            const item = displayData[index]
+            ctx.save()
+            ctx.fillStyle = item.isYou ? '#B45309' : '#6B7280'
+            ctx.font = '600 10px system-ui'
+            ctx.textAlign = 'left'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(`${value}%`, bar.x + 8, bar.y)
+            ctx.restore()
+          })
+        })
+      }
+    }]
   })
 }
 

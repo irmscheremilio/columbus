@@ -1,99 +1,114 @@
 <template>
-  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
-      <div class="flex items-center gap-2">
-        <!-- Fullscreen Button -->
-        <button
-          @click="openFullscreen"
-          class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          title="View fullscreen"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        </button>
-        <!-- View Mode Toggle -->
-        <select
-          v-model="viewMode"
-          @change="loadData"
-          class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
-        >
-          <option value="platforms">By Platform</option>
-          <option value="competitors">vs Competitors</option>
-        </select>
-        <!-- Metric Toggle -->
-        <select
-          v-model="selectedMetric"
-          @change="loadData"
-          class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
-        >
-          <option value="mention_rate">Mention Rate</option>
-          <option value="position">Avg Position</option>
-        </select>
-        <!-- Model Filter (for competitors view) -->
-        <select
-          v-if="viewMode === 'competitors'"
-          v-model="competitorModel"
-          @change="loadData"
-          class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
-        >
-          <option value="overall">All Models</option>
-          <option v-for="p in platforms" :key="p.name" :value="p.name">{{ p.label }}</option>
-        </select>
-        <!-- Grouping Toggle -->
-        <select
-          v-model="groupingMode"
-          @change="loadData"
-          class="text-xs bg-gray-100/80 border-0 rounded-lg pl-2 pr-6 py-1 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.25rem_center] bg-no-repeat"
-        >
-          <option value="session">By Scan</option>
-          <option value="day">By Day</option>
-        </select>
-        <!-- Period Toggle -->
-        <div class="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
+  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-4 rounded-full" :class="viewMode === 'platforms' ? 'bg-blue-500' : 'bg-brand'"></div>
+          <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <!-- Fullscreen Button -->
           <button
-            v-for="period in periods"
-            :key="period.value"
-            @click="selectPeriod(period.value)"
-            class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
-            :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            @click="openFullscreen"
+            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-md transition-colors"
+            title="View fullscreen"
           >
-            {{ period.label }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
           </button>
+          <!-- View Mode Toggle -->
+          <select
+            v-model="viewMode"
+            @change="loadData"
+            class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2 pr-5 py-1 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:12px_12px] bg-[right_4px_center] bg-no-repeat"
+          >
+            <option value="platforms">By Platform</option>
+            <option value="competitors">vs Competitors</option>
+          </select>
+          <!-- Metric Toggle -->
+          <select
+            v-model="selectedMetric"
+            @change="loadData"
+            class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2 pr-5 py-1 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:12px_12px] bg-[right_4px_center] bg-no-repeat"
+          >
+            <option value="mention_rate">Mention Rate</option>
+            <option value="position">Avg Position</option>
+          </select>
+          <!-- Model Filter (for competitors view) -->
+          <select
+            v-if="viewMode === 'competitors'"
+            v-model="competitorModel"
+            @change="loadData"
+            class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2 pr-5 py-1 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:12px_12px] bg-[right_4px_center] bg-no-repeat"
+          >
+            <option value="overall">All Models</option>
+            <option v-for="p in platforms" :key="p.name" :value="p.name">{{ p.label }}</option>
+          </select>
+          <!-- Grouping Toggle -->
+          <select
+            v-model="groupingMode"
+            @change="loadData"
+            class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2 pr-5 py-1 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:12px_12px] bg-[right_4px_center] bg-no-repeat"
+          >
+            <option value="session">By Scan</option>
+            <option value="day">By Day</option>
+          </select>
+          <!-- Period Toggle -->
+          <div class="flex items-center bg-gray-100/80 rounded-md p-0.5">
+            <button
+              v-for="period in periods"
+              :key="period.value"
+              @click="selectPeriod(period.value)"
+              class="px-2 py-0.5 text-[11px] font-medium rounded transition-all duration-200"
+              :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            >
+              {{ period.label }}
+            </button>
+          </div>
         </div>
       </div>
+      <p class="text-[11px] text-gray-400 mt-1 ml-3">{{ metricLabel }} · {{ groupingMode === 'day' ? 'Daily average' : 'Per scan' }}</p>
     </div>
-    <div class="relative" :style="{ height: chartHeight }">
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10 rounded-lg">
-        <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
+    <!-- Chart Area -->
+    <div class="p-4">
+      <div class="relative" :style="{ height: chartHeight }">
+        <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-lg">
+          <div class="flex flex-col items-center gap-2">
+            <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
+            <span class="text-[10px] text-gray-400">Loading data...</span>
+          </div>
+        </div>
+        <!-- No data placeholder -->
+        <div v-else-if="!hasData" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+          <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-500">No visibility data yet</p>
+          <p class="text-xs text-gray-400 mt-1">Run a scan to start tracking</p>
+        </div>
+        <canvas ref="chartCanvas" :class="{ 'invisible': !hasData }"></canvas>
       </div>
-      <!-- No data placeholder -->
-      <div v-else-if="!hasData" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-        </svg>
-        <p class="text-sm font-medium">No visibility data yet</p>
-        <p class="text-xs mt-1">Run a scan to start tracking</p>
+      <!-- Platform Legend (for platforms view) -->
+      <div v-if="viewMode === 'platforms' && hasData" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100/80">
+        <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-1.5">
+          <div class="w-3 h-[2px] rounded-full" :style="{ backgroundColor: platform.color }"></div>
+          <span class="text-[11px] text-gray-500">{{ platform.label }}</span>
+        </div>
       </div>
-      <canvas ref="chartCanvas" :class="{ 'invisible': !hasData }"></canvas>
-    </div>
-    <!-- Platform Legend (for platforms view) -->
-    <div v-if="viewMode === 'platforms' && hasData" class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
-      <div v-for="platform in platforms" :key="platform.name" class="flex items-center gap-1.5 group cursor-default">
-        <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125" :style="{ backgroundColor: platform.color }"></div>
-        <span class="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{{ platform.label }}</span>
-      </div>
-    </div>
-    <!-- Competitor Legend (for competitors view) -->
-    <div v-else-if="viewMode === 'competitors' && hasData" class="flex flex-wrap justify-center gap-4 mt-3 pt-3 border-t border-gray-100/80">
-      <div class="flex items-center gap-1.5 group cursor-default">
-        <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125 bg-brand"></div>
-        <span class="text-xs text-gray-700 font-medium group-hover:text-gray-900 transition-colors">Your Brand</span>
-      </div>
-      <div v-for="competitor in competitorLegend" :key="competitor.name" class="flex items-center gap-1.5 group cursor-default">
-        <div class="w-2 h-2 rounded-full transition-transform group-hover:scale-125" :style="{ backgroundColor: competitor.color }"></div>
-        <span class="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{{ competitor.name }}</span>
+      <!-- Competitor Legend (for competitors view) -->
+      <div v-else-if="viewMode === 'competitors' && hasData" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100/80">
+        <div class="flex items-center gap-1.5">
+          <div class="w-3 h-[3px] rounded-full bg-brand"></div>
+          <span class="text-[11px] text-gray-700 font-medium">Your Brand</span>
+        </div>
+        <div v-for="competitor in competitorLegend" :key="competitor.name" class="flex items-center gap-1.5">
+          <div class="w-3 h-[2px] rounded-full opacity-70" :style="{ backgroundColor: competitor.color }"></div>
+          <span class="text-[11px] text-gray-500">{{ competitor.name }}</span>
+        </div>
       </div>
     </div>
 
@@ -265,6 +280,10 @@ const competitorColors = [
   '#f59e0b', // amber
   '#6366f1', // indigo
 ]
+
+const metricLabel = computed(() => {
+  return selectedMetric.value === 'mention_rate' ? 'Mention Rate %' : 'Average Position'
+})
 
 const loadData = async () => {
   if (!props.productId) return
@@ -864,33 +883,42 @@ const renderCompetitorChart = (
 
   const isPositionMetric = metric === 'position'
 
+  // Create gradient for brand line fill
+  const brandGradient = ctx.createLinearGradient(0, 0, 0, 200)
+  brandGradient.addColorStop(0, 'rgba(242, 153, 1, 0.15)')
+  brandGradient.addColorStop(1, 'rgba(242, 153, 1, 0)')
+
   const datasets = [
     {
       label: 'Your Brand',
       data: chartData.brandData,
-      borderColor: '#6366f1', // brand color
-      backgroundColor: '#6366f120',
-      borderWidth: 3,
-      fill: false,
-      tension: 0.3,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      pointBackgroundColor: '#6366f1',
+      borderColor: '#F29901',
+      backgroundColor: brandGradient,
+      borderWidth: 2.5,
+      fill: true,
+      tension: 0.4,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#F29901',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
       spanGaps: true
     },
     ...competitors.map((c, i) => ({
       label: c.name,
       data: chartData.competitorData.get(c.id) || [],
-      borderColor: competitorColors[i % competitorColors.length],
-      backgroundColor: competitorColors[i % competitorColors.length] + '20',
-      borderWidth: 2,
+      borderColor: competitorColors[i % competitorColors.length] + 'AA',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
       fill: false,
-      tension: 0.3,
-      pointRadius: 1,
-      pointHoverRadius: 3,
+      tension: 0.4,
+      pointRadius: 0,
+      pointHoverRadius: 4,
       pointBackgroundColor: competitorColors[i % competitorColors.length],
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
       spanGaps: true,
-      borderDash: [5, 5]
+      borderDash: [4, 4]
     }))
   ]
 
@@ -922,14 +950,21 @@ const renderCompetitorChart = (
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 11, weight: '600', family: 'system-ui' },
+          bodyFont: { size: 11, family: 'system-ui' },
+          padding: { x: 12, y: 10 },
+          cornerRadius: 8,
+          boxPadding: 4,
+          usePointStyle: true,
           callbacks: {
+            title: (items) => items[0].label,
             label: (context) => {
               const value = context.parsed.y
-              if (value === null) return `${context.dataset.label}: No data`
-              if (isPositionMetric) {
-                return `${context.dataset.label}: #${value}`
-              }
-              return `${context.dataset.label}: ${value}%`
+              if (value === null) return ` ${context.dataset.label}: No data`
+              if (isPositionMetric) return ` ${context.dataset.label}: #${value}`
+              return ` ${context.dataset.label}: ${value}%`
             }
           }
         }
@@ -937,19 +972,34 @@ const renderCompetitorChart = (
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#9ca3af', maxTicksLimit: 6 }
+          border: { display: false },
+          ticks: {
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            maxTicksLimit: 6,
+            padding: 8
+          }
         },
         y: {
           min: isPositionMetric ? 1 : 0,
           max: isPositionMetric ? maxPosition : 100,
-          reverse: isPositionMetric, // Lower position = better, so reverse for position metric
-          grid: { color: '#f3f4f6' },
+          reverse: isPositionMetric,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
-            font: { size: 10 },
-            color: '#9ca3af',
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            padding: 8,
             callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
           }
         }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
       }
     }
   })
@@ -1212,13 +1262,15 @@ const renderChart = (
     label: platform.label,
     data: chartData.platformData[platform.name] || [],
     borderColor: platform.color,
-    backgroundColor: platform.color + '20',
+    backgroundColor: 'transparent',
     borderWidth: 2,
     fill: false,
-    tension: 0.3,
-    pointRadius: 1,
-    pointHoverRadius: 3,
+    tension: 0.4,
+    pointRadius: 0,
+    pointHoverRadius: 5,
     pointBackgroundColor: platform.color,
+    pointBorderColor: '#fff',
+    pointBorderWidth: 2,
     spanGaps: true
   }))
 
@@ -1248,14 +1300,21 @@ const renderChart = (
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 11, weight: '600', family: 'system-ui' },
+          bodyFont: { size: 11, family: 'system-ui' },
+          padding: { x: 12, y: 10 },
+          cornerRadius: 8,
+          boxPadding: 4,
+          usePointStyle: true,
           callbacks: {
+            title: (items) => items[0].label,
             label: (context) => {
               const value = context.parsed.y
-              if (value === null) return `${context.dataset.label}: No data`
-              if (isPositionMetric) {
-                return `${context.dataset.label}: #${value}`
-              }
-              return `${context.dataset.label}: ${value}%`
+              if (value === null) return ` ${context.dataset.label}: No data`
+              if (isPositionMetric) return ` ${context.dataset.label}: #${value}`
+              return ` ${context.dataset.label}: ${value}%`
             }
           }
         }
@@ -1263,19 +1322,34 @@ const renderChart = (
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#9ca3af', maxTicksLimit: 6 }
+          border: { display: false },
+          ticks: {
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            maxTicksLimit: 6,
+            padding: 8
+          }
         },
         y: {
           min: isPositionMetric ? 1 : 0,
           max: isPositionMetric ? maxPosition : 100,
-          reverse: isPositionMetric, // Lower position = better, so reverse for position metric
-          grid: { color: '#f3f4f6' },
+          reverse: isPositionMetric,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
-            font: { size: 10 },
-            color: '#9ca3af',
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            padding: 8,
             callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
           }
         }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
       }
     }
   })

@@ -20,79 +20,102 @@
         </div>
       </div>
 
-      <!-- Stats Row -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Score</div>
-          <div class="text-2xl font-bold text-gray-900">{{ overallScore }}<span class="text-sm font-medium text-gray-300 ml-0.5">/100</span></div>
-        </div>
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Tests Run</div>
-          <div class="text-xl font-bold text-gray-900">{{ totalTests }}</div>
-        </div>
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Mention Rate</div>
-          <div class="text-xl font-bold text-brand">{{ mentionRate }}%</div>
-        </div>
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50" title="Rate at which brand website was cited">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Brand Cited</div>
-          <div class="text-xl font-bold text-gray-900">{{ citationRate }}%</div>
-        </div>
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Avg Position</div>
-          <div class="text-xl font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
-        </div>
-        <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/50 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-emerald-100/50">
-          <div class="text-[11px] font-semibold text-emerald-600/70 uppercase tracking-wider mb-1">Positive</div>
-          <div class="text-xl font-bold text-emerald-600">{{ positiveSentiment }}%</div>
+      <!-- Average Mention Rate Hero Card -->
+      <div class="bg-gradient-to-br from-brand/5 via-brand/10 to-amber-50/50 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-brand/10 overflow-hidden">
+        <div class="px-6 py-5 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand to-amber-500 flex items-center justify-center shadow-lg shadow-brand/20">
+              <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-[11px] font-semibold text-brand/60 uppercase tracking-wider mb-0.5">Mention Rate</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-4xl font-bold text-gray-900">{{ mentionRate }}</span>
+                <span class="text-xl font-medium text-gray-400">%</span>
+              </div>
+            </div>
+          </div>
+          <div class="hidden sm:flex items-center gap-6">
+            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
+              <div class="text-lg font-bold text-gray-900">{{ totalTests }}</div>
+              <div class="text-[10px] text-gray-500">Tests Run</div>
+            </div>
+            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
+              <div class="text-lg font-bold text-gray-900">{{ citationRate }}%</div>
+              <div class="text-[10px] text-gray-500">Brand Cited</div>
+            </div>
+            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
+              <div class="text-lg font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
+              <div class="text-[10px] text-gray-500">Avg Position</div>
+            </div>
+            <div class="text-center px-4 py-2 bg-emerald-50/80 rounded-xl">
+              <div class="text-lg font-bold text-emerald-600">{{ positiveSentiment }}%</div>
+              <div class="text-[10px] text-emerald-600/70">Positive</div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Main Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Platform Comparison Table -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-brand"></div>
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">Platform Comparison</h2>
+              <p class="text-[10px] text-gray-500 mt-0.5">Visibility by AI platform</p>
+            </div>
+          </div>
+          <div class="divide-y divide-gray-100/80">
+            <a
+              v-for="platform in platformsWithStats"
+              :key="platform.id"
+              :href="platform.website_url"
+              target="_blank"
+              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors group"
+            >
+              <div class="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-100 transition-colors">
+                <img
+                  v-if="platform.logo_url"
+                  :src="platform.logo_url"
+                  :alt="platform.name"
+                  class="w-5 h-5 object-contain"
+                  @error="($event.target as HTMLImageElement).style.display = 'none'"
+                />
+                <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium text-gray-900">{{ platform.name }}</div>
+                <div class="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-brand to-amber-400 transition-all duration-500"
+                    :style="{ width: `${platform.score}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-sm font-bold text-gray-900">{{ platform.score }}%</div>
+                <div class="text-[10px] text-gray-400">{{ platform.mentions }}/{{ platform.tests }}</div>
+              </div>
+            </a>
+          </div>
+          <div v-if="!platformsWithStats.length" class="px-4 py-8 text-center text-sm text-gray-500">
+            No platforms configured
+          </div>
+          <div v-else class="px-4 py-3 bg-gray-50/50 border-t border-gray-100/80">
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">Best performer</span>
+              <span class="font-semibold text-gray-900">{{ bestPlatform }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Chart Section -->
         <div class="lg:col-span-2">
           <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" />
-        </div>
-
-        <!-- Platform Stats -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-          <h2 class="text-sm font-semibold text-gray-900 mb-4">By Platform</h2>
-          <div class="space-y-4">
-            <div v-for="platform in platformsWithStats" :key="platform.id" class="group">
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-lg bg-gray-100/80 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200/80 transition-colors overflow-hidden">
-                  <img
-                    v-if="platform.logo_url"
-                    :src="platform.logo_url"
-                    :alt="platform.name"
-                    class="w-4 h-4 object-contain"
-                    @error="($event.target as HTMLImageElement).style.display = 'none'"
-                  />
-                  <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <span class="text-xs font-medium text-gray-700">{{ platform.name }}</span>
-                    <span class="text-xs font-semibold text-gray-900">{{ platform.score }}%</span>
-                  </div>
-                  <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full transition-all duration-500" :style="{ width: `${platform.score}%`, backgroundColor: platform.color }"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="mt-4 pt-3 border-t border-gray-100/80 text-xs text-gray-500">
-            <div class="flex justify-between mb-1">
-              <span>Best performer:</span>
-              <span class="font-semibold text-gray-900">{{ bestPlatform }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Total mentions:</span>
-              <span class="font-semibold text-gray-900">{{ totalMentions }}</span>
-            </div>
-          </div>
         </div>
       </div>
 

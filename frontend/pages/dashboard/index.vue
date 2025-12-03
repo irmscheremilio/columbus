@@ -18,138 +18,218 @@
         </NuxtLink>
       </div>
 
-      <!-- Stats Row - Modern Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <!-- Overall Score - Featured -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Overall</span>
-            <span
-              v-if="visibilityScore?.trend && visibilityScore?.trend !== 'stable'"
-              class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-              :class="visibilityScore?.trend === 'up' ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'"
-            >
-              {{ visibilityScore?.trend === 'up' ? '+' : '' }}{{ visibilityScore?.percentChange || 0 }}%
-            </span>
-          </div>
-          <div class="text-2xl font-bold text-gray-900">{{ visibilityScore?.overall || 0 }}<span class="text-sm font-medium text-gray-300 ml-0.5">/100</span></div>
-        </div>
-
-        <!-- Platform Cards -->
-        <a
-          v-for="platform in platforms"
-          :key="platform.id"
-          :href="platform.website_url"
-          target="_blank"
-          class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-200 px-4 py-3 border border-white/50 group hover:border-gray-200"
-        >
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-gray-100 transition-colors">
-              <img
-                :src="platform.logo_url"
-                :alt="platform.name"
-                class="w-6 h-6 object-contain"
-                @error="($event.target as HTMLImageElement).style.display = 'none'"
-              />
+      <!-- Average Mention Rate Hero Card -->
+      <div class="bg-gradient-to-br from-brand/5 via-brand/10 to-amber-50/50 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-brand/10 overflow-hidden">
+        <div class="px-6 py-5 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand to-amber-500 flex items-center justify-center shadow-lg shadow-brand/20">
+              <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
             </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-baseline gap-1.5">
-                <span class="text-xl font-bold text-gray-900">{{ visibilityScore?.byModel?.[platform.id] || 0 }}%</span>
+            <div>
+              <div class="text-[11px] font-semibold text-brand/60 uppercase tracking-wider mb-0.5">Average Mention Rate</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-4xl font-bold text-gray-900">{{ totalMentionRate }}</span>
+                <span class="text-xl font-medium text-gray-400">%</span>
               </div>
-              <div class="text-[10px] text-gray-500 truncate">Visibility on {{ platform.name }}</div>
             </div>
           </div>
-        </a>
-
-        <!-- Mention Rate -->
-        <div class="bg-gradient-to-br from-brand/5 to-brand/10 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-brand/10">
-          <div class="text-[11px] font-semibold text-brand/70 uppercase tracking-wider mb-1">Mention Rate</div>
-          <div class="text-2xl font-bold text-brand">{{ totalMentionRate }}%</div>
+          <div class="text-right hidden sm:block">
+            <div class="text-[10px] text-gray-500 mb-1">Across all platforms</div>
+            <div class="text-xs text-gray-400">Last {{ selectedPeriodDays }} days</div>
+          </div>
         </div>
       </div>
 
       <!-- Main Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Platform Comparison Table -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-brand"></div>
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">Platform Comparison</h2>
+              <p class="text-[10px] text-gray-500 mt-0.5">Visibility by AI platform</p>
+            </div>
+          </div>
+          <div class="divide-y divide-gray-100/80">
+            <a
+              v-for="platform in platforms"
+              :key="platform.id"
+              :href="platform.website_url"
+              target="_blank"
+              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors group"
+            >
+              <div class="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-100 transition-colors">
+                <img
+                  :src="platform.logo_url"
+                  :alt="platform.name"
+                  class="w-5 h-5 object-contain"
+                  @error="($event.target as HTMLImageElement).style.display = 'none'"
+                />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium text-gray-900">{{ platform.name }}</div>
+                <div class="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-brand to-amber-400 transition-all duration-500"
+                    :style="{ width: `${visibilityScore?.byModel?.[platform.id] || 0}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-sm font-bold text-gray-900">{{ visibilityScore?.byModel?.[platform.id] || 0 }}%</div>
+                <div class="text-[10px] text-gray-400">mention rate</div>
+              </div>
+            </a>
+          </div>
+          <div v-if="!platforms.length" class="px-4 py-8 text-center text-sm text-gray-500">
+            No platforms configured
+          </div>
+        </div>
+
         <!-- Chart Section -->
         <div class="lg:col-span-2">
           <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" @period-change="onPeriodChange" />
         </div>
+      </div>
 
-        <!-- Granularity Stats -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-900">By Granularity</h2>
-            <NuxtLink to="/dashboard/prompts" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">Manage →</NuxtLink>
-          </div>
-          <div class="space-y-4">
-            <div v-for="(level, idx) in [
-              { label: 'Broad', key: 'level1', color: 'bg-gradient-to-r from-emerald-400 to-emerald-500', dotColor: 'bg-emerald-500' },
-              { label: 'Specific', key: 'level2', color: 'bg-gradient-to-r from-amber-400 to-amber-500', dotColor: 'bg-amber-500' },
-              { label: 'Detailed', key: 'level3', color: 'bg-gradient-to-r from-orange-400 to-orange-500', dotColor: 'bg-orange-500' }
-            ]" :key="idx" class="group">
-              <div class="flex items-center justify-between mb-1.5">
-                <div class="flex items-center gap-2">
-                  <div :class="level.dotColor" class="w-2 h-2 rounded-full"></div>
-                  <span class="text-xs font-medium text-gray-700">{{ level.label }}</span>
-                </div>
-                <span class="text-xs font-semibold text-gray-900">{{ granularityStats[level.key].citationRate }}%</span>
+      <!-- Second Row - 3 Column Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Top Performing Prompts -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Top Performing Prompts</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Highest mention rates</p>
               </div>
-              <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+            </div>
+            <NuxtLink to="/dashboard/prompts" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
+          </div>
+          <div v-if="!topPrompts.length" class="text-center py-8 text-sm text-gray-500">
+            No prompt data yet
+          </div>
+          <div v-else class="divide-y divide-gray-100/80">
+            <div v-for="(prompt, idx) in topPrompts" :key="prompt.id" class="px-4 py-3 hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0"
+                     :class="idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-gray-200 text-gray-600' : idx === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'">
+                  {{ idx + 1 }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-medium text-gray-900 truncate">{{ prompt.text }}</div>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] text-gray-500">{{ prompt.totalTests }} tests</span>
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="text-sm font-bold text-emerald-600">{{ prompt.mentionRate }}%</div>
+                  <div class="text-[10px] text-gray-400">mention rate</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Competitor Visibility -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-rose-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Competitor Visibility</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Top mentioned competitors</p>
+              </div>
+            </div>
+            <NuxtLink to="/dashboard/competitors" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
+          </div>
+          <div v-if="!topCompetitors.length" class="text-center py-8 text-sm text-gray-500">
+            No competitor data yet
+          </div>
+          <div v-else class="divide-y divide-gray-100/80">
+            <div v-for="comp in topCompetitors" :key="comp.id" class="px-4 py-3 hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-medium text-gray-900">{{ comp.name }}</span>
+                <span class="text-xs font-semibold" :class="comp.mentionRate > (visibilityScore?.overall || 0) ? 'text-rose-600' : 'text-gray-600'">
+                  {{ comp.mentionRate }}%
+                </span>
+              </div>
+              <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  :class="level.color"
                   class="h-full rounded-full transition-all duration-500 ease-out"
-                  :style="{ width: `${granularityStats[level.key].citationRate}%` }"
+                  :class="comp.mentionRate > (visibilityScore?.overall || 0) ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-gray-300 to-gray-400'"
+                  :style="{ width: `${comp.mentionRate}%` }"
                 ></div>
               </div>
             </div>
           </div>
-          <div v-if="!granularityStats.hasData" class="mt-4 text-xs text-gray-500 text-center py-3 bg-gray-50/50 rounded-lg border border-gray-100">
-            No scan data yet
-          </div>
-        </div>
-      </div>
-
-      <!-- Tables Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-1">
-        <!-- Recent Scans Table -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
-            <h2 class="text-sm font-semibold text-gray-900">Recent Scans</h2>
-            <div class="w-2 h-2 rounded-full bg-gray-300 animate-pulse"></div>
-          </div>
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
-          </div>
-          <div v-else-if="!jobs.length" class="text-center py-8 text-sm text-gray-500">
-            No scans yet
-          </div>
-          <div v-else class="divide-y divide-gray-100/80">
-            <div v-for="job in jobs" :key="job.id" class="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <div>
-                  <div class="text-sm font-medium text-gray-900">{{ formatJobType(job.job_type) }}</div>
-                  <div class="text-xs text-gray-500">{{ formatDate(job.created_at) }}</div>
-                </div>
-              </div>
-              <span
-                class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium"
-                :class="getStatusClass(job.status)"
-              >
-                {{ job.status }}
-              </span>
+          <!-- Your Brand Comparison -->
+          <div v-if="topCompetitors.length" class="px-4 py-3 bg-brand/5 border-t border-brand/10">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-brand">Your Brand</span>
+              <span class="text-xs font-bold text-brand">{{ visibilityScore?.overall || 0 }}%</span>
+            </div>
+            <div class="h-1.5 bg-brand/20 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-brand to-amber-400 transition-all duration-500 ease-out"
+                :style="{ width: `${visibilityScore?.overall || 0}%` }"
+              ></div>
             </div>
           </div>
         </div>
 
+        <!-- Visibility Gaps -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-violet-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Visibility Gaps</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Areas needing attention</p>
+              </div>
+            </div>
+            <NuxtLink to="/dashboard/gaps" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
+          </div>
+          <div v-if="!visibilityGaps.length" class="text-center py-8 text-sm text-gray-500">
+            No gaps identified yet
+          </div>
+          <div v-else class="divide-y divide-gray-100/80">
+            <div v-for="gap in visibilityGaps" :key="gap.id" class="px-4 py-3 hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                     :class="gap.severity === 'high' ? 'bg-rose-100' : gap.severity === 'medium' ? 'bg-amber-100' : 'bg-gray-100'">
+                  <svg class="w-3.5 h-3.5" :class="gap.severity === 'high' ? 'text-rose-600' : gap.severity === 'medium' ? 'text-amber-600' : 'text-gray-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-medium text-gray-900 line-clamp-2">{{ gap.prompt_text }}</div>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full"
+                          :class="gap.severity === 'high' ? 'bg-rose-100 text-rose-700' : gap.severity === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'">
+                      {{ gap.severity }}
+                    </span>
+                    <span class="text-[10px] text-gray-500">{{ gap.ai_model }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="grid grid-cols-1 gap-4">
         <!-- Recommendations Table -->
         <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-transparent">
-            <h2 class="text-sm font-semibold text-gray-900">Top Recommendations</h2>
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-amber-500"></div>
+              <h2 class="text-sm font-semibold text-gray-900">Top Recommendations</h2>
+            </div>
             <NuxtLink v-if="recommendations.length" to="/dashboard/recommendations" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
           </div>
           <div v-if="!recommendations.length" class="text-center py-8 text-sm text-gray-500">
@@ -192,26 +272,25 @@ const { selectedRegion } = useRegionFilter()
 
 const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
-const jobs = ref<any[]>([])
 const recommendations = ref<any[]>([])
+const topPrompts = ref<any[]>([])
+const topCompetitors = ref<any[]>([])
+const visibilityGaps = ref<any[]>([])
 const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
 
-const onPeriodChange = (days: number) => {
+const onPeriodChange = async (days: number) => {
   selectedPeriodDays.value = days
   // Reload stats with new date range
   if (activeProductId.value) {
-    loadVisibilityScore(activeProductId.value)
-    loadGranularityStats(activeProductId.value)
-    loadModelStats(activeProductId.value)
+    await loadVisibilityScore(activeProductId.value)
+    await Promise.all([
+      loadModelStats(activeProductId.value),
+      loadTopPrompts(activeProductId.value),
+      loadTopCompetitors(activeProductId.value)
+    ])
   }
 }
 
-const granularityStats = ref({
-  hasData: false,
-  level1: { prompts: 0, citations: 0, citationRate: 0 },
-  level2: { prompts: 0, citations: 0, citationRate: 0 },
-  level3: { prompts: 0, citations: 0, citationRate: 0 }
-})
 
 const modelStats = ref({
   chatgpt: { mentions: 0, total: 0 },
@@ -364,15 +443,6 @@ const loadDashboardData = async () => {
     // Load visibility score from history filtered by date range
     await loadVisibilityScore(productId)
 
-    const { data: jobsData } = await supabase
-      .from('jobs')
-      .select('*')
-      .eq('product_id', productId)
-      .order('created_at', { ascending: false })
-      .limit(5)
-
-    jobs.value = jobsData || []
-
     const { data: recsData } = await supabase
       .from('fix_recommendations')
       .select('*')
@@ -383,106 +453,17 @@ const loadDashboardData = async () => {
 
     recommendations.value = recsData || []
 
-    await loadGranularityStats(productId)
-    await loadModelStats(productId)
+    // Load new dashboard sections
+    await Promise.all([
+      loadModelStats(productId),
+      loadTopPrompts(productId),
+      loadTopCompetitors(productId),
+      loadVisibilityGaps(productId)
+    ])
   } catch (error) {
     console.error('Error loading dashboard:', error)
   } finally {
     loading.value = false
-  }
-}
-
-const loadGranularityStats = async (productId: string) => {
-  try {
-    // Calculate date range based on selected period
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
-
-    const { data: prompts } = await supabase
-      .from('prompts')
-      .select('id, granularity_level')
-      .eq('product_id', productId)
-
-    if (!prompts || prompts.length === 0) {
-      granularityStats.value = {
-        hasData: false,
-        level1: { prompts: 0, citations: 0, citationRate: 0 },
-        level2: { prompts: 0, citations: 0, citationRate: 0 },
-        level3: { prompts: 0, citations: 0, citationRate: 0 }
-      }
-      return
-    }
-
-    const promptGranularityMap = prompts.reduce((acc, p) => {
-      acc[p.id] = p.granularity_level || 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const promptsByLevel = prompts.reduce((acc, p) => {
-      const level = p.granularity_level || 1
-      acc[level] = (acc[level] || 0) + 1
-      return acc
-    }, {} as Record<number, number>)
-
-    const promptIds = prompts.map(p => p.id)
-    // Filter by date range and region
-    let resultsQuery = supabase
-      .from('prompt_results')
-      .select('prompt_id, brand_mentioned')
-      .in('prompt_id', promptIds)
-      .gte('tested_at', startDate.toISOString())
-
-    if (selectedRegion.value) {
-      resultsQuery = resultsQuery.ilike('request_country', selectedRegion.value)
-    }
-
-    const { data: results } = await resultsQuery
-
-    if (results && results.length > 0) {
-      const statsByLevel: Record<number, { total: number; cited: number }> = {
-        1: { total: 0, cited: 0 },
-        2: { total: 0, cited: 0 },
-        3: { total: 0, cited: 0 }
-      }
-
-      results.forEach((r: any) => {
-        const level = promptGranularityMap[r.prompt_id] || 1
-        if (statsByLevel[level]) {
-          statsByLevel[level].total++
-          if (r.brand_mentioned) statsByLevel[level].cited++
-        }
-      })
-
-      // Calculate average mention rate per granularity level
-      granularityStats.value = {
-        hasData: true,
-        level1: {
-          prompts: promptsByLevel[1] || 0,
-          citations: statsByLevel[1].cited,
-          citationRate: statsByLevel[1].total > 0 ? Math.round((statsByLevel[1].cited / statsByLevel[1].total) * 100) : 0
-        },
-        level2: {
-          prompts: promptsByLevel[2] || 0,
-          citations: statsByLevel[2].cited,
-          citationRate: statsByLevel[2].total > 0 ? Math.round((statsByLevel[2].cited / statsByLevel[2].total) * 100) : 0
-        },
-        level3: {
-          prompts: promptsByLevel[3] || 0,
-          citations: statsByLevel[3].cited,
-          citationRate: statsByLevel[3].total > 0 ? Math.round((statsByLevel[3].cited / statsByLevel[3].total) * 100) : 0
-        }
-      }
-    } else {
-      granularityStats.value = {
-        hasData: false,
-        level1: { prompts: promptsByLevel[1] || 0, citations: 0, citationRate: 0 },
-        level2: { prompts: promptsByLevel[2] || 0, citations: 0, citationRate: 0 },
-        level3: { prompts: promptsByLevel[3] || 0, citations: 0, citationRate: 0 }
-      }
-    }
-  } catch (error) {
-    console.error('Error loading granularity stats:', error)
   }
 }
 
@@ -529,21 +510,163 @@ const loadModelStats = async (productId: string) => {
   }
 }
 
-const formatJobType = (type: string) => {
-  return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+const loadTopPrompts = async (productId: string) => {
+  try {
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
+    // Get prompts for this product
+    const { data: prompts } = await supabase
+      .from('prompts')
+      .select('id, prompt_text')
+      .eq('product_id', productId)
+
+    if (!prompts || prompts.length === 0) {
+      topPrompts.value = []
+      return
+    }
+
+    const promptIds = prompts.map(p => p.id)
+
+    // Get results for these prompts
+    let query = supabase
+      .from('prompt_results')
+      .select('prompt_id, brand_mentioned')
+      .in('prompt_id', promptIds)
+      .gte('tested_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      query = query.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: results } = await query
+
+    if (!results || results.length === 0) {
+      topPrompts.value = []
+      return
+    }
+
+    // Aggregate by prompt
+    const promptStats: Record<string, { total: number; mentioned: number }> = {}
+    results.forEach((r: any) => {
+      if (!promptStats[r.prompt_id]) {
+        promptStats[r.prompt_id] = { total: 0, mentioned: 0 }
+      }
+      promptStats[r.prompt_id].total++
+      if (r.brand_mentioned) promptStats[r.prompt_id].mentioned++
+    })
+
+    // Calculate rates and sort
+    const promptsWithRates = prompts
+      .filter(p => promptStats[p.id])
+      .map(p => ({
+        id: p.id,
+        text: p.prompt_text,
+        totalTests: promptStats[p.id].total,
+        mentionRate: promptStats[p.id].total > 0
+          ? Math.round((promptStats[p.id].mentioned / promptStats[p.id].total) * 100)
+          : 0
+      }))
+      .sort((a, b) => b.mentionRate - a.mentionRate)
+      .slice(0, 5)
+
+    topPrompts.value = promptsWithRates
+  } catch (error) {
+    console.error('Error loading top prompts:', error)
+    topPrompts.value = []
+  }
 }
 
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+const loadTopCompetitors = async (productId: string) => {
+  try {
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
+    startDate.setHours(0, 0, 0, 0)
+
+    // Get tracking competitors
+    const { data: competitors } = await supabase
+      .from('competitors')
+      .select('id, name')
+      .eq('product_id', productId)
+      .eq('status', 'tracking')
+
+    if (!competitors || competitors.length === 0) {
+      topCompetitors.value = []
+      return
+    }
+
+    // Get total prompt results for calculating mention rate
+    let promptResultsQuery = supabase
+      .from('prompt_results')
+      .select('id')
+      .eq('product_id', productId)
+      .gte('tested_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      promptResultsQuery = promptResultsQuery.ilike('request_country', selectedRegion.value)
+    }
+
+    const { data: promptResults } = await promptResultsQuery
+    const totalResults = promptResults?.length || 0
+
+    if (totalResults === 0) {
+      topCompetitors.value = []
+      return
+    }
+
+    // Get competitor mentions (each row = competitor was mentioned)
+    const { data: mentions } = await supabase
+      .from('competitor_mentions')
+      .select('competitor_id, prompt_result_id')
+      .in('competitor_id', competitors.map(c => c.id))
+      .gte('detected_at', startDate.toISOString())
+
+    // Calculate mention rate per competitor
+    const competitorsWithRates = competitors.map(c => {
+      const competitorMentions = (mentions || []).filter(m => m.competitor_id === c.id)
+      // Count unique prompt_result_ids (competitor may appear multiple times in same response)
+      const uniqueResultIds = new Set(competitorMentions.map(m => m.prompt_result_id).filter(Boolean))
+      const mentionRate = Math.round((uniqueResultIds.size / totalResults) * 100)
+
+      return {
+        id: c.id,
+        name: c.name,
+        mentionRate
+      }
+    })
+      .sort((a, b) => b.mentionRate - a.mentionRate)
+      .slice(0, 5)
+
+    topCompetitors.value = competitorsWithRates
+  } catch (error) {
+    console.error('Error loading top competitors:', error)
+    topCompetitors.value = []
+  }
 }
 
-const getStatusClass = (status: string) => {
-  switch (status) {
-    case 'completed': return 'bg-emerald-50 text-emerald-700'
-    case 'processing': return 'bg-blue-50 text-blue-700'
-    case 'failed': return 'bg-red-50 text-red-700'
-    case 'queued': return 'bg-amber-50 text-amber-700'
-    default: return 'bg-gray-100 text-gray-600'
+const loadVisibilityGaps = async (productId: string) => {
+  try {
+    // Get recent high/medium severity gaps with prompt text
+    const { data: gaps } = await supabase
+      .from('visibility_gaps')
+      .select('id, ai_model, severity, detected_at, prompts(prompt_text)')
+      .eq('product_id', productId)
+      .in('severity', ['high', 'medium'])
+      .is('resolved_at', null)
+      .order('detected_at', { ascending: false })
+      .limit(5)
+
+    // Map to include prompt_text from join
+    visibilityGaps.value = (gaps || []).map(gap => ({
+      id: gap.id,
+      ai_model: gap.ai_model,
+      severity: gap.severity,
+      prompt_text: (gap.prompts as any)?.prompt_text || 'Unknown prompt'
+    }))
+  } catch (error) {
+    console.error('Error loading visibility gaps:', error)
+    visibilityGaps.value = []
   }
 }
 </script>
