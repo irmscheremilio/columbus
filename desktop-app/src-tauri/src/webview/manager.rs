@@ -639,6 +639,7 @@ impl WebviewManager {
         platform: &str,
         brand: &str,
         brand_domain: Option<&str>,
+        domain_aliases: Option<&[String]>,
         competitors: &[String],
     ) -> Result<CollectResponse, String> {
         let window = app
@@ -701,7 +702,7 @@ impl WebviewManager {
         }
 
         // Inject script that collects response and sets location.hash with encoded result
-        let script = get_collect_script(platform, brand, brand_domain, competitors);
+        let script = get_collect_script(platform, brand, brand_domain, domain_aliases, competitors);
         window
             .eval(&script)
             .map_err(|e| format!("Script error: {}", e))?;
@@ -1133,11 +1134,12 @@ fn get_submit_script(platform: &str, prompt: &str) -> String {
     }
 }
 
-fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, competitors: &[String]) -> String {
+fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, domain_aliases: Option<&[String]>, competitors: &[String]) -> String {
     let escaped_brand = brand.replace('\\', "\\\\").replace('"', "\\\"");
     let escaped_domain = brand_domain
         .map(|d| d.replace('\\', "\\\\").replace('"', "\\\""))
         .unwrap_or_default();
+    let aliases_json = serde_json::to_string(&domain_aliases.unwrap_or(&[])).unwrap_or_default();
     let competitors_json = serde_json::to_string(competitors).unwrap_or_default();
 
     format!(r#"
@@ -1145,6 +1147,7 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, c
             console.log('[Columbus] Collecting response for platform: {}');
             const brand = "{}";
             const brandDomain = "{}";
+            const domainAliases = {};
             const competitors = {};
 
             // Platform-specific response selectors from working extension
@@ -1534,19 +1537,35 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, c
 
             console.log('[Columbus] Citations found (after filtering):', citations.length);
 
-            // Check if brand domain is cited (citationPresent means brand was cited, not just any citation exists)
+            // Check if brand domain or any alias is cited (citationPresent means brand was cited, not just any citation exists)
             let brandCited = false;
-            if (brandDomain && citations.length > 0) {{
-                const normalizedBrandDomain = brandDomain.toLowerCase().replace('www.', '');
+            if (citations.length > 0) {{
+                // Build list of all brand domains to check (main domain + aliases)
+                const allBrandDomains = [];
+                if (brandDomain) {{
+                    allBrandDomains.push(brandDomain.toLowerCase().replace('www.', ''));
+                }}
+                if (domainAliases && Array.isArray(domainAliases)) {{
+                    domainAliases.forEach(alias => {{
+                        if (alias) {{
+                            allBrandDomains.push(alias.toLowerCase().replace('www.', ''));
+                        }}
+                    }});
+                }}
+                console.log('[Columbus] Checking against brand domains:', allBrandDomains);
+
                 brandCited = citations.some(c => {{
                     try {{
                         const citationHostname = new URL(c.url).hostname.toLowerCase().replace('www.', '');
-                        // Check if citation domain matches brand domain (either contains the other)
-                        const matches = citationHostname.includes(normalizedBrandDomain) || normalizedBrandDomain.includes(citationHostname);
-                        if (matches) {{
-                            console.log('[Columbus] BRAND CITED! Citation URL matches brand domain:', c.url);
+                        // Check if citation domain matches any brand domain (either contains the other)
+                        for (const brandDom of allBrandDomains) {{
+                            const matches = citationHostname.includes(brandDom) || brandDom.includes(citationHostname);
+                            if (matches) {{
+                                console.log('[Columbus] BRAND CITED! Citation URL matches brand domain:', c.url, '(matched:', brandDom + ')');
+                                return true;
+                            }}
                         }}
-                        return matches;
+                        return false;
                     }} catch {{
                         return false;
                     }}
@@ -1561,6 +1580,7 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, c
                     console.log('[Columbus]     Title: ' + c.title);
                 }});
                 console.log('[Columbus] Brand domain: ' + brandDomain);
+                console.log('[Columbus] Domain aliases: ' + JSON.stringify(domainAliases));
                 console.log('[Columbus] Brand was cited: ' + brandCited);
             }} else {{
                 console.log('[Columbus] NO CITATIONS DETECTED for platform: ' + platform);
@@ -1605,7 +1625,7 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, c
 
             return result;
         }})();
-    "#, platform, escaped_brand, escaped_domain, competitors_json, platform)
+    "#, platform, escaped_brand, escaped_domain, aliases_json, competitors_json, platform)
 }
 
 fn get_read_response_script(_platform: &str, _brand: &str, _competitors: &[String]) -> String {

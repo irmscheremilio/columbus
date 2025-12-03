@@ -44,20 +44,20 @@
         </div>
       </div>
 
-        <!-- Loading State -->
-        <div v-if="loading" class="flex items-center justify-center py-20">
-          <div class="w-8 h-8 animate-spin rounded-full border-2 border-brand border-t-transparent"></div>
-        </div>
+      <!-- Loading State -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <div class="w-8 h-8 animate-spin rounded-full border-2 border-brand border-t-transparent"></div>
+      </div>
 
-        <!-- Products Grid -->
-        <div v-else-if="products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div
-            v-for="product in products"
-            :key="product.id"
-            class="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
-            :class="{ 'ring-2 ring-brand ring-offset-2': activeProductId === product.id }"
-            @click="selectProduct(product.id)"
-          >
+      <!-- Products Grid -->
+      <div v-else-if="products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          v-for="product in products"
+          :key="product.id"
+          class="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+          :class="{ 'ring-2 ring-brand ring-offset-2': activeProductId === product.id }"
+          @click="selectProduct(product.id)"
+        >
             <div class="flex items-start justify-between mb-4">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center text-brand font-semibold shadow-sm overflow-hidden">
@@ -72,7 +72,7 @@
                 </div>
                 <div>
                   <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
-                  <a :href="`https://${product.domain}`" target="_blank" class="text-sm text-gray-500 hover:text-brand transition-colors">
+                  <a :href="`https://${product.domain}`" target="_blank" class="text-sm text-gray-500 hover:text-brand transition-colors" @click.stop>
                     {{ product.domain }}
                   </a>
                 </div>
@@ -149,8 +149,8 @@
           </div>
         </div>
 
-        <!-- Empty State -->
-        <div v-else class="text-center py-20 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
+      <!-- Empty State -->
+      <div v-else class="text-center py-20 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
           <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <svg class="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -169,7 +169,7 @@
             </svg>
             Add Your First Product
           </button>
-        </div>
+      </div>
     </div>
 
     <!-- Add/Edit Product Modal -->
@@ -206,6 +206,56 @@
               />
               <p v-if="showEditModal" class="text-xs text-gray-500 mt-1.5">Domain cannot be changed after creation</p>
             </div>
+
+            <!-- Domain Aliases (only show in edit mode) -->
+            <div v-if="showEditModal">
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Domain Aliases
+                <span class="font-normal text-gray-400">(optional)</span>
+              </label>
+              <p class="text-xs text-gray-500 mb-2">
+                Add related domains that should also count as brand citations (e.g., product websites, subdomains, or affiliated sites).
+              </p>
+
+              <!-- Existing aliases -->
+              <div v-if="productForm.domain_aliases.length > 0" class="flex flex-wrap gap-2 mb-2">
+                <span
+                  v-for="(alias, idx) in productForm.domain_aliases"
+                  :key="alias"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand/10 text-brand rounded-lg text-sm"
+                >
+                  {{ alias }}
+                  <button
+                    type="button"
+                    @click="removeDomainAlias(idx)"
+                    class="hover:bg-brand/20 rounded p-0.5 transition-colors"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+
+              <!-- Add new alias -->
+              <div class="flex gap-2">
+                <input
+                  v-model="productForm.newAlias"
+                  type="text"
+                  class="flex-1 px-3 py-2 border border-gray-200/80 rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm transition-all duration-200"
+                  placeholder="Add domain alias (e.g., myproduct.com)"
+                  @keyup.enter="addDomainAlias"
+                />
+                <button
+                  type="button"
+                  @click="addDomainAlias"
+                  class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
               <textarea
@@ -214,25 +264,6 @@
                 class="w-full px-3.5 py-2.5 border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none transition-all duration-200"
                 placeholder="Brief description of your product..."
               ></textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                Target Region <span class="text-red-500">*</span>
-              </label>
-              <select
-                v-model="productForm.primaryCountry"
-                @change="onRegionChange"
-                class="w-full px-3.5 py-2.5 border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
-                required
-              >
-                <option value="">Select your primary target region</option>
-                <option v-for="region in regions" :key="region.code" :value="region.code">
-                  {{ region.name }}
-                </option>
-              </select>
-              <p class="text-xs text-gray-500 mt-1.5">
-                Prompts will be generated in the region's language and optimized for local search patterns.
-              </p>
             </div>
             <div v-if="!showEditModal" class="flex items-center gap-2.5">
               <input
@@ -311,6 +342,7 @@ interface Product {
   id: string
   name: string
   domain: string
+  domain_aliases: string[] | null
   description: string | null
   icon_url: string | null
   aeo_score: number | null
@@ -351,45 +383,32 @@ const formError = ref('')
 const productForm = ref({
   name: '',
   domain: '',
+  domain_aliases: [] as string[],
+  newAlias: '',
   description: '',
-  primaryLocation: '',
-  primaryCountry: '',
-  primaryLanguage: 'en',
   runInitialAnalysis: true
 })
 
-// Common regions/countries for targeting
-const regions = [
-  { code: 'US', name: 'United States', language: 'en' },
-  { code: 'GB', name: 'United Kingdom', language: 'en' },
-  { code: 'CA', name: 'Canada', language: 'en' },
-  { code: 'AU', name: 'Australia', language: 'en' },
-  { code: 'DE', name: 'Germany', language: 'de' },
-  { code: 'FR', name: 'France', language: 'fr' },
-  { code: 'ES', name: 'Spain', language: 'es' },
-  { code: 'IT', name: 'Italy', language: 'it' },
-  { code: 'NL', name: 'Netherlands', language: 'nl' },
-  { code: 'BR', name: 'Brazil', language: 'pt' },
-  { code: 'MX', name: 'Mexico', language: 'es' },
-  { code: 'JP', name: 'Japan', language: 'ja' },
-  { code: 'KR', name: 'South Korea', language: 'ko' },
-  { code: 'IN', name: 'India', language: 'en' },
-  { code: 'SG', name: 'Singapore', language: 'en' },
-  { code: 'AE', name: 'UAE', language: 'en' },
-  { code: 'GLOBAL', name: 'Global (All regions)', language: 'en' },
-]
+const addDomainAlias = () => {
+  const alias = productForm.value.newAlias.trim()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/$/, '')
+    .toLowerCase()
+
+  if (alias && !productForm.value.domain_aliases.includes(alias) && alias !== productForm.value.domain) {
+    productForm.value.domain_aliases.push(alias)
+    productForm.value.newAlias = ''
+  }
+}
+
+const removeDomainAlias = (index: number) => {
+  productForm.value.domain_aliases.splice(index, 1)
+}
 
 const canAddProduct = computed(() => {
   return productSlots.value ? productSlots.value.remaining > 0 : false
 })
-
-const onRegionChange = () => {
-  const region = regions.find(r => r.code === productForm.value.primaryCountry)
-  if (region) {
-    productForm.value.primaryLanguage = region.language
-    productForm.value.primaryLocation = region.name
-  }
-}
 
 onMounted(async () => {
   await loadProducts()
@@ -480,9 +499,6 @@ const handleAddProduct = async () => {
       name: productForm.value.name,
       domain: productForm.value.domain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
       description: productForm.value.description || undefined,
-      primaryLocation: productForm.value.primaryLocation || undefined,
-      primaryCountry: productForm.value.primaryCountry || undefined,
-      primaryLanguage: productForm.value.primaryLanguage || 'en',
       runInitialAnalysis: productForm.value.runInitialAnalysis
     })
 
@@ -511,6 +527,8 @@ const editProduct = (product: Product) => {
   productForm.value = {
     name: product.name,
     domain: product.domain,
+    domain_aliases: product.domain_aliases ? [...product.domain_aliases] : [],
+    newAlias: '',
     description: product.description || '',
     runInitialAnalysis: false
   }
@@ -528,7 +546,10 @@ const handleUpdateProduct = async () => {
       .from('products')
       .update({
         name: productForm.value.name,
-        description: productForm.value.description || null
+        description: productForm.value.description || null,
+        domain_aliases: productForm.value.domain_aliases.length > 0
+          ? productForm.value.domain_aliases
+          : null
       })
       .eq('id', editingProduct.value.id)
 
@@ -611,10 +632,9 @@ const resetForm = () => {
   productForm.value = {
     name: '',
     domain: '',
+    domain_aliases: [],
+    newAlias: '',
     description: '',
-    primaryLocation: '',
-    primaryCountry: '',
-    primaryLanguage: 'en',
     runInitialAnalysis: true
   }
   formError.value = ''

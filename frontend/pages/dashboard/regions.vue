@@ -8,14 +8,17 @@
           <p class="text-sm text-gray-500">Compare AI visibility across different regions</p>
         </div>
         <div class="flex items-center gap-3">
-          <select
-            v-model="selectedPeriod"
-            class="text-sm bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 shadow-sm"
-          >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
+          <div class="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-xl p-0.5 shadow-sm border border-white/50">
+            <button
+              v-for="period in periods"
+              :key="period.value"
+              @click="selectedPeriod = period.value"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
+              :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            >
+              {{ period.label }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -38,58 +41,38 @@
       </div>
 
       <template v-else>
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center">
-                <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" />
-                </svg>
+        <!-- Hero Card - Best Performing Region -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
+          <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                <span class="text-2xl">{{ getCountryFlag(bestRegion?.region || 'local') }}</span>
               </div>
               <div>
-                <p class="text-2xl font-bold text-gray-900">{{ regionStats.length }}</p>
-                <p class="text-xs text-gray-500">Regions</p>
+                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Best Performing Region</div>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-3xl font-bold text-gray-900">{{ bestRegion?.mentionRate || 0 }}</span>
+                  <span class="text-lg font-medium text-gray-400">%</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ getCountryName(bestRegion?.region || 'local') }}</div>
               </div>
             </div>
-          </div>
-
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-                <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
+            <div class="hidden sm:flex items-center gap-3">
+              <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+                <div class="text-base font-bold text-gray-900">{{ regionStats.length }}</div>
+                <div class="text-[10px] text-gray-500">Regions</div>
               </div>
-              <div>
-                <p class="text-2xl font-bold text-gray-900">{{ totalTests }}</p>
-                <p class="text-xs text-gray-500">Total Tests</p>
+              <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+                <div class="text-base font-bold text-gray-900">{{ totalTests }}</div>
+                <div class="text-[10px] text-gray-500">Total Tests</div>
               </div>
-            </div>
-          </div>
-
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                <span class="text-lg">{{ getCountryFlag(bestRegion?.region || 'local') }}</span>
+              <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+                <div class="text-base font-bold text-gray-900">{{ avgMentionRate }}%</div>
+                <div class="text-[10px] text-gray-500">Avg Rate</div>
               </div>
-              <div>
-                <p class="text-2xl font-bold text-gray-900">{{ bestRegion?.mentionRate || 0 }}%</p>
-                <p class="text-xs text-gray-500">Best Region</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center">
-                <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-              </div>
-              <div>
-                <p class="text-2xl font-bold text-gray-900">{{ variancePercent }}%</p>
-                <p class="text-xs text-gray-500">Region Variance</p>
+              <div class="text-center px-3 py-1.5 bg-amber-50 rounded-lg">
+                <div class="text-base font-bold text-amber-600">{{ variancePercent }}%</div>
+                <div class="text-[10px] text-amber-600">Variance</div>
               </div>
             </div>
           </div>
@@ -97,9 +80,15 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <!-- Main Bar Chart -->
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-semibold text-gray-900">Mention Rate by Region</h2>
+          <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+            <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-1 h-4 rounded-full bg-brand"></div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-900">Mention Rate by Region</h2>
+                  <p class="text-[10px] text-gray-500 mt-0.5">Regional performance comparison</p>
+                </div>
+              </div>
               <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5">
                 <button
                   v-for="metric in metrics"
@@ -112,40 +101,53 @@
                 </button>
               </div>
             </div>
-            <div class="h-64">
-              <canvas ref="chartCanvas"></canvas>
+            <div class="p-4">
+              <div class="h-64">
+                <canvas ref="chartCanvas"></canvas>
+              </div>
             </div>
           </div>
 
           <!-- Region Ranking List -->
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200">
-            <h2 class="text-sm font-semibold text-gray-900 mb-3">Region Rankings</h2>
-            <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
-              <div
-                v-for="(stat, idx) in regionStats"
-                :key="stat.region"
-                class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50/80 transition-all duration-200"
-                :class="{ 'bg-emerald-50/50': idx === 0 }"
-              >
-                <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+            <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Region Rankings</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Sorted by mention rate</p>
+              </div>
+            </div>
+            <div class="p-4">
+              <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div
+                  v-for="(stat, idx) in regionStats"
+                  :key="stat.region"
+                  class="flex items-center gap-3"
+                >
                   <span class="text-xs text-gray-400 w-4 font-medium flex-shrink-0">{{ idx + 1 }}</span>
-                  <span class="text-xl">{{ getCountryFlag(stat.region) }}</span>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-medium text-sm text-gray-900">{{ getCountryName(stat.region) }}</span>
-                      <span
-                        v-if="idx === 0"
-                        class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full flex-shrink-0"
-                      >
-                        Best
-                      </span>
+                  <span class="text-xl flex-shrink-0">{{ getCountryFlag(stat.region) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-medium text-sm text-gray-900">{{ getCountryName(stat.region) }}</span>
+                        <span
+                          v-if="idx === 0"
+                          class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full"
+                        >
+                          Best
+                        </span>
+                      </div>
+                      <span class="text-sm font-semibold text-gray-900">{{ stat.mentionRate }}%</span>
                     </div>
-                    <div class="text-xs text-gray-500">{{ stat.total }} tests</div>
+                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all duration-500"
+                        :class="idx === 0 ? 'bg-gradient-to-r from-brand to-amber-400' : 'bg-gray-400'"
+                        :style="{ width: `${stat.mentionRate}%` }"
+                      ></div>
+                    </div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">{{ stat.total }} tests · {{ stat.citationRate }}% cited</div>
                   </div>
-                </div>
-                <div class="text-right flex-shrink-0">
-                  <div class="text-sm font-semibold text-gray-900">{{ stat.mentionRate }}%</div>
-                  <div class="text-xs text-gray-400">{{ stat.citationRate }}% brand cited</div>
                 </div>
               </div>
             </div>
@@ -153,18 +155,19 @@
         </div>
 
         <!-- Platform x Region Comparison -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
-            <div class="flex items-center justify-between">
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-violet-500"></div>
               <div>
                 <h2 class="text-sm font-semibold text-gray-900">Platform Performance by Region</h2>
-                <p class="text-xs text-gray-500 mt-0.5">Mention rates for each AI platform across regions</p>
+                <p class="text-[10px] text-gray-500 mt-0.5">Mention rates for each AI platform across regions</p>
               </div>
-              <div class="flex items-center gap-2 text-xs">
-                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-100"></span> ≥50%</span>
-                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-100"></span> 25-49%</span>
-                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-100"></span> &lt;25%</span>
-              </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-100"></span> ≥50%</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-100"></span> 25-49%</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-100"></span> &lt;25%</span>
             </div>
           </div>
           <div class="overflow-x-auto">
@@ -239,51 +242,58 @@
         <!-- Detailed Platform Charts per Region -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
-            v-for="stat in regionStats"
+            v-for="(stat, idx) in regionStats"
             :key="stat.region"
-            class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200"
+            class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200"
           >
-            <div class="flex items-center gap-3 mb-4">
-              <span class="text-2xl">{{ getCountryFlag(stat.region) }}</span>
-              <div>
-                <h3 class="font-semibold text-gray-900">{{ getCountryName(stat.region) }}</h3>
-                <p class="text-xs text-gray-500">{{ stat.total }} tests · {{ stat.mentionRate }}% mention rate</p>
+            <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">{{ getCountryFlag(stat.region) }}</span>
+                <div>
+                  <h3 class="font-semibold text-gray-900 text-sm">{{ getCountryName(stat.region) }}</h3>
+                  <p class="text-[10px] text-gray-500">{{ stat.total }} tests</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-lg font-bold" :class="idx === 0 ? 'text-brand' : 'text-gray-900'">{{ stat.mentionRate }}%</div>
+                <div class="text-[10px] text-gray-400">mention rate</div>
               </div>
             </div>
-
-            <!-- Platform breakdown bars -->
-            <div class="space-y-2">
-              <div
-                v-for="ps in stat.platformStats"
-                :key="ps.platform"
-                class="group"
-              >
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <img
-                      :src="getPlatformLogo(ps.platform)"
-                      :alt="ps.platform"
-                      class="w-4 h-4 rounded"
-                      @error="($event.target as HTMLImageElement).style.display = 'none'"
-                    />
-                    <span class="text-xs text-gray-600">{{ formatModelName(ps.platform) }}</span>
+            <div class="p-4">
+              <!-- Platform breakdown bars -->
+              <div class="space-y-2.5">
+                <div
+                  v-for="ps in stat.platformStats"
+                  :key="ps.platform"
+                  class="group"
+                >
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <img
+                        :src="getPlatformLogo(ps.platform)"
+                        :alt="ps.platform"
+                        class="w-4 h-4 rounded"
+                        @error="($event.target as HTMLImageElement).style.display = 'none'"
+                      />
+                      <span class="text-xs text-gray-600">{{ formatModelName(ps.platform) }}</span>
+                    </div>
+                    <span class="text-xs font-semibold text-gray-900">{{ ps.mentionRate }}%</span>
                   </div>
-                  <span class="text-xs font-semibold text-gray-900">{{ ps.mentionRate }}%</span>
-                </div>
-                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all duration-500"
-                    :class="ps.mentionRate >= 50 ? 'bg-emerald-500' : ps.mentionRate >= 25 ? 'bg-amber-500' : 'bg-red-400'"
-                    :style="{ width: `${ps.mentionRate}%` }"
-                  ></div>
+                  <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      class="h-full rounded-full transition-all duration-500"
+                      :class="ps.mentionRate >= 50 ? 'bg-emerald-500' : ps.mentionRate >= 25 ? 'bg-amber-500' : 'bg-red-400'"
+                      :style="{ width: `${ps.mentionRate}%` }"
+                    ></div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Brand cited rate footer -->
-            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-              <span class="text-gray-500">Brand Cited Rate</span>
-              <span class="font-semibold text-gray-700">{{ stat.citationRate }}%</span>
+              <!-- Brand cited rate footer -->
+              <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span class="text-gray-500">Brand Cited Rate</span>
+                <span class="font-semibold text-gray-700">{{ stat.citationRate }}%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -311,6 +321,12 @@ const selectedMetric = ref<'mention' | 'citation'>('mention')
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 
+const periods = [
+  { value: '7', label: '7D' },
+  { value: '30', label: '30D' },
+  { value: '90', label: '90D' }
+]
+
 interface PlatformStat {
   platform: string
   total: number
@@ -333,7 +349,7 @@ const platformRegionMatrix = ref<Map<string, Map<string, { total: number; mentio
 
 const metrics = [
   { value: 'mention', label: 'Mentions' },
-  { value: 'citation', label: 'Brand Cited' }
+  { value: 'citation', label: 'Cited' }
 ]
 
 const totalTests = computed(() => regionStats.value.reduce((sum, s) => sum + s.total, 0))
@@ -530,7 +546,19 @@ const loadRegionStats = async () => {
     loading.value = false
     // Render chart after loading is complete and DOM is updated
     await nextTick()
-    renderChart()
+
+    // Retry mechanism for chart rendering
+    const tryRenderChart = (attempts = 0) => {
+      if (attempts > 5) return
+      setTimeout(() => {
+        if (chartCanvas.value) {
+          renderChart()
+        } else {
+          tryRenderChart(attempts + 1)
+        }
+      }, 100)
+    }
+    tryRenderChart()
   }
 }
 

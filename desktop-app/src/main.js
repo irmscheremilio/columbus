@@ -777,13 +777,22 @@ async function loadProductConfig(productId) {
 
         updateAutoRunUI();
         loadScheduleInfo();
+
+        // Auto-initialize platforms if empty (new product or fresh install)
+        // This ensures auto-scan has platforms to work with
+        if (!config.ready_platforms || config.ready_platforms.length === 0) {
+            console.log('Product has no platforms configured, initializing with available platforms:', platforms);
+            if (platforms.length > 0) {
+                await saveProductConfig(true); // Force save even during initialization
+            }
+        }
     } catch (error) {
         console.error('Failed to load product config:', error);
     }
 }
 
-async function saveProductConfig() {
-    if (!selectedProductId || isInitializing) return;
+async function saveProductConfig(force = false) {
+    if (!selectedProductId || (isInitializing && !force)) return;
     try {
         await invoke('set_product_config', {
             productId: selectedProductId,
@@ -794,6 +803,7 @@ async function saveProductConfig() {
             timeWindowStart: parseInt(timeWindowStart.value),
             timeWindowEnd: parseInt(timeWindowEnd.value)
         });
+        console.log('Saved product config with platforms:', platforms);
     } catch (error) {
         console.error('Failed to save product config:', error);
     }

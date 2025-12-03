@@ -20,130 +20,107 @@
         </div>
       </div>
 
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      <!-- Brand Citation Rate Hero Card -->
+      <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
+        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
             </div>
             <div>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.totalCitations }}</p>
-              <p class="text-xs text-gray-500">Total Citations</p>
+              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Brand Citation Rate</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold text-gray-900">{{ stats.brandPercent }}</span>
+                <span class="text-lg font-medium text-gray-400">%</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-              <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div class="hidden sm:flex items-center gap-4">
+            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-base font-bold text-gray-900">{{ stats.totalCitations }}</div>
+              <div class="text-[10px] text-gray-500">Total Citations</div>
             </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.brandCitations }}</p>
-              <p class="text-xs text-gray-500">Your Domain Cited</p>
+            <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg">
+              <div class="text-base font-bold text-emerald-600">{{ stats.brandCitations }}</div>
+              <div class="text-[10px] text-gray-500">Your Domain</div>
             </div>
-          </div>
-        </div>
-
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-              <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-              </svg>
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.uniqueDomains }}</p>
-              <p class="text-xs text-gray-500">Unique Sources</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-white/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center">
-              <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.brandPercent }}%</p>
-              <p class="text-xs text-gray-500">Brand Citation Rate</p>
+            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-base font-bold text-gray-900">{{ stats.uniqueDomains }}</div>
+              <div class="text-[10px] text-gray-500">Unique Sources</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Donut Chart -->
-        <SourcesDonutChart :product-id="activeProductId" title="Citation Distribution" />
-
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Top Sources List -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200 flex flex-col">
-          <h2 class="text-sm font-semibold text-gray-900 mb-3">Top Citation Sources</h2>
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-brand"></div>
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">Top Citation Sources</h2>
+              <p class="text-[10px] text-gray-500 mt-0.5">Most cited domains</p>
+            </div>
+          </div>
 
-          <div v-if="loading" class="flex items-center justify-center h-52">
+          <div v-if="loading" class="flex items-center justify-center py-12">
             <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
           </div>
 
-          <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-52 text-center">
-            <p class="text-sm text-gray-500">No citation data available</p>
+          <div v-else-if="sources.length === 0" class="text-center py-12 text-sm text-gray-500">
+            No citation data available
           </div>
 
-          <div v-else class="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
+          <div v-else class="divide-y divide-gray-100/80">
             <div
-              v-for="(source, idx) in sources.slice(0, 10)"
+              v-for="(source, idx) in sources.slice(0, 8)"
               :key="source.domain"
-              class="flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-gray-50/80 transition-all duration-200"
+              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors"
             >
-              <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                <span class="text-xs text-gray-400 w-4 font-medium flex-shrink-0">{{ idx + 1 }}</span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-1.5">
-                    <span
-                      class="font-medium truncate text-sm"
-                      :class="source.isBrand ? 'text-brand' : 'text-gray-900'"
-                    >
-                      {{ source.domain }}
-                    </span>
-                    <span
-                      v-if="source.isBrand"
-                      class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 rounded-full flex-shrink-0"
-                    >
-                      Your site
-                    </span>
-                  </div>
-                  <p class="text-xs text-gray-500">
-                    {{ source.count }} citation{{ source.count !== 1 ? 's' : '' }}
-                  </p>
-                </div>
+              <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0"
+                   :class="source.isBrand ? 'bg-emerald-100 text-emerald-700' : idx < 3 ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-500'">
+                {{ idx + 1 }}
               </div>
-              <div class="flex items-center gap-2 flex-shrink-0 ml-2">
-                <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-medium truncate" :class="source.isBrand ? 'text-brand' : 'text-gray-900'">
+                    {{ source.domain }}
+                  </span>
+                  <span v-if="source.isBrand" class="px-1.5 py-0.5 text-[9px] font-medium bg-emerald-50 text-emerald-700 rounded-full shrink-0">
+                    You
+                  </span>
+                </div>
+                <div class="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all duration-500"
-                    :class="source.isBrand ? 'bg-gradient-to-r from-brand to-brand/80' : 'bg-gradient-to-r from-blue-500 to-blue-400'"
-                    :style="{ width: `${(source.count / stats.totalCitations) * 100}%` }"
+                    :class="source.isBrand ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : 'bg-gradient-to-r from-brand to-amber-400'"
+                    :style="{ width: `${Math.min((source.count / stats.totalCitations) * 100 * 2, 100)}%` }"
                   ></div>
                 </div>
-                <span class="text-xs font-semibold text-gray-600 w-10 text-right">
-                  {{ Math.round((source.count / stats.totalCitations) * 100) }}%
-                </span>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-sm font-bold text-gray-900">{{ Math.round((source.count / stats.totalCitations) * 100) }}%</div>
+                <div class="text-[10px] text-gray-400">{{ source.count }} cites</div>
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Donut Chart -->
+        <div class="lg:col-span-2">
+          <SourcesDonutChart :product-id="activeProductId" title="Citation Distribution" />
         </div>
       </div>
 
       <!-- Citation Details Table -->
       <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 hover:shadow-md transition-shadow duration-200">
         <div class="flex items-center justify-between p-4 pb-3 border-b border-gray-100/80">
-          <h2 class="text-sm font-semibold text-gray-900">Recent Citations</h2>
+          <div class="flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-blue-500"></div>
+            <h2 class="text-sm font-semibold text-gray-900">Recent Citations</h2>
+          </div>
           <div class="flex items-center gap-2">
             <input
               v-model="searchQuery"

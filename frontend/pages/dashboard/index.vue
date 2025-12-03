@@ -19,24 +19,24 @@
       </div>
 
       <!-- Average Mention Rate Hero Card -->
-      <div class="bg-gradient-to-br from-brand/5 via-brand/10 to-amber-50/50 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-brand/10 overflow-hidden">
-        <div class="px-6 py-5 flex items-center justify-between">
+      <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
+        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
           <div class="flex items-center gap-4">
-            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand to-amber-500 flex items-center justify-center shadow-lg shadow-brand/20">
-              <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
             <div>
-              <div class="text-[11px] font-semibold text-brand/60 uppercase tracking-wider mb-0.5">Average Mention Rate</div>
+              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Average Mention Rate</div>
               <div class="flex items-baseline gap-2">
-                <span class="text-4xl font-bold text-gray-900">{{ totalMentionRate }}</span>
-                <span class="text-xl font-medium text-gray-400">%</span>
+                <span class="text-3xl font-bold text-gray-900">{{ totalMentionRate }}</span>
+                <span class="text-lg font-medium text-gray-400">%</span>
               </div>
             </div>
           </div>
           <div class="text-right hidden sm:block">
-            <div class="text-[10px] text-gray-500 mb-1">Across all platforms</div>
+            <div class="text-xs text-gray-500 mb-0.5">Across all platforms</div>
             <div class="text-xs text-gray-400">Last {{ selectedPeriodDays }} days</div>
           </div>
         </div>

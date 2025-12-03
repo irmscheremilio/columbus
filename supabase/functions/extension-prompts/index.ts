@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     // Verify product belongs to user's organization and get details
     const { data: product } = await supabaseAdmin
       .from('products')
-      .select('id, name, domain')
+      .select('id, name, domain, domain_aliases')
       .eq('id', productId)
       .eq('organization_id', organizationId)
       .single()
@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
           id: product.id,
           name: product.name,
           brand: product.name, // Use name as brand since brand_name column doesn't exist
-          domain: product.domain
+          domain: product.domain,
+          domain_aliases: product.domain_aliases || []
         },
         prompts: formattedPrompts,
         competitors: competitors?.map(c => c.name) || [],

@@ -154,6 +154,7 @@ pub async fn start_scan_internal(
     let prompts = prompts_response.prompts.clone();
     let brand = prompts_response.product.brand.clone();
     let brand_domain = prompts_response.product.domain.clone();
+    let domain_aliases = prompts_response.product.domain_aliases.clone();
     let competitors = prompts_response.competitors.clone();
     let platforms_for_scan = selected_platforms.clone();
     let countries_for_scan = scan_countries.clone();
@@ -169,6 +170,7 @@ pub async fn start_scan_internal(
             product_id.clone(),
             brand,
             brand_domain,
+            domain_aliases,
             competitors,
             platforms_for_scan,
             countries_for_scan,
@@ -207,6 +209,7 @@ async fn run_scan(
     product_id: String,
     brand: String,
     brand_domain: Option<String>,
+    domain_aliases: Option<Vec<String>>,
     competitors: Vec<String>,
     selected_platforms: Vec<String>,
     scan_countries: Vec<String>,
@@ -440,7 +443,7 @@ async fn run_scan(
 
                 // Collect response
                 let collect_result = manager
-                    .collect_response(&app, &webview_label, platform, &brand, brand_domain.as_deref(), &competitors)
+                    .collect_response(&app, &webview_label, platform, &brand, brand_domain.as_deref(), domain_aliases.as_deref(), &competitors)
                     .await;
 
                 match collect_result {

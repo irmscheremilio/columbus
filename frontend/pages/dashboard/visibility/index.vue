@@ -20,39 +20,39 @@
         </div>
       </div>
 
-      <!-- Average Mention Rate Hero Card -->
-      <div class="bg-gradient-to-br from-brand/5 via-brand/10 to-amber-50/50 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-brand/10 overflow-hidden">
-        <div class="px-6 py-5 flex items-center justify-between">
+      <!-- Mention Rate Hero Card -->
+      <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
+        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
           <div class="flex items-center gap-4">
-            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand to-amber-500 flex items-center justify-center shadow-lg shadow-brand/20">
-              <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
             <div>
-              <div class="text-[11px] font-semibold text-brand/60 uppercase tracking-wider mb-0.5">Mention Rate</div>
+              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Mention Rate</div>
               <div class="flex items-baseline gap-2">
-                <span class="text-4xl font-bold text-gray-900">{{ mentionRate }}</span>
-                <span class="text-xl font-medium text-gray-400">%</span>
+                <span class="text-3xl font-bold text-gray-900">{{ mentionRate }}</span>
+                <span class="text-lg font-medium text-gray-400">%</span>
               </div>
             </div>
           </div>
-          <div class="hidden sm:flex items-center gap-6">
-            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
-              <div class="text-lg font-bold text-gray-900">{{ totalTests }}</div>
+          <div class="hidden sm:flex items-center gap-4">
+            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-base font-bold text-gray-900">{{ totalTests }}</div>
               <div class="text-[10px] text-gray-500">Tests Run</div>
             </div>
-            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
-              <div class="text-lg font-bold text-gray-900">{{ citationRate }}%</div>
+            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-base font-bold text-gray-900">{{ citationRate }}%</div>
               <div class="text-[10px] text-gray-500">Brand Cited</div>
             </div>
-            <div class="text-center px-4 py-2 bg-white/60 rounded-xl">
-              <div class="text-lg font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
+            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-base font-bold text-gray-900">#{{ avgPosition || '-' }}</div>
               <div class="text-[10px] text-gray-500">Avg Position</div>
             </div>
-            <div class="text-center px-4 py-2 bg-emerald-50/80 rounded-xl">
-              <div class="text-lg font-bold text-emerald-600">{{ positiveSentiment }}%</div>
-              <div class="text-[10px] text-emerald-600/70">Positive</div>
+            <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg">
+              <div class="text-base font-bold text-emerald-600">{{ positiveSentiment }}%</div>
+              <div class="text-[10px] text-emerald-600">Positive</div>
             </div>
           </div>
         </div>

@@ -1,64 +1,66 @@
 <template>
-  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-shadow duration-200 flex flex-col">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
-      <span v-if="totalCitations > 0" class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
-        {{ totalCitations }} citations
+  <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200 h-full flex flex-col">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-1 h-4 rounded-full bg-violet-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold text-gray-900">{{ title }}</h2>
+          <p class="text-[10px] text-gray-500 mt-0.5">Source breakdown</p>
+        </div>
+      </div>
+      <span v-if="totalCitations > 0" class="text-[10px] text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md font-medium">
+        {{ totalCitations }} total
       </span>
     </div>
 
-    <div v-if="loading" class="flex items-center justify-center h-52">
-      <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
-    </div>
-
-    <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center h-52 text-center">
-      <svg class="w-10 h-10 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-      </svg>
-      <p class="text-sm text-gray-500">No citations detected yet</p>
-      <p class="text-xs text-gray-400 mt-1">Run a visibility scan to see source data</p>
-    </div>
-
-    <div v-else class="flex flex-col lg:flex-row items-center gap-4 flex-1">
-      <!-- Donut Chart -->
-      <div class="relative w-36 h-36 flex-shrink-0">
-        <canvas ref="chartCanvas"></canvas>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-xl font-bold text-gray-900">{{ brandSourcePercent }}%</span>
-          <span class="text-[10px] text-gray-500">Your site</span>
-        </div>
+    <!-- Content -->
+    <div class="p-4 flex-1 flex flex-col">
+      <div v-if="loading" class="flex items-center justify-center flex-1">
+        <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
       </div>
 
-      <!-- Legend -->
-      <div class="flex-1 w-full">
-        <div class="space-y-1 max-h-48 overflow-y-auto pr-1">
-          <div
-            v-for="(source, idx) in topSources"
-            :key="source.domain"
-            class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg hover:bg-gray-50/80 transition-colors"
-          >
-            <div class="flex items-center gap-2 min-w-0">
-              <div
-                class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                :style="{ backgroundColor: getColor(idx, source.isBrand) }"
-              ></div>
-              <span class="truncate text-sm" :class="source.isBrand ? 'font-medium text-brand' : 'text-gray-600'">
-                {{ source.domain }}
-              </span>
-            </div>
-            <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
-              <span class="text-gray-900 font-semibold text-sm">{{ source.count }}</span>
-              <span class="text-gray-400 text-xs">({{ getPercent(source.count) }}%)</span>
-            </div>
+      <div v-else-if="sources.length === 0" class="flex flex-col items-center justify-center flex-1 text-center py-8">
+        <svg class="w-10 h-10 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        <p class="text-sm text-gray-500">No citations detected yet</p>
+        <p class="text-xs text-gray-400 mt-1">Run a visibility scan to see source data</p>
+      </div>
+
+      <div v-else class="flex flex-col gap-4">
+        <!-- Top Sources Bar Chart -->
+        <div>
+          <h4 class="text-xs font-semibold text-gray-700 mb-3">Top Citation Sources</h4>
+          <div class="h-40">
+            <canvas ref="chartCanvas"></canvas>
           </div>
         </div>
-        <div v-if="sources.length > 5" class="mt-2 pt-2 border-t border-gray-100/80">
-          <button
-            @click="showAll = !showAll"
-            class="text-xs text-brand hover:text-brand/80 font-medium transition-colors"
-          >
-            {{ showAll ? 'Show less' : `+${sources.length - 5} more sources` }}
-          </button>
+
+        <!-- All Sources List -->
+        <div>
+          <h4 class="text-xs font-semibold text-gray-700 mb-3">All Sources</h4>
+          <div class="max-h-48 overflow-y-auto space-y-2 pr-1">
+            <div
+              v-for="(source, idx) in sources"
+              :key="source.domain"
+              class="flex items-center gap-3"
+            >
+              <div class="w-28 text-xs font-medium truncate" :class="source.isBrand ? 'text-emerald-600' : 'text-gray-700'">
+                {{ source.domain }}
+              </div>
+              <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-500"
+                  :class="source.isBrand ? 'bg-emerald-500' : 'bg-gray-400'"
+                  :style="{ width: `${getPercent(source.count)}%` }"
+                ></div>
+              </div>
+              <div class="w-14 text-right text-xs font-semibold" :class="source.isBrand ? 'text-emerald-600' : 'text-gray-600'">
+                {{ getPercent(source.count) }}%
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -79,7 +81,6 @@ const supabase = useSupabaseClient()
 const { selectedRegion } = useRegionFilter()
 
 const loading = ref(false)
-const showAll = ref(false)
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 
@@ -93,36 +94,9 @@ const sources = ref<SourceData[]>([])
 const totalCitations = ref(0)
 const brandCitations = ref(0)
 
-const topSources = computed(() => {
-  return showAll.value ? sources.value : sources.value.slice(0, 5)
-})
-
-const brandSourcePercent = computed(() => {
-  if (totalCitations.value === 0) return 0
-  return Math.round((brandCitations.value / totalCitations.value) * 100)
-})
-
 const getPercent = (count: number) => {
   if (totalCitations.value === 0) return 0
   return Math.round((count / totalCitations.value) * 100)
-}
-
-const colors = [
-  '#10b981', // emerald (brand)
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#84cc16', // lime
-  '#f97316', // orange
-  '#6366f1', // indigo
-]
-
-const getColor = (index: number, isBrand: boolean) => {
-  if (isBrand) return '#10b981' // Brand color (emerald)
-  return colors[(index % (colors.length - 1)) + 1]
 }
 
 const loadData = async () => {
@@ -213,8 +187,20 @@ const loadData = async () => {
     totalCitations.value = exactCount || 0
     brandCitations.value = brand
 
+    // Render chart with retry mechanism
+    const tryRenderChart = (attempts = 0) => {
+      if (attempts > 5) return
+      setTimeout(() => {
+        if (chartCanvas.value) {
+          renderChart()
+        } else {
+          tryRenderChart(attempts + 1)
+        }
+      }, 100)
+    }
+
     await nextTick()
-    renderChart()
+    tryRenderChart()
   } catch (error) {
     console.error('Error loading citations:', error)
   } finally {
@@ -232,45 +218,52 @@ const renderChart = () => {
   const ctx = chartCanvas.value.getContext('2d')
   if (!ctx) return
 
-  // Take top 5 for chart, rest in "Other"
-  const chartSources = sources.value.slice(0, 5)
-  const otherCount = sources.value.slice(5).reduce((sum, s) => sum + s.count, 0)
+  // Take top 6 for chart
+  const chartSources = sources.value.slice(0, 6)
 
   const labels = chartSources.map(s => s.domain)
-  const data = chartSources.map(s => s.count)
-  const backgroundColors = chartSources.map((s, i) => getColor(i, s.isBrand))
-
-  if (otherCount > 0) {
-    labels.push('Other')
-    data.push(otherCount)
-    backgroundColors.push('#9ca3af')
-  }
+  const data = chartSources.map(s => getPercent(s.count))
+  const backgroundColors = chartSources.map(s => s.isBrand ? '#10B981' : '#D1D5DB')
 
   chart = new Chart(ctx, {
-    type: 'doughnut',
+    type: 'bar',
     data: {
       labels,
       datasets: [{
         data,
         backgroundColor: backgroundColors,
-        borderWidth: 0,
-        hoverOffset: 4
+        borderRadius: 4,
+        barThickness: 20
       }]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      cutout: '65%',
+      maintainAspectRatio: false,
+      indexAxis: 'y',
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             label: (context) => {
-              const value = context.parsed
-              const percent = Math.round((value / totalCitations.value) * 100)
-              return `${context.label}: ${value} (${percent}%)`
+              const source = chartSources[context.dataIndex]
+              return `${source.count} citations (${context.parsed.x}%)`
             }
           }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: (value) => `${value}%`,
+            font: { size: 10 }
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          ticks: { font: { size: 10 } },
+          grid: { display: false }
         }
       }
     }

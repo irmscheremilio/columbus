@@ -12,19 +12,21 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </NuxtLink>
-          <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center overflow-hidden shadow-sm">
             <img
               v-if="competitor?.icon_url || competitor?.domain"
               :src="competitor?.icon_url || getFaviconUrl(competitor?.domain, 64)"
               :alt="competitor?.name"
-              class="w-6 h-6"
+              class="w-7 h-7"
               @error="($event.target as HTMLImageElement).style.display = 'none'"
             />
-            <span v-else class="text-sm font-medium text-gray-400">{{ competitor?.name?.charAt(0)?.toUpperCase() }}</span>
+            <span v-else class="text-lg font-semibold text-red-400">{{ competitor?.name?.charAt(0)?.toUpperCase() }}</span>
           </div>
           <div>
             <h1 class="text-xl font-semibold text-gray-900 tracking-tight">{{ competitor?.name || 'Competitor' }}</h1>
-            <p class="text-sm text-gray-500">{{ competitor?.domain || 'Competitor analysis' }}</p>
+            <a :href="`https://${competitor?.domain}`" target="_blank" class="text-sm text-gray-500 hover:text-brand transition-colors">
+              {{ competitor?.domain || 'Competitor analysis' }}
+            </a>
           </div>
         </div>
         <button
@@ -44,104 +46,322 @@
       </div>
 
       <template v-else-if="competitor">
-        <!-- Comparison Stats -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <!-- Your Brand Stats -->
-          <div class="bg-brand/5 backdrop-blur-sm rounded-xl shadow-sm border border-brand/20 px-4 py-3">
-            <div class="text-[10px] font-medium text-brand uppercase tracking-wide">Your Mention Rate</div>
-            <div class="text-2xl font-bold text-brand">{{ brandMetrics.mentionRate }}%</div>
-          </div>
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 px-4 py-3">
-            <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ competitor.name }} Rate</div>
-            <div class="text-2xl font-bold" :class="getComparisonColor(competitorMetrics.mentionRate, brandMetrics.mentionRate)">
-              {{ competitorMetrics.mentionRate }}%
-            </div>
-          </div>
-          <div class="bg-brand/5 backdrop-blur-sm rounded-xl shadow-sm border border-brand/20 px-4 py-3">
-            <div class="text-[10px] font-medium text-brand uppercase tracking-wide">Your Avg Position</div>
-            <div class="text-2xl font-bold text-brand">{{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}</div>
-          </div>
-          <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 px-4 py-3">
-            <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ competitor.name }} Position</div>
-            <div class="text-2xl font-bold" :class="getPositionComparisonColor(competitorMetrics.avgPosition, brandMetrics.avgPosition)">
-              {{ competitorMetrics.avgPosition ? `#${competitorMetrics.avgPosition}` : '-' }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Head to Head Summary -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4">
-          <h2 class="text-sm font-semibold text-gray-900 mb-4">Head to Head Comparison</h2>
-          <div class="space-y-4">
-            <!-- Mention Rate Bar -->
+        <!-- Hero: Battle Summary -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-brand"></div>
             <div>
-              <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Mention Rate</span>
-                <span>{{ brandMetrics.mentionRate }}% vs {{ competitorMetrics.mentionRate }}%</span>
+              <h2 class="text-sm font-semibold text-gray-900">Battle Summary</h2>
+              <p class="text-[10px] text-gray-500 mt-0.5">Head-to-head performance comparison</p>
+            </div>
+          </div>
+          <div class="px-6 py-6">
+            <div class="flex items-center justify-between">
+              <!-- Your Brand Side -->
+              <div class="flex-1 text-center">
+                <div class="w-16 h-16 mx-auto rounded-xl bg-gradient-to-br from-brand to-amber-500 flex items-center justify-center shadow-lg shadow-brand/30 mb-3">
+                  <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                  </svg>
+                </div>
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">Your Brand</div>
+                <div class="text-4xl font-bold text-gray-900">{{ brandMetrics.mentionRate }}%</div>
+                <div class="text-gray-400 text-xs mt-1">Mention Rate</div>
               </div>
-              <div class="flex h-3 rounded-full overflow-hidden bg-gray-100">
-                <div
-                  class="bg-brand transition-all duration-500"
-                  :style="{ width: `${getBarWidth(brandMetrics.mentionRate, competitorMetrics.mentionRate)}%` }"
-                ></div>
-                <div
-                  class="bg-red-400 transition-all duration-500"
-                  :style="{ width: `${getBarWidth(competitorMetrics.mentionRate, brandMetrics.mentionRate)}%` }"
-                ></div>
+
+              <!-- VS Indicator -->
+              <div class="px-6">
+                <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                  <span class="text-gray-400 font-bold text-lg">VS</span>
+                </div>
+                <div class="text-center mt-2">
+                  <span
+                    class="text-xs font-semibold px-2 py-1 rounded-full"
+                    :class="getOverallWinnerClass()"
+                  >
+                    {{ getOverallWinnerText() }}
+                  </span>
+                </div>
               </div>
-              <div class="flex justify-between text-[10px] mt-1">
-                <span class="text-brand font-medium">Your Brand</span>
-                <span class="text-red-500 font-medium">{{ competitor.name }}</span>
+
+              <!-- Competitor Side -->
+              <div class="flex-1 text-center">
+                <div class="w-16 h-16 mx-auto rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/30 mb-3 overflow-hidden">
+                  <img
+                    v-if="competitor?.icon_url || competitor?.domain"
+                    :src="competitor?.icon_url || getFaviconUrl(competitor?.domain, 64)"
+                    :alt="competitor?.name"
+                    class="w-8 h-8"
+                    @error="($event.target as HTMLImageElement).parentElement?.classList.add('text-white'); ($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <span class="text-2xl font-bold text-white hidden">{{ competitor?.name?.charAt(0)?.toUpperCase() }}</span>
+                </div>
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">{{ competitor.name }}</div>
+                <div class="text-4xl font-bold text-gray-900">{{ competitorMetrics.mentionRate }}%</div>
+                <div class="text-gray-400 text-xs mt-1">Mention Rate</div>
               </div>
             </div>
 
-            <!-- Citation Rate Bar -->
-            <div>
-              <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Citation Rate</span>
-                <span>{{ brandMetrics.citationRate }}% vs {{ competitorMetrics.citationRate || 0 }}%</span>
+            <!-- Quick Stats Row -->
+            <div class="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
+              <div class="text-center">
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Your Position</div>
+                <div class="text-xl font-bold text-gray-900 mt-1">{{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}</div>
               </div>
-              <div class="flex h-3 rounded-full overflow-hidden bg-gray-100">
-                <div
-                  class="bg-brand transition-all duration-500"
-                  :style="{ width: `${getBarWidth(brandMetrics.citationRate, competitorMetrics.citationRate || 0)}%` }"
-                ></div>
-                <div
-                  class="bg-red-400 transition-all duration-500"
-                  :style="{ width: `${getBarWidth(competitorMetrics.citationRate || 0, brandMetrics.citationRate)}%` }"
-                ></div>
+              <div class="text-center">
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Their Position</div>
+                <div class="text-xl font-bold text-gray-900 mt-1">{{ competitorMetrics.avgPosition ? `#${competitorMetrics.avgPosition}` : '-' }}</div>
               </div>
-              <div class="flex justify-between text-[10px] mt-1">
-                <span class="text-brand font-medium">Your Brand</span>
-                <span class="text-red-500 font-medium">{{ competitor.name }}</span>
+              <div class="text-center">
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Your Citations</div>
+                <div class="text-xl font-bold text-gray-900 mt-1">{{ brandMetrics.citationRate }}%</div>
               </div>
-            </div>
-
-            <!-- Position Comparison -->
-            <div v-if="brandMetrics.avgPosition && competitorMetrics.avgPosition">
-              <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Average Position (lower is better)</span>
-                <span>#{{ brandMetrics.avgPosition }} vs #{{ competitorMetrics.avgPosition }}</span>
-              </div>
-              <div class="flex items-center gap-4">
-                <div class="flex-1 text-center py-2 rounded-lg" :class="brandMetrics.avgPosition <= competitorMetrics.avgPosition ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-gray-200'">
-                  <div class="text-lg font-bold" :class="brandMetrics.avgPosition <= competitorMetrics.avgPosition ? 'text-emerald-600' : 'text-gray-600'">#{{ brandMetrics.avgPosition }}</div>
-                  <div class="text-[10px] text-gray-500">Your Brand</div>
-                </div>
-                <div class="text-gray-400">vs</div>
-                <div class="flex-1 text-center py-2 rounded-lg" :class="competitorMetrics.avgPosition < brandMetrics.avgPosition ? 'bg-red-50 border border-red-200' : 'bg-gray-50 border border-gray-200'">
-                  <div class="text-lg font-bold" :class="competitorMetrics.avgPosition < brandMetrics.avgPosition ? 'text-red-600' : 'text-gray-600'">#{{ competitorMetrics.avgPosition }}</div>
-                  <div class="text-[10px] text-gray-500">{{ competitor.name }}</div>
-                </div>
+              <div class="text-center">
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Period</div>
+                <div class="text-xl font-bold text-gray-900 mt-1">30D</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Trend Comparison Chart -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-900">Trend Comparison</h2>
+        <!-- Comparison Table -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-4 rounded-full bg-violet-500"></div>
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">Head to Head Comparison</h2>
+              <p class="text-[10px] text-gray-500 mt-0.5">Metric-by-metric breakdown</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="bg-gray-50/80">
+                  <th class="text-left text-xs font-medium text-gray-500 px-4 py-3">Metric</th>
+                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Your Brand</th>
+                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">{{ competitor.name }}</th>
+                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Difference</th>
+                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Winner</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <!-- Mention Rate -->
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                      </div>
+                      <span class="text-sm font-medium text-gray-900">Mention Rate</span>
+                    </div>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-brand">{{ brandMetrics.mentionRate }}%</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-gray-700">{{ competitorMetrics.mentionRate }}%</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span
+                      class="text-sm font-medium"
+                      :class="brandMetrics.mentionRate >= competitorMetrics.mentionRate ? 'text-emerald-600' : 'text-red-600'"
+                    >
+                      {{ brandMetrics.mentionRate >= competitorMetrics.mentionRate ? '+' : '' }}{{ brandMetrics.mentionRate - competitorMetrics.mentionRate }}%
+                    </span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                      :class="getWinnerBadgeClass(brandMetrics.mentionRate, competitorMetrics.mentionRate, 'higher')"
+                    >
+                      {{ getWinnerText(brandMetrics.mentionRate, competitorMetrics.mentionRate, 'higher') }}
+                    </span>
+                  </td>
+                </tr>
+
+                <!-- Citation Rate -->
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                      <span class="text-sm font-medium text-gray-900">Citation Rate</span>
+                    </div>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-brand">{{ brandMetrics.citationRate }}%</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-gray-400">N/A</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm text-gray-400">-</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                      N/A
+                    </span>
+                  </td>
+                </tr>
+
+                <!-- Average Position -->
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span class="text-sm font-medium text-gray-900">Avg Position</span>
+                        <span class="text-[10px] text-gray-400 block">Lower is better</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-brand">{{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span class="text-sm font-bold text-gray-700">{{ competitorMetrics.avgPosition ? `#${competitorMetrics.avgPosition}` : '-' }}</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span
+                      v-if="brandMetrics.avgPosition && competitorMetrics.avgPosition"
+                      class="text-sm font-medium"
+                      :class="brandMetrics.avgPosition <= competitorMetrics.avgPosition ? 'text-emerald-600' : 'text-red-600'"
+                    >
+                      {{ brandMetrics.avgPosition <= competitorMetrics.avgPosition ? '' : '+' }}{{ (brandMetrics.avgPosition - competitorMetrics.avgPosition).toFixed(1) }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">-</span>
+                  </td>
+                  <td class="text-center px-4 py-3">
+                    <span
+                      v-if="brandMetrics.avgPosition && competitorMetrics.avgPosition"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                      :class="getWinnerBadgeClass(brandMetrics.avgPosition, competitorMetrics.avgPosition, 'lower')"
+                    >
+                      {{ getWinnerText(brandMetrics.avgPosition, competitorMetrics.avgPosition, 'lower') }}
+                    </span>
+                    <span v-else class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                      N/A
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Visual Comparison Bars -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Mention Rate Comparison -->
+          <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-blue-500"></div>
+              <h2 class="text-sm font-semibold text-gray-900">Mention Rate Battle</h2>
+            </div>
+            <div class="p-4">
+              <div class="space-y-4">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-gray-700">Your Brand</span>
+                    <span class="text-sm font-bold text-brand">{{ brandMetrics.mentionRate }}%</span>
+                  </div>
+                  <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-gradient-to-r from-brand to-amber-400 rounded-full transition-all duration-700"
+                      :style="{ width: `${brandMetrics.mentionRate}%` }"
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-gray-700">{{ competitor.name }}</span>
+                    <span class="text-sm font-bold text-red-500">{{ competitorMetrics.mentionRate }}%</span>
+                  </div>
+                  <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-full transition-all duration-700"
+                      :style="{ width: `${competitorMetrics.mentionRate}%` }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-gray-100 text-center">
+                <span
+                  class="text-sm font-medium"
+                  :class="brandMetrics.mentionRate >= competitorMetrics.mentionRate ? 'text-emerald-600' : 'text-red-600'"
+                >
+                  {{ brandMetrics.mentionRate >= competitorMetrics.mentionRate ? 'You are winning' : 'Competitor is winning' }}
+                  by {{ Math.abs(brandMetrics.mentionRate - competitorMetrics.mentionRate) }} percentage points
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Position Comparison -->
+          <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-amber-500"></div>
+              <h2 class="text-sm font-semibold text-gray-900">Position Battle</h2>
+            </div>
+            <div class="p-4">
+              <div class="flex items-center justify-around py-4">
+                <div class="text-center">
+                  <div
+                    class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-2"
+                    :class="positionWinner === 'brand' ? 'bg-emerald-100 ring-4 ring-emerald-200' : 'bg-gray-100'"
+                  >
+                    <span class="text-2xl font-bold" :class="positionWinner === 'brand' ? 'text-emerald-600' : 'text-gray-600'">
+                      {{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-medium text-gray-700">Your Brand</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-300">VS</div>
+                <div class="text-center">
+                  <div
+                    class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-2"
+                    :class="positionWinner === 'competitor' ? 'bg-red-100 ring-4 ring-red-200' : 'bg-gray-100'"
+                  >
+                    <span class="text-2xl font-bold" :class="positionWinner === 'competitor' ? 'text-red-600' : 'text-gray-600'">
+                      {{ competitorMetrics.avgPosition ? `#${competitorMetrics.avgPosition}` : '-' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-medium text-gray-700">{{ competitor.name }}</span>
+                </div>
+              </div>
+              <div class="mt-2 pt-4 border-t border-gray-100 text-center">
+                <span
+                  v-if="positionWinner"
+                  class="text-sm font-medium"
+                  :class="positionWinner === 'brand' ? 'text-emerald-600' : 'text-red-600'"
+                >
+                  {{ positionWinner === 'brand' ? 'You rank higher' : 'Competitor ranks higher' }}
+                  <span class="text-gray-400">(lower position = better)</span>
+                </span>
+                <span v-else class="text-sm text-gray-400">Position data unavailable</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Trend Comparison</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Performance over time</p>
+              </div>
+            </div>
             <div class="flex items-center gap-2">
               <select
                 v-model="chartMetric"
@@ -163,70 +383,88 @@
               </div>
             </div>
           </div>
-          <div class="relative h-64">
-            <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
-              <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+          <div class="p-4">
+            <div class="relative h-72">
+              <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+              </div>
+              <canvas ref="trendChartCanvas"></canvas>
             </div>
-            <canvas ref="trendChartCanvas"></canvas>
-          </div>
-          <!-- Legend -->
-          <div class="flex justify-center gap-6 mt-3 pt-3 border-t border-gray-100">
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full bg-brand"></div>
-              <span class="text-xs text-gray-700 font-medium">Your Brand</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full bg-red-400"></div>
-              <span class="text-xs text-gray-500">{{ competitor.name }}</span>
+            <!-- Legend -->
+            <div class="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-brand"></div>
+                <span class="text-xs text-gray-700 font-medium">Your Brand</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                <span class="text-xs text-gray-500">{{ competitor.name }}</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Recent Mentions -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
-          <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
-            <h2 class="text-sm font-semibold text-gray-900">Recent Competitor Mentions</h2>
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-red-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Recent Competitor Mentions</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Where {{ competitor.name }} was mentioned in AI responses</p>
+              </div>
+            </div>
+            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
+              {{ recentMentions.length }} recent
+            </span>
           </div>
-          <div v-if="recentMentions.length === 0" class="text-center py-8 text-sm text-gray-500">
-            No recent mentions found
+          <div v-if="recentMentions.length === 0" class="text-center py-12">
+            <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <p class="text-sm text-gray-500">No recent mentions found</p>
+            <p class="text-xs text-gray-400 mt-1">Run more scans to see competitor mentions</p>
           </div>
           <div v-else class="divide-y divide-gray-100/80">
             <div
               v-for="mention in recentMentions"
               :key="mention.id"
-              class="px-4 py-3"
+              class="px-4 py-4 hover:bg-gray-50/50 transition-colors"
             >
               <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                  <div class="flex items-center flex-wrap gap-2 mb-2">
+                    <span class="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-700">
                       {{ formatModel(mention.ai_model) }}
                     </span>
-                    <span v-if="mention.position" class="text-xs text-gray-500">
+                    <span v-if="mention.position" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-700">
                       Position #{{ mention.position }}
                     </span>
-                    <span class="text-xs px-2 py-0.5 rounded" :class="getSentimentClass(mention.sentiment)">
+                    <span
+                      class="text-xs px-2 py-1 rounded-lg"
+                      :class="getSentimentClass(mention.sentiment)"
+                    >
                       {{ mention.sentiment }}
                     </span>
                     <a
                       v-if="mention.prompt_results?.chat_url"
                       :href="mention.prompt_results.chat_url"
                       target="_blank"
-                      class="text-xs text-brand hover:text-brand/80 inline-flex items-center gap-1"
+                      class="text-xs text-brand hover:text-brand/80 inline-flex items-center gap-1 ml-auto"
                       @click.stop
                     >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                       View Chat
                     </a>
                   </div>
-                  <p v-if="mention.mention_context" class="text-sm text-gray-600 line-clamp-2">
+                  <p v-if="mention.mention_context" class="text-sm text-gray-600 line-clamp-2 bg-gray-50 rounded-lg px-3 py-2 italic">
                     "{{ mention.mention_context }}"
                   </p>
                 </div>
-                <div class="text-xs text-gray-400 flex-shrink-0">
-                  {{ formatDate(mention.detected_at) }}
+                <div class="text-xs text-gray-400 flex-shrink-0 text-right">
+                  <div>{{ formatDate(mention.detected_at) }}</div>
                 </div>
               </div>
             </div>
@@ -290,6 +528,13 @@ const competitorMetrics = ref({
   mentionRate: 0,
   citationRate: null as number | null,
   avgPosition: null as number | null
+})
+
+const positionWinner = computed(() => {
+  if (!brandMetrics.value.avgPosition || !competitorMetrics.value.avgPosition) return null
+  if (brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition) return 'brand'
+  if (brandMetrics.value.avgPosition > competitorMetrics.value.avgPosition) return 'competitor'
+  return 'tie'
 })
 
 watch([chartMetric, chartPeriod], () => {
@@ -537,26 +782,30 @@ const renderChart = (labels: string[], brandData: (number | null)[], competitorD
       label: 'Your Brand',
       data: brandData,
       borderColor: '#F29901',
-      backgroundColor: '#F2990120',
-      borderWidth: 2.5,
+      backgroundColor: '#F2990115',
+      borderWidth: 3,
       fill: true,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      tension: 0.4,
+      pointRadius: 4,
+      pointHoverRadius: 6,
       pointBackgroundColor: '#F29901',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
       spanGaps: true
     },
     {
       label: competitor.value?.name || 'Competitor',
       data: competitorData,
       borderColor: '#f87171',
-      backgroundColor: '#f8717120',
-      borderWidth: 2.5,
+      backgroundColor: '#f8717115',
+      borderWidth: 3,
       fill: true,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      tension: 0.4,
+      pointRadius: 4,
+      pointHoverRadius: 6,
       pointBackgroundColor: '#f87171',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
       spanGaps: true
     }
   ]
@@ -585,6 +834,10 @@ const renderChart = (labels: string[], brandData: (number | null)[], competitorD
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          padding: 12,
+          titleFont: { size: 13 },
+          bodyFont: { size: 12 },
           callbacks: {
             label: (context) => {
               const value = context.parsed.y
@@ -633,23 +886,51 @@ const removeCompetitor = async () => {
   }
 }
 
-const getComparisonColor = (competitorRate: number, brandRate: number) => {
-  if (competitorRate > brandRate) return 'text-red-600'
-  if (competitorRate < brandRate) return 'text-emerald-600'
-  return 'text-gray-600'
+const getOverallWinnerClass = () => {
+  const brandWins = (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate ? 1 : 0) +
+    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition ? 1 : 0)
+  const competitorWins = (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate ? 1 : 0) +
+    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition ? 1 : 0)
+
+  if (brandWins > competitorWins) return 'bg-emerald-100 text-emerald-700'
+  if (competitorWins > brandWins) return 'bg-red-100 text-red-700'
+  return 'bg-gray-100 text-gray-600'
 }
 
-const getPositionComparisonColor = (competitorPos: number | null, brandPos: number | null) => {
-  if (!competitorPos || !brandPos) return 'text-gray-600'
-  if (competitorPos < brandPos) return 'text-red-600' // Lower position is better
-  if (competitorPos > brandPos) return 'text-emerald-600'
-  return 'text-gray-600'
+const getOverallWinnerText = () => {
+  const brandWins = (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate ? 1 : 0) +
+    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition ? 1 : 0)
+  const competitorWins = (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate ? 1 : 0) +
+    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition ? 1 : 0)
+
+  if (brandWins > competitorWins) return 'Winning'
+  if (competitorWins > brandWins) return 'Losing'
+  return 'Tied'
 }
 
-const getBarWidth = (value: number, otherValue: number) => {
-  const total = value + otherValue
-  if (total === 0) return 50
-  return (value / total) * 100
+const getWinnerBadgeClass = (brandValue: number | null, competitorValue: number | null, betterIs: 'higher' | 'lower') => {
+  if (brandValue === null || competitorValue === null) return 'bg-gray-100 text-gray-500'
+
+  const brandWins = betterIs === 'higher'
+    ? brandValue > competitorValue
+    : brandValue < competitorValue
+  const isTied = brandValue === competitorValue
+
+  if (isTied) return 'bg-gray-100 text-gray-600'
+  if (brandWins) return 'bg-emerald-100 text-emerald-700'
+  return 'bg-red-100 text-red-700'
+}
+
+const getWinnerText = (brandValue: number | null, competitorValue: number | null, betterIs: 'higher' | 'lower') => {
+  if (brandValue === null || competitorValue === null) return 'N/A'
+
+  const brandWins = betterIs === 'higher'
+    ? brandValue > competitorValue
+    : brandValue < competitorValue
+  const isTied = brandValue === competitorValue
+
+  if (isTied) return 'Tied'
+  return brandWins ? 'You' : competitor.value?.name || 'Competitor'
 }
 
 const getSentimentClass = (sentiment: string) => {
