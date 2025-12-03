@@ -260,31 +260,59 @@ const loadVisibilityScore = async (productId: string) => {
     startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
     startDate.setHours(0, 0, 0, 0)
 
-    // Get visibility history data within date range
-    const { data: historyData } = await supabase
-      .from('visibility_history')
-      .select('ai_model, prompts_tested, prompts_mentioned')
-      .eq('product_id', productId)
-      .gte('recorded_at', startDate.toISOString())
-
-    if (!historyData || historyData.length === 0) {
-      visibilityScore.value = null
-      return
-    }
-
-    // Aggregate by platform
-    const platformTotals: Record<string, { tested: number; mentioned: number }> = {
+    // When a region is selected, query prompt_results directly
+    // because visibility_history doesn't have region data
+    let platformTotals: Record<string, { tested: number; mentioned: number }> = {
       chatgpt: { tested: 0, mentioned: 0 },
       claude: { tested: 0, mentioned: 0 },
       gemini: { tested: 0, mentioned: 0 },
       perplexity: { tested: 0, mentioned: 0 }
     }
 
-    for (const entry of historyData) {
-      const platform = entry.ai_model?.toLowerCase()
-      if (platformTotals[platform]) {
-        platformTotals[platform].tested += entry.prompts_tested || 0
-        platformTotals[platform].mentioned += entry.prompts_mentioned || 0
+    if (selectedRegion.value) {
+      // Query prompt_results directly for region-filtered data
+      const { data: results } = await supabase
+        .from('prompt_results')
+        .select('ai_model, brand_mentioned')
+        .eq('product_id', productId)
+        .gte('tested_at', startDate.toISOString())
+        .ilike('request_country', selectedRegion.value)
+
+      if (!results || results.length === 0) {
+        visibilityScore.value = null
+        return
+      }
+
+      // Aggregate by platform
+      for (const entry of results) {
+        const platform = entry.ai_model?.toLowerCase()
+        if (platformTotals[platform]) {
+          platformTotals[platform].tested += 1
+          if (entry.brand_mentioned) {
+            platformTotals[platform].mentioned += 1
+          }
+        }
+      }
+    } else {
+      // No region filter - use visibility_history for better performance
+      const { data: historyData } = await supabase
+        .from('visibility_history')
+        .select('ai_model, prompts_tested, prompts_mentioned')
+        .eq('product_id', productId)
+        .gte('recorded_at', startDate.toISOString())
+
+      if (!historyData || historyData.length === 0) {
+        visibilityScore.value = null
+        return
+      }
+
+      // Aggregate by platform
+      for (const entry of historyData) {
+        const platform = entry.ai_model?.toLowerCase()
+        if (platformTotals[platform]) {
+          platformTotals[platform].tested += entry.prompts_tested || 0
+          platformTotals[platform].mentioned += entry.prompts_mentioned || 0
+        }
       }
     }
 

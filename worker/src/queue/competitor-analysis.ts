@@ -1,3 +1,15 @@
+/**
+ * @deprecated This worker is deprecated. Gap analysis is now performed automatically
+ * during regular visibility scans in the prompt-evaluation worker.
+ *
+ * The old approach of manually triggering API calls to test prompts was inefficient
+ * and didn't use existing scan data. Gaps are now detected when evaluating
+ * AI responses collected by the desktop app during scans.
+ *
+ * See: worker/src/queue/prompt-evaluation.ts (step 7)
+ *
+ * This file is kept for reference but the queue/worker are no longer started.
+ */
 import { Worker, Queue } from 'bullmq'
 import { createRedisConnection } from '../utils/redis.js'
 import { createClient } from '@supabase/supabase-js'

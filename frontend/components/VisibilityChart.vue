@@ -207,11 +207,9 @@ const props = withDefaults(defineProps<{
   title?: string
   productId: string | null
   chartHeight?: string
-  region?: string | null
 }>(), {
   title: 'Visibility Over Time',
-  chartHeight: '12rem',
-  region: null
+  chartHeight: '12rem'
 })
 
 const emit = defineEmits<{
@@ -220,6 +218,7 @@ const emit = defineEmits<{
 
 const supabase = useSupabaseClient()
 const { platforms: aiPlatforms, loadPlatforms, platformIds } = useAIPlatforms()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(false)
 const hasData = ref(false)
@@ -293,32 +292,60 @@ const loadPlatformData = async () => {
   startDate.setHours(0, 0, 0, 0)
   const metric = selectedMetric.value
 
-  // Get visibility history for mention rate
-  const { data: historyData } = await supabase
-    .from('visibility_history')
-    .select('*')
-    .eq('product_id', props.productId)
-    .gte('recorded_at', startDate.toISOString())
-    .order('recorded_at', { ascending: true })
-
-  // Get position data from prompt_results if showing position metric
+  // When a region is selected, we need to query prompt_results directly
+  // because visibility_history doesn't have region data
+  let historyData: any[] = []
   let positionData: any[] = []
-  if (metric === 'position') {
-    let posQuery = supabase
+
+  if (selectedRegion.value) {
+    // Query prompt_results directly for region-filtered data
+    let resultsQuery = supabase
       .from('prompt_results')
-      .select('tested_at, position, ai_model')
+      .select('tested_at, ai_model, brand_mentioned, position')
       .eq('product_id', props.productId)
-      .eq('brand_mentioned', true)
-      .not('position', 'is', null)
       .gte('tested_at', startDate.toISOString())
+      .ilike('request_country', selectedRegion.value)
+      .order('tested_at', { ascending: true })
 
-    // Apply region filter if provided
-    if (props.region) {
-      posQuery = posQuery.ilike('request_country', props.region)
+    const { data: results } = await resultsQuery
+
+    if (metric === 'position') {
+      // Filter for position data
+      positionData = (results || []).filter(r => r.brand_mentioned && r.position !== null)
+    } else {
+      // Convert to visibility_history-like format for mention rate
+      // Group by ai_model and tested_at to calculate mention rates
+      historyData = (results || []).map(r => ({
+        recorded_at: r.tested_at,
+        ai_model: r.ai_model,
+        prompts_tested: 1,
+        prompts_mentioned: r.brand_mentioned ? 1 : 0
+      }))
     }
+  } else {
+    // No region filter - use visibility_history for mention rate
+    const { data } = await supabase
+      .from('visibility_history')
+      .select('*')
+      .eq('product_id', props.productId)
+      .gte('recorded_at', startDate.toISOString())
+      .order('recorded_at', { ascending: true })
 
-    const { data } = await posQuery.order('tested_at', { ascending: true })
-    positionData = data || []
+    historyData = data || []
+
+    // Get position data from prompt_results if showing position metric
+    if (metric === 'position') {
+      let posQuery = supabase
+        .from('prompt_results')
+        .select('tested_at, position, ai_model')
+        .eq('product_id', props.productId)
+        .eq('brand_mentioned', true)
+        .not('position', 'is', null)
+        .gte('tested_at', startDate.toISOString())
+
+      const { data } = await posQuery.order('tested_at', { ascending: true })
+      positionData = data || []
+    }
   }
 
   // Check if there's any data
@@ -397,9 +424,9 @@ const loadCompetitorData = async () => {
       positionQuery = positionQuery.eq('ai_model', selectedModel)
     }
 
-    // Apply region filter if provided
-    if (props.region) {
-      positionQuery = positionQuery.ilike('request_country', props.region)
+    // Apply region filter
+    if (selectedRegion.value) {
+      positionQuery = positionQuery.ilike('request_country', selectedRegion.value)
     }
 
     positionQuery = positionQuery.order('tested_at', { ascending: true })
@@ -475,9 +502,9 @@ const loadCompetitorData = async () => {
     promptQuery = promptQuery.eq('ai_model', selectedModel)
   }
 
-  // Apply region filter if provided
-  if (props.region) {
-    promptQuery = promptQuery.ilike('request_country', props.region)
+  // Apply region filter
+  if (selectedRegion.value) {
+    promptQuery = promptQuery.ilike('request_country', selectedRegion.value)
   }
 
   const { data: promptResults } = await promptQuery.order('tested_at', { ascending: true })
@@ -1483,8 +1510,8 @@ watch(() => props.productId, (newProductId) => {
   }
 })
 
-// Watch for region changes - reload data
-watch(() => props.region, () => {
+// Watch for global region filter changes - reload data
+watch(selectedRegion, () => {
   if (props.productId && isReady.value) {
     loadData()
   }

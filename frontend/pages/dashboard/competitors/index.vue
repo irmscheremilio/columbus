@@ -53,7 +53,7 @@
             >
               <option value="mention_rate">Mention Rate</option>
               <option value="position">Avg Position</option>
-              <option value="citation_rate">Citation Rate</option>
+              <option value="citation_rate">Brand Cited Rate</option>
             </select>
             <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
               <button
@@ -141,8 +141,9 @@
                 <th
                   class="text-center px-4 py-2.5 font-medium hidden md:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('citation_rate')"
+                  title="Brand website was cited"
                 >
-                  Citation Rate {{ getSortIcon('citation_rate') }}
+                  Brand Cited {{ getSortIcon('citation_rate') }}
                 </th>
                 <th
                   class="text-center px-4 py-2.5 font-medium hidden lg:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
@@ -702,10 +703,10 @@ const loadCompetitorMetrics = async (productId: string) => {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  // Load competitor mentions
+  // Load competitor mentions (include prompt_result_id to count unique results)
   const { data: mentions } = await supabase
     .from('competitor_mentions')
-    .select('competitor_id, position, sentiment')
+    .select('competitor_id, prompt_result_id, position, sentiment')
     .in('competitor_id', trackingIds)
     .gte('detected_at', startDate.toISOString())
 
@@ -729,7 +730,9 @@ const loadCompetitorMetrics = async (productId: string) => {
 
   for (const competitorId of trackingIds) {
     const competitorMentions = (mentions || []).filter(m => m.competitor_id === competitorId)
-    const mentionCount = competitorMentions.length
+    // Count unique prompt_result_ids to get accurate mention rate (competitor may be mentioned multiple times in same response)
+    const uniqueResultIds = new Set(competitorMentions.map(m => m.prompt_result_id).filter(Boolean))
+    const mentionCount = uniqueResultIds.size
     const mentionRate = totalResults > 0 ? Math.round((mentionCount / totalResults) * 100) : null
 
     const positions = competitorMentions.filter(m => m.position !== null).map(m => m.position as number)
@@ -773,11 +776,11 @@ const loadChartData = async () => {
 
     const { data: brandResults } = await brandQuery
 
-    // Load competitor mentions by day
+    // Load competitor mentions by day (include prompt_result_id to count unique results)
     const competitorIds = chartCompetitors.value.map(c => c.id)
     const { data: competitorMentions } = await supabase
       .from('competitor_mentions')
-      .select('competitor_id, detected_at, position')
+      .select('competitor_id, prompt_result_id, detected_at, position')
       .in('competitor_id', competitorIds)
       .gte('detected_at', startDate.toISOString())
       .order('detected_at', { ascending: true })
@@ -836,11 +839,13 @@ const loadChartData = async () => {
           brandData.push(null)
         }
 
-        // Competitor mention rates
+        // Competitor mention rates (count unique prompt_result_ids)
         for (const competitor of chartCompetitors.value) {
-          const mentions = day.competitorMentions.get(competitor.id)?.length || 0
+          const mentions = day.competitorMentions.get(competitor.id) || []
+          const uniqueResultIds = new Set(mentions.map(m => m.prompt_result_id).filter(Boolean))
+          const mentionCount = uniqueResultIds.size
           if (totalResults > 0) {
-            competitorData.get(competitor.id)!.push(Math.round((mentions / totalResults) * 100))
+            competitorData.get(competitor.id)!.push(Math.round((mentionCount / totalResults) * 100))
           } else {
             competitorData.get(competitor.id)!.push(null)
           }

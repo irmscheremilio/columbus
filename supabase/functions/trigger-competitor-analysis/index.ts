@@ -1,3 +1,10 @@
+/**
+ * @deprecated This function is deprecated. Gap analysis is now performed automatically
+ * during regular visibility scans in the prompt-evaluation worker.
+ *
+ * Gaps are detected when evaluating AI responses and stored in visibility_gaps table.
+ * This manual trigger is no longer needed.
+ */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -12,6 +19,20 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Return deprecation notice - gaps are now auto-detected during scans
+  return new Response(
+    JSON.stringify({
+      error: 'This endpoint is deprecated',
+      message: 'Gap analysis is now performed automatically during visibility scans. Run a scan from the desktop app to detect gaps.',
+      deprecated: true
+    }),
+    {
+      status: 410, // Gone
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  )
+
+  // Legacy code below - kept for reference but no longer executed
   try {
     // Get authorization header
     const authHeader = req.headers.get('Authorization')!

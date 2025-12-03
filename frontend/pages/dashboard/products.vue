@@ -330,6 +330,7 @@ interface ProductMetrics {
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { createProduct, triggerWebsiteAnalysis } = useEdgeFunctions()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(true)
 const formLoading = ref(false)
@@ -392,6 +393,11 @@ const onRegionChange = () => {
 
 onMounted(async () => {
   await loadProducts()
+})
+
+// Watch for global region filter changes - reload products to recalculate AEO scores
+watch(selectedRegion, () => {
+  loadProducts()
 })
 
 const loadProducts = async () => {
@@ -681,11 +687,18 @@ const loadProductMetrics = async (productId: string): Promise<ProductMetrics> =>
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  const { data: results } = await supabase
+  let query = supabase
     .from('prompt_results')
     .select('brand_mentioned, citation_present, position, sentiment')
     .eq('product_id', productId)
     .gte('tested_at', startDate.toISOString())
+
+  // Apply region filter
+  if (selectedRegion.value) {
+    query = query.ilike('request_country', selectedRegion.value)
+  }
+
+  const { data: results } = await query
 
   if (!results || results.length === 0) {
     return {

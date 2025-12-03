@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import { createRedisConnection } from '../utils/redis.js'
 import { competitorDetector } from '../services/competitor-detector.js'
+import { improvementAnalyzer, type ImprovementSuggestion } from '../services/improvement-analyzer.js'
 
 const redisConnection = createRedisConnection()
 
@@ -204,6 +205,75 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
         // Don't fail the evaluation for detection errors
       }
 
+      // 7. Detect visibility gaps - opportunities where competitors are favored over brand
+      try {
+        const gapAnalysis = await improvementAnalyzer.analyzeResponse(
+          promptResult.response_text,
+          productName,
+          evaluation.brandMentioned,
+          evaluation.position,
+          promptResult.citation_present || false,
+          competitorNames
+        )
+
+        if (gapAnalysis.suggestions.length > 0) {
+          console.log(`[Prompt Evaluation] Detected ${gapAnalysis.suggestions.length} visibility gaps`)
+
+          // Create a map from competitor name to competitor id
+          const competitorNameToId = new Map<string, string>()
+          if (competitors) {
+            for (const c of competitors) {
+              competitorNameToId.set(c.name.toLowerCase(), c.id)
+            }
+          }
+
+          // Insert gaps into visibility_gaps table
+          const gapsToInsert = gapAnalysis.suggestions.map(suggestion => {
+            const competitorId = suggestion.competitorName
+              ? competitorNameToId.get(suggestion.competitorName.toLowerCase())
+              : null
+
+            return {
+              organization_id: promptResult.organization_id,
+              product_id: promptResult.product_id,
+              competitor_id: competitorId || null,
+              prompt_id: promptResult.prompt_id,
+              ai_model: promptResult.ai_model,
+              competitor_mentioned: evaluation.competitorMentions.length > 0,
+              brand_mentioned: evaluation.brandMentioned,
+              gap_type: mapSuggestionToGapType(suggestion.type),
+              issue_type: mapSuggestionToIssueType(suggestion.type),
+              severity: suggestion.severity,
+              ai_analysis: suggestion.description,
+              improvement_suggestion: suggestion.recommendedAction || null,
+              suggested_action: getSuggestedAction(suggestion.type, suggestion.competitorName),
+              response_excerpt: suggestion.context || promptResult.response_text?.substring(0, 500) || null,
+              brand_sentiment: evaluation.brandMentioned
+                ? (suggestion.type === 'negative_comparison' || suggestion.type === 'pricing_concern' ? 'negative' : 'neutral')
+                : null,
+              competitor_sentiment: suggestion.competitorName
+                ? (suggestion.type === 'competitor_advantage' ? 'positive' : 'neutral')
+                : null,
+              detected_at: new Date().toISOString()
+            }
+          })
+
+          // Insert gaps (upsert to avoid duplicates for same prompt/model/type)
+          const { error: gapError } = await supabase
+            .from('visibility_gaps')
+            .insert(gapsToInsert)
+
+          if (gapError) {
+            console.error(`[Prompt Evaluation] Error inserting gaps:`, gapError)
+          } else {
+            console.log(`[Prompt Evaluation] Inserted ${gapsToInsert.length} visibility gaps`)
+          }
+        }
+      } catch (gapError) {
+        console.error(`[Prompt Evaluation] Gap detection error:`, gapError)
+        // Don't fail the evaluation for gap detection errors
+      }
+
       // Mark job as completed if jobId provided
       if (job.data.jobId) {
         await supabase
@@ -364,6 +434,57 @@ function extractMentionContext(text: string, name: string): string {
   const start = Math.max(0, index - 100)
   const end = Math.min(text.length, index + name.length + 100)
   return text.slice(start, end)
+}
+
+/**
+ * Map suggestion type to gap type for visibility_gaps table
+ */
+function mapSuggestionToGapType(suggestionType: string): string {
+  const mapping: Record<string, string> = {
+    negative_comparison: 'negative_comparison',
+    missing_feature: 'missing_feature',
+    competitor_advantage: 'competitor_only',
+    pricing_concern: 'pricing_concern',
+    outdated_info: 'outdated_info',
+    missing_mention: 'competitor_only',
+    low_position: 'positioning_issue',
+    no_citation: 'positioning_issue'
+  }
+  return mapping[suggestionType] || 'competitor_only'
+}
+
+/**
+ * Map suggestion type to issue type for visibility_gaps table
+ */
+function mapSuggestionToIssueType(suggestionType: string): string {
+  const mapping: Record<string, string> = {
+    negative_comparison: 'negative_sentiment',
+    missing_feature: 'feature_gap',
+    competitor_advantage: 'recommendation_bias',
+    pricing_concern: 'price_comparison',
+    outdated_info: 'outdated_info',
+    missing_mention: 'missing_mention',
+    low_position: 'market_position',
+    no_citation: 'missing_mention'
+  }
+  return mapping[suggestionType] || 'missing_mention'
+}
+
+/**
+ * Get a suggested action based on the issue type
+ */
+function getSuggestedAction(suggestionType: string, competitorName?: string): string {
+  const actions: Record<string, string> = {
+    negative_comparison: 'create_comparison_post',
+    missing_feature: 'add_feature_docs',
+    competitor_advantage: 'create_differentiator_content',
+    pricing_concern: 'update_pricing_page',
+    outdated_info: 'update_website_content',
+    missing_mention: 'create_comparison_content',
+    low_position: 'improve_brand_authority',
+    no_citation: 'create_authoritative_content'
+  }
+  return actions[suggestionType] || 'review_content_strategy'
 }
 
 // Event listeners

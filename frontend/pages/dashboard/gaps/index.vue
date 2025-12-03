@@ -5,21 +5,10 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Visibility Gaps</h1>
-          <p class="text-sm text-gray-500">AI-detected improvement opportunities</p>
+          <p class="text-sm text-gray-500">Competitive opportunities detected automatically during scans</p>
         </div>
         <div class="flex items-center gap-3">
           <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50"
-            @click="runGapAnalysis"
-            :disabled="analyzing"
-          >
-            <div v-if="analyzing" class="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            {{ analyzing ? 'Analyzing...' : 'Run Analysis' }}
-          </button>
         </div>
       </div>
 
@@ -117,9 +106,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">No visibility gaps found</h3>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">No visibility gaps detected yet</h3>
         <p class="text-sm text-gray-500 mb-4">
-          {{ competitors.length === 0 ? 'Add competitors first to detect gaps' : 'Run a gap analysis to identify opportunities' }}
+          {{ competitors.length === 0 ? 'Add competitors first, then run scans to detect gaps' : 'Gaps are detected automatically when you run visibility scans' }}
         </p>
         <NuxtLink
           v-if="competitors.length === 0"
@@ -128,14 +117,16 @@
         >
           Add Competitors
         </NuxtLink>
-        <button
+        <NuxtLink
           v-else
-          @click="runGapAnalysis"
-          :disabled="analyzing"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg disabled:opacity-50"
+          to="/dashboard/scans"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg"
         >
-          Run Gap Analysis
-        </button>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          Run a Scan
+        </NuxtLink>
       </div>
 
       <!-- No Results for Filters -->
@@ -297,7 +288,6 @@ const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { formatModelName } = useAIPlatforms()
 
 const loading = ref(true)
-const analyzing = ref(false)
 const gaps = ref<any[]>([])
 const competitors = ref<any[]>([])
 const selectedRegion = ref<string | null>(null)
@@ -473,32 +463,6 @@ const loadGaps = async () => {
     console.error('Error loading gaps:', error)
   } finally {
     loading.value = false
-  }
-}
-
-const runGapAnalysis = async () => {
-  if (competitors.value.length === 0) {
-    alert('Please add competitors first in the Competitors page.')
-    return
-  }
-
-  analyzing.value = true
-  try {
-    for (const competitor of competitors.value) {
-      await supabase.functions.invoke('trigger-competitor-analysis', {
-        body: { competitorId: competitor.id }
-      })
-    }
-
-    alert(`Gap analysis started for ${competitors.value.length} competitors! Results will appear shortly.`)
-
-    // Reload after a delay
-    setTimeout(loadGaps, 30000)
-  } catch (error: any) {
-    console.error('Error running gap analysis:', error)
-    alert(`Failed to start gap analysis: ${error.message || 'Unknown error'}`)
-  } finally {
-    analyzing.value = false
   }
 }
 

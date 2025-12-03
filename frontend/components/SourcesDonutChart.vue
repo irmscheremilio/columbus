@@ -76,6 +76,7 @@ const props = withDefaults(defineProps<{
 })
 
 const supabase = useSupabaseClient()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(false)
 const showAll = ref(false)
@@ -129,16 +130,70 @@ const loadData = async () => {
 
   loading.value = true
   try {
-    const { data, error } = await supabase
+    // If region is selected, filter citations by their linked prompt_results
+    let filteredResultIds: string[] | null = null
+    if (selectedRegion.value) {
+      const { data: regionResults } = await supabase
+        .from('prompt_results')
+        .select('id')
+        .eq('product_id', props.productId)
+        .ilike('request_country', selectedRegion.value)
+
+      filteredResultIds = (regionResults || []).map(r => r.id)
+
+      if (filteredResultIds.length === 0) {
+        sources.value = []
+        totalCitations.value = 0
+        brandCitations.value = 0
+        loading.value = false
+        return
+      }
+    }
+
+    // First get accurate total count
+    let countQuery = supabase
       .from('prompt_citations')
-      .select('source_domain, is_brand_source')
+      .select('*', { count: 'exact', head: true })
       .eq('product_id', props.productId)
 
-    if (error) throw error
+    if (filteredResultIds) {
+      countQuery = countQuery.in('prompt_result_id', filteredResultIds)
+    }
+
+    const { count: exactCount } = await countQuery
+
+    // Fetch all citations for accurate aggregation
+    // Use high limit to override Supabase default of 1000
+    let allData: { source_domain: string; is_brand_source: boolean }[] = []
+    let offset = 0
+    const batchSize = 1000
+
+    // Paginate to get all citations
+    while (true) {
+      let query = supabase
+        .from('prompt_citations')
+        .select('source_domain, is_brand_source')
+        .eq('product_id', props.productId)
+        .range(offset, offset + batchSize - 1)
+
+      if (filteredResultIds) {
+        query = query.in('prompt_result_id', filteredResultIds)
+      }
+
+      const { data: batchData, error } = await query
+      if (error) throw error
+
+      if (!batchData || batchData.length === 0) break
+
+      allData = allData.concat(batchData)
+      if (batchData.length < batchSize) break
+      offset += batchSize
+    }
+
+    const data = allData
 
     // Aggregate by domain
     const domainCounts: Record<string, { count: number; isBrand: boolean }> = {}
-    let total = 0
     let brand = 0
 
     for (const row of data || []) {
@@ -147,7 +202,6 @@ const loadData = async () => {
         domainCounts[key] = { count: 0, isBrand: row.is_brand_source }
       }
       domainCounts[key].count++
-      total++
       if (row.is_brand_source) brand++
     }
 
@@ -155,7 +209,8 @@ const loadData = async () => {
       .map(([domain, { count, isBrand }]) => ({ domain, count, isBrand }))
       .sort((a, b) => b.count - a.count)
 
-    totalCitations.value = total
+    // Use exact count for accurate total
+    totalCitations.value = exactCount || 0
     brandCitations.value = brand
 
     await nextTick()
@@ -227,6 +282,13 @@ watch(() => props.productId, (newProductId) => {
     loadData()
   }
 }, { immediate: true })
+
+// Watch for global region filter changes
+watch(selectedRegion, () => {
+  if (props.productId) {
+    loadData()
+  }
+})
 
 onMounted(() => {
   if (props.productId) {

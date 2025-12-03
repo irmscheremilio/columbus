@@ -49,6 +49,8 @@ pub struct ProductInfo {
     pub id: String,
     pub name: String,
     pub brand: String,
+    #[serde(default)]
+    pub domain: Option<String>,
 }
 
 async fn api_request<T: serde::de::DeserializeOwned>(

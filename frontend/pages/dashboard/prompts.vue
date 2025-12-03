@@ -74,10 +74,16 @@
               <tr
                 v-for="prompt in filteredPrompts"
                 :key="prompt.id"
-                class="text-sm hover:bg-gray-50"
+                class="text-sm hover:bg-gray-50 cursor-pointer"
+                @click="openPerformanceModal(prompt)"
               >
                 <td class="px-4 py-3">
-                  <div class="text-gray-900">{{ prompt.prompt_text }}</div>
+                  <div class="text-gray-900 flex items-center gap-2">
+                    {{ prompt.prompt_text }}
+                    <svg class="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
                   <div v-if="prompt.category" class="text-xs text-gray-400 mt-0.5">{{ prompt.category }}</div>
                 </td>
                 <td class="px-4 py-3 text-center">
@@ -114,7 +120,7 @@
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-1">
                     <button
-                      @click="editPrompt(prompt)"
+                      @click.stop="editPrompt(prompt)"
                       class="p-1.5 text-gray-400 hover:text-brand transition-colors"
                       title="Edit"
                     >
@@ -123,7 +129,7 @@
                       </svg>
                     </button>
                     <button
-                      @click="deletePrompt(prompt.id)"
+                      @click.stop="deletePrompt(prompt.id)"
                       class="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                       title="Delete"
                     >
@@ -267,10 +273,147 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Performance Modal -->
+    <Teleport to="body">
+      <div
+        v-if="selectedPrompt"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+        @click.self="closePerformanceModal"
+      >
+        <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between">
+            <div class="flex-1 min-w-0 pr-4">
+              <h3 class="text-lg font-semibold text-gray-900 mb-1">Prompt Performance</h3>
+              <p class="text-sm text-gray-600 line-clamp-2">{{ selectedPrompt.prompt_text }}</p>
+            </div>
+            <button
+              @click="closePerformanceModal"
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- Loading State -->
+            <div v-if="loadingPerformance" class="flex items-center justify-center py-20">
+              <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+            </div>
+
+            <template v-else>
+              <!-- Stats Summary -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-gradient-to-br from-brand/10 to-brand/5 rounded-xl p-4">
+                  <div class="text-xs font-medium text-brand/70 uppercase mb-1">Total Tests</div>
+                  <div class="text-2xl font-bold text-brand">{{ performanceStats.totalTests }}</div>
+                </div>
+                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4">
+                  <div class="text-xs font-medium text-emerald-600/70 uppercase mb-1">Mention Rate</div>
+                  <div class="text-2xl font-bold text-emerald-600">{{ performanceStats.mentionRate }}%</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4">
+                  <div class="text-xs font-medium text-blue-600/70 uppercase mb-1">Avg Position</div>
+                  <div class="text-2xl font-bold text-blue-600">{{ performanceStats.avgPosition || '—' }}</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4">
+                  <div class="text-xs font-medium text-purple-600/70 uppercase mb-1">Brand Cited</div>
+                  <div class="text-2xl font-bold text-purple-600">{{ performanceStats.citationRate }}%</div>
+                </div>
+              </div>
+
+              <!-- Charts Row -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Performance Over Time by Platform -->
+                <div class="bg-white border border-gray-200 rounded-xl p-5">
+                  <h4 class="text-sm font-semibold text-gray-900 mb-4">Mention Rate Over Time by Platform</h4>
+                  <div class="h-64">
+                    <canvas ref="timeChartCanvas"></canvas>
+                  </div>
+                </div>
+
+                <!-- Brand vs Competitors -->
+                <div class="bg-white border border-gray-200 rounded-xl p-5">
+                  <h4 class="text-sm font-semibold text-gray-900 mb-4">Brand vs Competitors Visibility</h4>
+                  <div class="h-64">
+                    <canvas ref="comparisonChartCanvas"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Platform Breakdown -->
+              <div class="bg-white border border-gray-200 rounded-xl p-5">
+                <h4 class="text-sm font-semibold text-gray-900 mb-4">Performance by Platform</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div
+                    v-for="platform in platformStats"
+                    :key="platform.name"
+                    class="text-center p-4 rounded-lg bg-gray-50"
+                  >
+                    <div class="text-xs font-medium text-gray-500 mb-2">{{ formatPlatformName(platform.name) }}</div>
+                    <div class="text-xl font-bold" :class="platform.mentionRate >= 50 ? 'text-emerald-600' : 'text-gray-600'">
+                      {{ platform.mentionRate }}%
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">{{ platform.tests }} tests</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Competitor Details -->
+              <div v-if="competitorStats.length > 0" class="bg-white border border-gray-200 rounded-xl p-5">
+                <h4 class="text-sm font-semibold text-gray-900 mb-4">Competitor Mention Rates</h4>
+                <div class="space-y-3">
+                  <div
+                    v-for="comp in competitorStats"
+                    :key="comp.name"
+                    class="flex items-center gap-4"
+                  >
+                    <div class="w-32 text-sm font-medium text-gray-700 truncate">{{ comp.name }}</div>
+                    <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all duration-500"
+                        :class="comp.isYou ? 'bg-brand' : 'bg-gray-400'"
+                        :style="{ width: `${comp.mentionRate}%` }"
+                      ></div>
+                    </div>
+                    <div class="w-16 text-right text-sm font-semibold" :class="comp.isYou ? 'text-brand' : 'text-gray-600'">
+                      {{ comp.mentionRate }}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty State -->
+              <div v-if="performanceStats.totalTests === 0" class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">No scan data yet</h3>
+                <p class="text-sm text-gray-500 mb-4">Run a visibility scan to see performance data for this prompt.</p>
+                <NuxtLink
+                  to="/dashboard/scans"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg"
+                >
+                  Go to Scans
+                </NuxtLink>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import Chart from 'chart.js/auto'
+
 definePageMeta({
   middleware: 'auth',
   layout: 'dashboard'
@@ -278,6 +421,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
+const { formatModelName } = useAIPlatforms()
 
 const prompts = ref<any[]>([])
 const filter = ref<'all' | 1 | 2 | 3 | 'custom'>('all')
@@ -285,6 +429,26 @@ const showAddPrompt = ref(false)
 const editingPrompt = ref<any>(null)
 const showRegionDropdown = ref(false)
 const availableCountries = ref<Array<{ code: string; name: string; flag_emoji: string | null; region: string | null }>>([])
+
+// Performance modal state
+const selectedPrompt = ref<any>(null)
+const loadingPerformance = ref(false)
+const timeChartCanvas = ref<HTMLCanvasElement | null>(null)
+const comparisonChartCanvas = ref<HTMLCanvasElement | null>(null)
+let timeChart: Chart | null = null
+let comparisonChart: Chart | null = null
+
+const performanceStats = ref({
+  totalTests: 0,
+  mentionRate: 0,
+  avgPosition: null as number | null,
+  citationRate: 0
+})
+
+const platformStats = ref<Array<{ name: string; tests: number; mentionRate: number }>>([])
+const competitorStats = ref<Array<{ name: string; mentionRate: number; isYou: boolean }>>([])
+
+const formatPlatformName = (model: string) => formatModelName(model)
 
 const filters = [
   { label: 'All', value: 'all' as const },
@@ -495,5 +659,325 @@ const deletePrompt = async (promptId: string) => {
     console.error('Error deleting prompt:', error)
     alert('Failed to delete prompt')
   }
+}
+
+// Performance Modal Functions
+const openPerformanceModal = async (prompt: any) => {
+  selectedPrompt.value = prompt
+  loadingPerformance.value = true
+
+  try {
+    await loadPerformanceData(prompt.id)
+  } finally {
+    loadingPerformance.value = false
+  }
+}
+
+const closePerformanceModal = () => {
+  selectedPrompt.value = null
+
+  // Destroy charts
+  if (timeChart) {
+    timeChart.destroy()
+    timeChart = null
+  }
+  if (comparisonChart) {
+    comparisonChart.destroy()
+    comparisonChart = null
+  }
+
+  // Reset stats
+  performanceStats.value = {
+    totalTests: 0,
+    mentionRate: 0,
+    avgPosition: null,
+    citationRate: 0
+  }
+  platformStats.value = []
+  competitorStats.value = []
+}
+
+const loadPerformanceData = async (promptId: string) => {
+  const productId = activeProductId.value
+  if (!productId) return
+
+  // Fetch prompt results for this prompt
+  const { data: results, error } = await supabase
+    .from('prompt_results')
+    .select('*')
+    .eq('prompt_id', promptId)
+    .eq('product_id', productId)
+    .order('scanned_at', { ascending: true })
+
+  if (error) {
+    console.error('Error loading performance data:', error)
+    return
+  }
+
+  if (!results || results.length === 0) {
+    performanceStats.value = {
+      totalTests: 0,
+      mentionRate: 0,
+      avgPosition: null,
+      citationRate: 0
+    }
+    platformStats.value = []
+    competitorStats.value = []
+    return
+  }
+
+  // Calculate stats
+  const totalTests = results.length
+  const mentions = results.filter(r => r.brand_mentioned).length
+  const mentionRate = Math.round((mentions / totalTests) * 100)
+  const withPosition = results.filter(r => r.position !== null && r.position > 0)
+  const avgPosition = withPosition.length > 0
+    ? Math.round((withPosition.reduce((sum, r) => sum + r.position, 0) / withPosition.length) * 10) / 10
+    : null
+  const citations = results.filter(r => r.citation_present).length
+  const citationRate = Math.round((citations / totalTests) * 100)
+
+  performanceStats.value = {
+    totalTests,
+    mentionRate,
+    avgPosition,
+    citationRate
+  }
+
+  // Calculate platform stats
+  const platformMap = new Map<string, { tests: number; mentions: number }>()
+  for (const r of results) {
+    const platform = r.ai_model || 'unknown'
+    const existing = platformMap.get(platform) || { tests: 0, mentions: 0 }
+    existing.tests++
+    if (r.brand_mentioned) existing.mentions++
+    platformMap.set(platform, existing)
+  }
+
+  platformStats.value = Array.from(platformMap.entries()).map(([name, stats]) => ({
+    name,
+    tests: stats.tests,
+    mentionRate: Math.round((stats.mentions / stats.tests) * 100)
+  }))
+
+  // Calculate competitor stats
+  await loadCompetitorStats(promptId, productId, results)
+
+  // Render charts after data is loaded
+  await nextTick()
+  renderTimeChart(results)
+  renderComparisonChart()
+}
+
+const loadCompetitorStats = async (promptId: string, productId: string, brandResults: any[]) => {
+  // Get product info for brand name
+  const { data: product } = await supabase
+    .from('products')
+    .select('name')
+    .eq('id', productId)
+    .single()
+
+  // Get competitors
+  const { data: competitors } = await supabase
+    .from('competitors')
+    .select('id, name')
+    .eq('product_id', productId)
+
+  if (!competitors) {
+    competitorStats.value = []
+    return
+  }
+
+  // Calculate brand mention rate
+  const brandMentionRate = performanceStats.value.mentionRate
+
+  const stats: Array<{ name: string; mentionRate: number; isYou: boolean }> = [
+    { name: product?.name || 'Your Brand', mentionRate: brandMentionRate, isYou: true }
+  ]
+
+  // Get competitor mention rates from the response texts
+  for (const comp of competitors) {
+    let compMentions = 0
+    for (const result of brandResults) {
+      const responseText = (result.response_text || '').toLowerCase()
+      if (responseText.includes(comp.name.toLowerCase())) {
+        compMentions++
+      }
+    }
+    const rate = brandResults.length > 0
+      ? Math.round((compMentions / brandResults.length) * 100)
+      : 0
+    stats.push({ name: comp.name, mentionRate: rate, isYou: false })
+  }
+
+  // Sort by mention rate descending
+  stats.sort((a, b) => b.mentionRate - a.mentionRate)
+  competitorStats.value = stats
+}
+
+const renderTimeChart = (results: any[]) => {
+  if (!timeChartCanvas.value) return
+
+  // Destroy existing chart
+  if (timeChart) {
+    timeChart.destroy()
+  }
+
+  // Group results by date and platform
+  const platformColors: Record<string, string> = {
+    chatgpt: '#10B981',
+    claude: '#8B5CF6',
+    gemini: '#3B82F6',
+    perplexity: '#F59E0B',
+    searchgpt: '#EF4444'
+  }
+
+  // Get unique platforms
+  const platforms = [...new Set(results.map(r => r.ai_model))]
+
+  // Group by date (month)
+  const dateGroups = new Map<string, Map<string, { total: number; mentions: number }>>()
+
+  for (const r of results) {
+    const date = new Date(r.scanned_at)
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+    if (!dateGroups.has(monthKey)) {
+      dateGroups.set(monthKey, new Map())
+    }
+
+    const platformMap = dateGroups.get(monthKey)!
+    const platform = r.ai_model || 'unknown'
+    const existing = platformMap.get(platform) || { total: 0, mentions: 0 }
+    existing.total++
+    if (r.brand_mentioned) existing.mentions++
+    platformMap.set(platform, existing)
+  }
+
+  // Sort dates
+  const sortedDates = Array.from(dateGroups.keys()).sort()
+
+  // Create datasets
+  const datasets = platforms.map(platform => {
+    const data = sortedDates.map(date => {
+      const platformData = dateGroups.get(date)?.get(platform)
+      if (!platformData || platformData.total === 0) return null
+      return Math.round((platformData.mentions / platformData.total) * 100)
+    })
+
+    return {
+      label: formatPlatformName(platform),
+      data,
+      borderColor: platformColors[platform] || '#6B7280',
+      backgroundColor: platformColors[platform] || '#6B7280',
+      tension: 0.3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      spanGaps: true
+    }
+  })
+
+  timeChart = new Chart(timeChartCanvas.value, {
+    type: 'line',
+    data: {
+      labels: sortedDates.map(d => {
+        const [year, month] = d.split('-')
+        return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+      }),
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: { size: 11 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}%`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: (value) => `${value}%`,
+            font: { size: 10 }
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: {
+          ticks: { font: { size: 10 } },
+          grid: { display: false }
+        }
+      }
+    }
+  })
+}
+
+const renderComparisonChart = () => {
+  if (!comparisonChartCanvas.value || competitorStats.value.length === 0) return
+
+  // Destroy existing chart
+  if (comparisonChart) {
+    comparisonChart.destroy()
+  }
+
+  const labels = competitorStats.value.map(c => c.name)
+  const data = competitorStats.value.map(c => c.mentionRate)
+  const colors = competitorStats.value.map(c => c.isYou ? '#6366F1' : '#D1D5DB')
+
+  comparisonChart = new Chart(comparisonChartCanvas.value, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 6,
+        barThickness: 32
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `Mention Rate: ${ctx.parsed.x}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: (value) => `${value}%`,
+            font: { size: 10 }
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      }
+    }
+  })
 }
 </script>

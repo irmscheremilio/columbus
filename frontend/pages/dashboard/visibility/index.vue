@@ -34,8 +34,8 @@
           <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Mention Rate</div>
           <div class="text-xl font-bold text-brand">{{ mentionRate }}%</div>
         </div>
-        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
-          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Citation Rate</div>
+        <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50" title="Rate at which brand website was cited">
+          <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Brand Cited</div>
           <div class="text-xl font-bold text-gray-900">{{ citationRate }}%</div>
         </div>
         <div class="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 px-4 py-3 border border-white/50">
@@ -52,7 +52,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Chart Section -->
         <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" :region="selectedRegion" @period-change="onPeriodChange" />
+          <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" />
         </div>
 
         <!-- Platform Stats -->
@@ -126,7 +126,8 @@
                 <th class="text-left px-4 py-3 font-medium">Platform</th>
                 <th class="text-left px-4 py-3 font-medium">Prompt</th>
                 <th class="text-center px-4 py-3 font-medium">Mentioned</th>
-                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell">Cited</th>
+                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell" title="AI used sources in response">Sources</th>
+                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell" title="Brand website was cited">Brand Cited</th>
                 <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Position</th>
                 <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Sentiment</th>
                 <th class="text-center px-4 py-3 font-medium hidden lg:table-cell">Limit</th>
@@ -159,7 +160,17 @@
                 <td class="px-4 py-3 text-center hidden sm:table-cell">
                   <span
                     class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs"
+                    :class="result.has_sources ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'"
+                    :title="result.has_sources ? `${result.source_count} source(s) used` : 'No sources'"
+                  >
+                    {{ result.has_sources ? '✓' : '−' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-center hidden sm:table-cell">
+                  <span
+                    class="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs"
                     :class="result.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
+                    :title="result.citation_present ? 'Brand website was cited' : 'Brand not cited'"
                   >
                     {{ result.citation_present ? '✓' : '−' }}
                   </span>
@@ -232,11 +243,17 @@
                 </svg>
                 <span class="text-xs font-medium">{{ selectedResult.brand_mentioned ? 'Brand Mentioned' : 'Not Mentioned' }}</span>
               </div>
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="selectedResult.has_sources ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span class="text-xs font-medium">{{ selectedResult.has_sources ? `${selectedResult.source_count} Source(s)` : 'No Sources' }}</span>
+              </div>
               <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" :class="selectedResult.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-500'">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                <span class="text-xs font-medium">{{ selectedResult.citation_present ? 'Citation Found' : 'No Citation' }}</span>
+                <span class="text-xs font-medium">{{ selectedResult.citation_present ? 'Brand Cited' : 'Brand Not Cited' }}</span>
               </div>
               <div v-if="selectedResult.position" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700">
                 <span class="text-xs font-medium">Position #{{ selectedResult.position }}</span>
@@ -438,10 +455,37 @@ const loadVisibilityData = async () => {
       .order('tested_at', { ascending: false })
       .limit(50)
 
-    results.value = promptResults?.map(r => ({
+    // Map results with prompt text
+    const mappedResults = promptResults?.map(r => ({
       ...r,
-      prompt: r.prompts?.prompt_text || 'Unknown prompt'
+      prompt: r.prompts?.prompt_text || 'Unknown prompt',
+      has_sources: false,
+      source_count: 0
     })) || []
+
+    // Fetch citation counts for display results
+    if (mappedResults.length > 0) {
+      const resultIds = mappedResults.map(r => r.id)
+      const { data: citations } = await supabase
+        .from('prompt_citations')
+        .select('prompt_result_id')
+        .in('prompt_result_id', resultIds)
+
+      // Count sources per result
+      const sourcesPerResult: Record<string, number> = {}
+      for (const citation of citations || []) {
+        sourcesPerResult[citation.prompt_result_id] = (sourcesPerResult[citation.prompt_result_id] || 0) + 1
+      }
+
+      // Update results with source counts
+      for (const result of mappedResults) {
+        const count = sourcesPerResult[result.id] || 0
+        result.has_sources = count > 0
+        result.source_count = count
+      }
+    }
+
+    results.value = mappedResults
 
     // Calculate stats from ALL results in date range
     const statsData = allResults || []

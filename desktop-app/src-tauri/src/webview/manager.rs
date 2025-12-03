@@ -638,6 +638,7 @@ impl WebviewManager {
         label: &str,
         platform: &str,
         brand: &str,
+        brand_domain: Option<&str>,
         competitors: &[String],
     ) -> Result<CollectResponse, String> {
         let window = app
@@ -646,8 +647,61 @@ impl WebviewManager {
 
         eprintln!("Collecting response from {} in webview {}", platform, label);
 
+        // For Gemini, we need to click the Sources button first to open the sidebar
+        if platform == "gemini" {
+            let open_sources_script = r#"
+                (function() {
+                    console.log('[Columbus] Opening Gemini sources sidebar...');
+                    // Try to find and click the Sources button
+                    const sourcesButton = document.querySelector('button.legacy-sources-sidebar-button, button[class*="sources-sidebar"], button mat-icon[fonticon="link"]');
+                    if (sourcesButton) {
+                        // Find the actual button if we matched the icon
+                        const btn = sourcesButton.closest('button') || sourcesButton;
+                        btn.click();
+                        console.log('[Columbus] Clicked Gemini sources button');
+                    } else {
+                        console.log('[Columbus] No Gemini sources button found');
+                    }
+                })();
+            "#;
+            window.eval(open_sources_script).ok();
+            // Wait for sidebar to open
+            tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        }
+
+        // For Perplexity, click the sources button to expand the sources panel
+        if platform == "perplexity" {
+            let open_sources_script = r#"
+                (function() {
+                    console.log('[Columbus] Looking for Perplexity sources button...');
+                    // Find button that contains "Quellen" or "Sources" text, or has favicon images inside
+                    const buttons = document.querySelectorAll('button');
+                    for (const btn of buttons) {
+                        const text = btn.textContent?.toLowerCase() || '';
+                        // Match buttons with "X Quellen" or "X Sources" text
+                        if (/\d+\s*(quellen|sources|source)/i.test(text)) {
+                            console.log('[Columbus] Found Perplexity sources button:', text);
+                            btn.click();
+                            return;
+                        }
+                        // Also check for button with multiple favicon images (the sources indicator)
+                        const favicons = btn.querySelectorAll('img[alt*="favicon"]');
+                        if (favicons.length >= 2) {
+                            console.log('[Columbus] Found Perplexity sources button via favicons');
+                            btn.click();
+                            return;
+                        }
+                    }
+                    console.log('[Columbus] No Perplexity sources button found');
+                })();
+            "#;
+            window.eval(open_sources_script).ok();
+            // Wait for sources panel to expand
+            tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        }
+
         // Inject script that collects response and sets location.hash with encoded result
-        let script = get_collect_script(platform, brand, competitors);
+        let script = get_collect_script(platform, brand, brand_domain, competitors);
         window
             .eval(&script)
             .map_err(|e| format!("Script error: {}", e))?;
@@ -1079,14 +1133,18 @@ fn get_submit_script(platform: &str, prompt: &str) -> String {
     }
 }
 
-fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> String {
+fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, competitors: &[String]) -> String {
     let escaped_brand = brand.replace('\\', "\\\\").replace('"', "\\\"");
+    let escaped_domain = brand_domain
+        .map(|d| d.replace('\\', "\\\\").replace('"', "\\\""))
+        .unwrap_or_default();
     let competitors_json = serde_json::to_string(competitors).unwrap_or_default();
 
     format!(r#"
         (function() {{
             console.log('[Columbus] Collecting response for platform: {}');
             const brand = "{}";
+            const brandDomain = "{}";
             const competitors = {};
 
             // Platform-specific response selectors from working extension
@@ -1272,16 +1330,8 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
             console.log('[Columbus] Competitor mentions:', competitorMentions);
             console.log('[Columbus] Competitor details:', competitorDetails);
 
-            // Extract citations (links) using extension's working selectors
+            // Extract citations (links) using platform-specific selectors
             const citations = [];
-            const citationSelectors = [
-                '.citation-link',
-                '[data-testid="citation"]',
-                'a[href^="http"]:not([href*="' + window.location.hostname + '"])',
-                '.source-link',
-                '[class*="source-number"]',
-                '[class*="citation-number"]'
-            ];
 
             // Domains to exclude (AI provider pages, support pages, etc.)
             const excludedDomains = [
@@ -1289,6 +1339,7 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
                 'claude.ai',
                 'openai.com',
                 'chat.openai.com',
+                'chatgpt.com',
                 'google.com',
                 'gemini.google.com',
                 'support.google.com',
@@ -1310,32 +1361,222 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
                 }}
             }};
 
-            for (const citeSel of citationSelectors) {{
+            // Clean UTM parameters and tracking from URLs
+            const cleanUrl = (url) => {{
                 try {{
-                    const links = document.querySelectorAll(citeSel);
-                    links.forEach((link, i) => {{
-                        if (link.href && !citations.some(c => c.url === link.href) && !isExcludedDomain(link.href)) {{
+                    const parsed = new URL(url);
+                    // Remove common tracking parameters
+                    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(param => {{
+                        parsed.searchParams.delete(param);
+                    }});
+                    return parsed.href;
+                }} catch {{
+                    return url;
+                }}
+            }};
+
+            // Platform-specific citation extraction
+            if (platform === 'chatgpt') {{
+                // ChatGPT uses citation pills with data-testid="webpage-citation-pill"
+                // Example: <span data-testid="webpage-citation-pill"><a href="https://...?utm_source=chatgpt.com">
+                const citationPills = document.querySelectorAll('[data-testid="webpage-citation-pill"] a[href]');
+                console.log('[Columbus] ChatGPT citation pills found:', citationPills.length);
+                citationPills.forEach((link, i) => {{
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        // Title is in the inner span
+                        const titleSpan = link.querySelector('span.truncate, span[class*="truncate"]');
+                        citations.push({{
+                            url: url,
+                            title: titleSpan?.textContent?.trim() || link.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                    }}
+                }});
+            }} else if (platform === 'claude') {{
+                // Claude uses inline citations with group/tag class
+                // Example: <span class="inline-flex"><a href="..." class="group/tag">
+                const claudeCitations = document.querySelectorAll('span.inline-flex a[href^="http"], a.group\\/tag[href^="http"], [class*="inline-flex"] a[href^="http"]');
+                console.log('[Columbus] Claude citation elements found:', claudeCitations.length);
+                claudeCitations.forEach((link, i) => {{
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        // Title is in nested span with text-nowrap class
+                        const titleSpan = link.querySelector('span.text-nowrap, span[class*="truncate"]');
+                        citations.push({{
+                            url: url,
+                            title: titleSpan?.textContent?.trim() || link.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                    }}
+                }});
+            }} else if (platform === 'gemini') {{
+                // Gemini has sources in a sidebar - check if it's already open or if we need to use the button
+                // The sidebar should already be opened by a pre-collection script
+
+                // Look for sources in the sidebar
+                const geminiSources = document.querySelectorAll('side-bar-sources inline-source-card a[href], side-bar-sources a[href^="http"], .inline-source-card a[href], .all-sources a[href]');
+                console.log('[Columbus] Gemini source cards found:', geminiSources.length);
+                geminiSources.forEach((link, i) => {{
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        // Title is in .title element or .source-path
+                        const card = link.closest('.inline-source-card-container, inline-source-card, .inline-source-card');
+                        const titleEl = card?.querySelector('.title, .source-path, .gds-title-m, .gds-title-s');
+                        const domainEl = card?.querySelector('.info, .gds-label-m-alt');
+                        citations.push({{
+                            url: url,
+                            title: titleEl?.textContent?.trim() || link.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                    }}
+                }});
+
+                // Also check for any Sources button to see if there are sources available
+                // If button exists and shows "Sources", that means there are sources
+                const sourcesButton = document.querySelector('button.legacy-sources-sidebar-button, button[class*="sources-sidebar"]');
+                if (sourcesButton && citations.length === 0) {{
+                    // Check if button text indicates sources are present
+                    const buttonText = sourcesButton.textContent?.toLowerCase() || '';
+                    if (buttonText.includes('source')) {{
+                        console.log('[Columbus] Gemini Sources button present but sidebar not open - sources may exist');
+                    }}
+                }}
+
+                // Also check for inline citations in the response text (some Gemini responses have inline links)
+                const geminiInlineCites = document.querySelectorAll('message-content a[href^="http"], .model-response-text a[href^="http"], [data-message-author-role="model"] a[href^="http"]');
+                geminiInlineCites.forEach((link, i) => {{
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        citations.push({{
+                            url: url,
+                            title: link.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                    }}
+                }});
+            }} else if (platform === 'perplexity') {{
+                // Perplexity citations detection - must be VERY specific to avoid false positives
+                // Only detect citations when we find the expanded sources panel with source cards
+
+                console.log('[Columbus] Starting Perplexity citation detection...');
+
+                // Look for the specific source card structure from the expanded sources panel
+                // Source cards have: div with rounded-lg AND bg-subtler classes, containing favicon img
+                // The link wraps the card and has class="group" and target="_blank"
+
+                // First, find all favicon images that indicate a source card
+                const faviconImages = document.querySelectorAll('img[alt*="favicon"]');
+                console.log('[Columbus] Perplexity favicon images found:', faviconImages.length);
+
+                faviconImages.forEach((favicon) => {{
+                    // Navigate up to find the parent link (should be a.group with href)
+                    const parentLink = favicon.closest('a[href^="http"][target="_blank"]');
+                    if (!parentLink) return;
+
+                    // Verify this is inside a source card (has bg-subtler styling)
+                    const sourceCard = parentLink.querySelector('div.bg-subtler') || parentLink.querySelector('div[class*="bg-subtler"]');
+                    if (!sourceCard) {{
+                        console.log('[Columbus] Perplexity: favicon found but no source card styling, skipping');
+                        return;
+                    }}
+
+                    const url = cleanUrl(parentLink.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        // Get title from the card
+                        const titleEl = parentLink.querySelector('span.line-clamp-1, span.line-clamp-2, div[class*="text-base"] span');
+                        citations.push({{
+                            url: url,
+                            title: titleEl?.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                        console.log('[Columbus] Found Perplexity source card:', url);
+                    }}
+                }});
+
+                // Method 2: Look for inline citation badges (numbered references in text)
+                // These have very specific structure: span.citation.inline with data-state and aria-label
+                if (citations.length === 0) {{
+                    const inlineCitations = document.querySelectorAll('span.citation.inline[data-state][aria-label] a[href^="http"]');
+                    console.log('[Columbus] Perplexity inline citation elements:', inlineCitations.length);
+
+                    inlineCitations.forEach((link, i) => {{
+                        const url = cleanUrl(link.href);
+                        if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                            // Get title from aria-label on parent span
+                            const parentSpan = link.closest('span.citation[aria-label]');
+                            const title = parentSpan?.getAttribute('aria-label') || '';
                             citations.push({{
-                                url: link.href,
-                                title: link.textContent || link.title || '',
+                                url: url,
+                                title: title,
                                 position: citations.length + 1
                             }});
+                            console.log('[Columbus] Found Perplexity inline citation:', url);
                         }}
                     }});
-                }} catch(e) {{}}
+                }}
+
+                console.log('[Columbus] Perplexity total citations found:', citations.length);
+            }} else {{
+                // Fallback for unknown platforms - generic link extraction
+                const genericLinks = document.querySelectorAll('.citation-link a[href], [data-testid="citation"] a[href], a[href^="http"]:not([href*="' + window.location.hostname + '"])');
+                genericLinks.forEach((link, i) => {{
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        citations.push({{
+                            url: url,
+                            title: link.textContent?.trim() || '',
+                            position: citations.length + 1
+                        }});
+                    }}
+                }});
             }}
+
             console.log('[Columbus] Citations found (after filtering):', citations.length);
 
+            // Check if brand domain is cited (citationPresent means brand was cited, not just any citation exists)
+            let brandCited = false;
+            if (brandDomain && citations.length > 0) {{
+                const normalizedBrandDomain = brandDomain.toLowerCase().replace('www.', '');
+                brandCited = citations.some(c => {{
+                    try {{
+                        const citationHostname = new URL(c.url).hostname.toLowerCase().replace('www.', '');
+                        // Check if citation domain matches brand domain (either contains the other)
+                        const matches = citationHostname.includes(normalizedBrandDomain) || normalizedBrandDomain.includes(citationHostname);
+                        if (matches) {{
+                            console.log('[Columbus] BRAND CITED! Citation URL matches brand domain:', c.url);
+                        }}
+                        return matches;
+                    }} catch {{
+                        return false;
+                    }}
+                }});
+            }}
+
+            if (citations.length > 0) {{
+                console.log('[Columbus] CITATION DETAILS:');
+                citations.forEach((c, i) => {{
+                    console.log('[Columbus]   Citation ' + (i + 1) + ':');
+                    console.log('[Columbus]     URL: ' + c.url);
+                    console.log('[Columbus]     Title: ' + c.title);
+                }});
+                console.log('[Columbus] Brand domain: ' + brandDomain);
+                console.log('[Columbus] Brand was cited: ' + brandCited);
+            }} else {{
+                console.log('[Columbus] NO CITATIONS DETECTED for platform: ' + platform);
+            }}
+
             // Build result object
+            // citationPresent = true only if the brand's website was cited, not just any citation exists
             const result = {{
                 responseText: responseText.substring(0, 10000), // Limit size for title
                 brandMentioned,
-                citationPresent: citations.length > 0,
+                citationPresent: brandCited,
                 position: brandPosition,
                 sentiment: 'neutral',
                 competitorMentions,
                 competitorDetails,
-                citations: citations.slice(0, 10), // Limit citations
+                citations: citations.slice(0, 10), // Limit citations (all citations, not just brand)
                 creditsExhausted,
                 chatUrl: responseText.length > 0 ? chatUrl : null
             }};
@@ -1346,6 +1587,7 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
             console.log('[Columbus] Collection complete:', JSON.stringify({{
                 responseLen: responseText.length,
                 brandMentioned,
+                brandCited,
                 citationCount: citations.length,
                 creditsExhausted,
                 chatUrl: result.chatUrl
@@ -1363,7 +1605,7 @@ fn get_collect_script(platform: &str, brand: &str, competitors: &[String]) -> St
 
             return result;
         }})();
-    "#, platform, escaped_brand, competitors_json, platform)
+    "#, platform, escaped_brand, escaped_domain, competitors_json, platform)
 }
 
 fn get_read_response_script(_platform: &str, _brand: &str, _competitors: &[String]) -> String {

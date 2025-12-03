@@ -264,6 +264,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId } = useActiveProduct()
+const { selectedRegion } = useRegionFilter()
 
 const loading = ref(false)
 const selectedPeriod = ref('30')
@@ -342,7 +343,88 @@ const loadData = async () => {
       dateFilter = startDate.toISOString()
     }
 
-    // Load citations
+    // If region is selected, we need to filter citations by their linked prompt_results
+    let filteredResultIds: string[] | null = null
+    if (selectedRegion.value) {
+      // First get prompt_result_ids that match the region filter
+      let resultsQuery = supabase
+        .from('prompt_results')
+        .select('id')
+        .eq('product_id', activeProductId.value)
+        .ilike('request_country', selectedRegion.value)
+
+      if (dateFilter) {
+        resultsQuery = resultsQuery.gte('tested_at', dateFilter)
+      }
+
+      const { data: regionResults } = await resultsQuery
+      filteredResultIds = (regionResults || []).map(r => r.id)
+
+      if (filteredResultIds.length === 0) {
+        // No results for this region
+        citations.value = []
+        sources.value = []
+        totalCitations.value = 0
+        loading.value = false
+        return
+      }
+    }
+
+    // First, get accurate total count
+    let countQuery = supabase
+      .from('prompt_citations')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', activeProductId.value)
+
+    if (dateFilter) {
+      countQuery = countQuery.gte('created_at', dateFilter)
+    }
+
+    if (filteredResultIds) {
+      countQuery = countQuery.in('prompt_result_id', filteredResultIds)
+    }
+
+    const { count: exactCount } = await countQuery
+    totalCitations.value = exactCount || 0
+
+    // Load all citations for aggregation using pagination
+    let allCitationsData: { source_domain: string; is_brand_source: boolean }[] = []
+    let offset = 0
+    const batchSize = 1000
+
+    while (true) {
+      let allCitationsQuery = supabase
+        .from('prompt_citations')
+        .select('source_domain, is_brand_source')
+        .eq('product_id', activeProductId.value)
+        .range(offset, offset + batchSize - 1)
+
+      if (dateFilter) {
+        allCitationsQuery = allCitationsQuery.gte('created_at', dateFilter)
+      }
+
+      if (filteredResultIds) {
+        allCitationsQuery = allCitationsQuery.in('prompt_result_id', filteredResultIds)
+      }
+
+      const { data: batchData } = await allCitationsQuery
+      if (!batchData || batchData.length === 0) break
+
+      allCitationsData = allCitationsData.concat(batchData)
+      if (batchData.length < batchSize) break
+      offset += batchSize
+    }
+
+    // Aggregate sources from all citations
+    const domainCounts: Record<string, { count: number; isBrand: boolean }> = {}
+    for (const c of allCitationsData) {
+      if (!domainCounts[c.source_domain]) {
+        domainCounts[c.source_domain] = { count: 0, isBrand: c.is_brand_source }
+      }
+      domainCounts[c.source_domain].count++
+    }
+
+    // Load recent citations for table display (with limit)
     let query = supabase
       .from('prompt_citations')
       .select('*')
@@ -352,6 +434,10 @@ const loadData = async () => {
 
     if (dateFilter) {
       query = query.gte('created_at', dateFilter)
+    }
+
+    if (filteredResultIds) {
+      query = query.in('prompt_result_id', filteredResultIds)
     }
 
     const { data: citationData, error } = await query
@@ -382,16 +468,6 @@ const loadData = async () => {
       ...c,
       chat_url: chatUrlMap.get(c.prompt_result_id) || null
     }))
-    totalCitations.value = citations.value.length
-
-    // Aggregate sources
-    const domainCounts: Record<string, { count: number; isBrand: boolean }> = {}
-    for (const c of citationData || []) {
-      if (!domainCounts[c.source_domain]) {
-        domainCounts[c.source_domain] = { count: 0, isBrand: c.is_brand_source }
-      }
-      domainCounts[c.source_domain].count++
-    }
 
     sources.value = Object.entries(domainCounts)
       .map(([domain, { count, isBrand }]) => ({ domain, count, isBrand }))
@@ -417,4 +493,10 @@ watch([() => activeProductId.value, selectedPeriod], () => {
   currentPage.value = 1
   loadData()
 }, { immediate: true })
+
+// Watch for global region filter changes
+watch(selectedRegion, () => {
+  currentPage.value = 1
+  loadData()
+})
 </script>

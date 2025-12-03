@@ -12,6 +12,7 @@ const supabase = createClient(
 
 export interface ReportGenerationJobData {
   organizationId: string
+  productId?: string
   reportType: 'executive_summary' | 'detailed' | 'competitor_analysis'
   periodDays?: number // Default 30 days
   email?: string // Optional: email to send report to
@@ -43,7 +44,7 @@ export const reportGenerationQueue = new Queue<ReportGenerationJobData>('report-
 /**
  * Gather all data needed for report generation
  */
-async function gatherReportData(organizationId: string, periodDays: number): Promise<ReportData> {
+async function gatherReportData(organizationId: string, productId: string | undefined, periodDays: number): Promise<ReportData> {
   const endDate = new Date()
   const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000)
 
@@ -54,33 +55,62 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
     .eq('id', organizationId)
     .single()
 
-  // Get visibility scores
-  const { data: currentScore } = await supabase
+  // Get product info if productId provided
+  let productName = org?.name || 'Unknown Organization'
+  if (productId) {
+    const { data: product } = await supabase
+      .from('products')
+      .select('name')
+      .eq('id', productId)
+      .single()
+    if (product) {
+      productName = product.name
+    }
+  }
+
+  // Build query for visibility scores
+  let scoresQuery = supabase
     .from('visibility_scores')
     .select('score, metrics')
     .eq('organization_id', organizationId)
     .order('period_start', { ascending: false })
     .limit(1)
-    .single()
 
-  const { data: previousScore } = await supabase
+  if (productId) {
+    scoresQuery = scoresQuery.eq('product_id', productId)
+  }
+
+  const { data: currentScore } = await scoresQuery.single()
+
+  let prevScoresQuery = supabase
     .from('visibility_scores')
     .select('score')
     .eq('organization_id', organizationId)
     .order('period_start', { ascending: false })
     .range(1, 1)
-    .single()
 
-  // Get prompt results for the period
-  const { data: promptResults } = await supabase
+  if (productId) {
+    prevScoresQuery = prevScoresQuery.eq('product_id', productId)
+  }
+
+  const { data: previousScore } = await prevScoresQuery.single()
+
+  // Build query for prompt results
+  let promptResultsQuery = supabase
     .from('prompt_results')
     .select(`
       *,
       prompts(prompt_text, category, granularity_level)
     `)
     .eq('organization_id', organizationId)
-    .gte('tested_at', startDate.toISOString())
-    .lte('tested_at', endDate.toISOString())
+    .gte('scanned_at', startDate.toISOString())
+    .lte('scanned_at', endDate.toISOString())
+
+  if (productId) {
+    promptResultsQuery = promptResultsQuery.eq('product_id', productId)
+  }
+
+  const { data: promptResults } = await promptResultsQuery
 
   // Calculate AI model breakdown
   const modelStats = new Map<string, { mentions: number; citations: number; positions: number[]; total: number }>()
@@ -137,16 +167,28 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
     .slice(0, 5)
 
   // Get competitor data
-  const { data: competitors } = await supabase
+  let competitorsQuery = supabase
     .from('competitors')
     .select('id, name')
     .eq('organization_id', organizationId)
 
-  const { data: competitorResults } = await supabase
+  if (productId) {
+    competitorsQuery = competitorsQuery.eq('product_id', productId)
+  }
+
+  const { data: competitors } = await competitorsQuery
+
+  let competitorResultsQuery = supabase
     .from('competitor_results')
     .select('competitor_id, mentioned, position')
     .eq('organization_id', organizationId)
     .gte('tested_at', startDate.toISOString())
+
+  if (productId) {
+    competitorResultsQuery = competitorResultsQuery.eq('product_id', productId)
+  }
+
+  const { data: competitorResults } = await competitorResultsQuery
 
   const competitorStats = new Map<string, { mentions: number; positions: number[]; total: number; name: string }>()
 
@@ -157,7 +199,7 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
     mentions: ownMentions,
     positions: [],
     total: ownTotal,
-    name: org?.name || 'Your Brand'
+    name: productName
   })
 
   // Add competitors
@@ -190,7 +232,7 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
     }))
 
   // Get recommendations
-  const { data: recommendations } = await supabase
+  let recommendationsQuery = supabase
     .from('fix_recommendations')
     .select('title, description, priority, category')
     .eq('organization_id', organizationId)
@@ -198,20 +240,37 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
     .order('priority', { ascending: false })
     .limit(10)
 
+  if (productId) {
+    recommendationsQuery = recommendationsQuery.eq('product_id', productId)
+  }
+
+  const { data: recommendations } = await recommendationsQuery
+
   // Get AEO readiness
-  const { data: websiteAnalysis } = await supabase
+  let websiteQuery = supabase
     .from('website_analyses')
     .select('aeo_readiness')
     .eq('organization_id', organizationId)
     .order('analyzed_at', { ascending: false })
     .limit(1)
-    .single()
+
+  if (productId) {
+    websiteQuery = websiteQuery.eq('product_id', productId)
+  }
+
+  const { data: websiteAnalysis } = await websiteQuery.single()
 
   // Get freshness metrics
-  const { data: pages } = await supabase
+  let pagesQuery = supabase
     .from('monitored_pages')
     .select('freshness_score')
     .eq('organization_id', organizationId)
+
+  if (productId) {
+    pagesQuery = pagesQuery.eq('product_id', productId)
+  }
+
+  const { data: pages } = await pagesQuery
 
   const freshnessMetrics = pages && pages.length > 0 ? {
     avgFreshnessScore: Math.round(pages.reduce((sum, p) => sum + (p.freshness_score || 50), 0) / pages.length),
@@ -225,7 +284,7 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
   const trend = current > previous ? 'up' : current < previous ? 'down' : 'stable'
 
   return {
-    organizationName: org?.name || 'Unknown Organization',
+    organizationName: productName,
     domain: org?.domain || '',
     generatedAt: new Date(),
     period: {
@@ -262,21 +321,22 @@ async function gatherReportData(organizationId: string, periodDays: number): Pro
 export const reportGenerationWorker = new Worker<ReportGenerationJobData, ReportGenerationResult>(
   'report-generation',
   async (job) => {
-    const { organizationId, reportType, periodDays = 30, email } = job.data
+    const { organizationId, productId, reportType, periodDays = 30, email } = job.data
 
-    console.log(`[Report Generator] Starting ${reportType} report for org ${organizationId}`)
+    console.log(`[Report Generator] Starting ${reportType} report for org ${organizationId}${productId ? ` (product: ${productId})` : ''}`)
 
     try {
       // Gather data
       console.log('[Report Generator] Gathering report data...')
-      const reportData = await gatherReportData(organizationId, periodDays)
+      const reportData = await gatherReportData(organizationId, productId, periodDays)
 
       // Generate PDF
       console.log('[Report Generator] Generating PDF...')
       const pdfBuffer = await generatePDFReport(reportData)
 
       // Store PDF in Supabase storage
-      const fileName = `reports/${organizationId}/${reportType}_${Date.now()}.pdf`
+      const pathPrefix = productId || organizationId
+      const fileName = `reports/${pathPrefix}/${reportType}_${Date.now()}.pdf`
 
       console.log('[Report Generator] Uploading to storage...')
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -301,6 +361,7 @@ export const reportGenerationWorker = new Worker<ReportGenerationJobData, Report
         .from('reports')
         .insert({
           organization_id: organizationId,
+          product_id: productId || null,
           report_type: reportType,
           file_path: fileName,
           download_url: signedUrl?.signedUrl,

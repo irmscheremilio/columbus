@@ -1,6 +1,6 @@
 /**
  * Composable for managing region/country filtering across dashboard pages
- * Loads available regions from static_proxies (configured proxy countries)
+ * Loads available regions from prompt_results for the selected product
  * Provides global state for filtering prompt_results by region
  */
 
@@ -10,44 +10,97 @@ export interface RegionInfo {
   flag: string
 }
 
+const STORAGE_KEY = 'columbus_selected_region'
+
 // Global state for region filter (persists across page navigation)
 const availableRegions = ref<RegionInfo[]>([])
 const selectedRegion = ref<string | null>(null) // null = all regions
 const loadingRegions = ref(false)
 const initialized = ref(false)
+const currentProductId = ref<string | null>(null)
+
+// Load persisted region from localStorage on initialization
+if (import.meta.client) {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    selectedRegion.value = stored === 'null' ? null : stored
+  }
+}
 
 export const useRegionFilter = () => {
   const supabase = useSupabaseClient()
 
   /**
-   * Load available regions from static_proxies via RPC function
-   * Only shows countries that have proxies configured
+   * Load available regions based on prompt_results data for the given product
+   * Only shows regions that have actual data for this product
    */
-  const loadAvailableRegions = async () => {
-    if (initialized.value) return // Already loaded
+  const loadAvailableRegions = async (productId?: string | null) => {
+    // If no product ID provided, try to get it from the active product composable
+    const targetProductId = productId ?? null
+
+    // Skip if already loaded for the same product
+    if (initialized.value && currentProductId.value === targetProductId) return
 
     loadingRegions.value = true
     try {
-      // Get countries that have static proxies configured via RPC function
-      const { data: configuredCountries, error: proxyError } = await supabase
-        .rpc('get_configured_proxy_countries')
+      let regionCodes: string[] = []
 
-      if (proxyError) {
-        console.error('Error loading configured proxies:', proxyError)
-        return
+      if (targetProductId) {
+        // Get distinct request_country values from prompt_results for this product
+        const { data: results, error: resultsError } = await supabase
+          .from('prompt_results')
+          .select('request_country')
+          .eq('product_id', targetProductId)
+          .not('request_country', 'is', null)
+
+        if (resultsError) {
+          console.error('Error loading regions from prompt_results:', resultsError)
+          return
+        }
+
+        // Get unique region codes
+        const uniqueRegions = new Set<string>()
+        for (const row of (results || [])) {
+          if (row.request_country) {
+            uniqueRegions.add(row.request_country.toLowerCase())
+          }
+        }
+        regionCodes = Array.from(uniqueRegions)
       }
 
-      // Get unique country codes that have proxies
-      const countryCodes = (configuredCountries || []).map((p: { country_code: string }) => p.country_code)
+      if (regionCodes.length === 0) {
+        // No regions found for this product - only show "Local" if we have any results
+        // Check if there are any results with null/empty request_country (local)
+        if (targetProductId) {
+          const { count } = await supabase
+            .from('prompt_results')
+            .select('id', { count: 'exact', head: true })
+            .eq('product_id', targetProductId)
+            .or('request_country.is.null,request_country.eq.local')
 
-      if (countryCodes.length === 0) {
-        // Always include "local" as an option even if no proxies configured
-        availableRegions.value = [{
-          code: 'local',
-          name: 'Local',
-          flag: '🏠'
-        }]
+          if (count && count > 0) {
+            availableRegions.value = [{
+              code: 'local',
+              name: 'Local',
+              flag: '🏠'
+            }]
+          } else {
+            availableRegions.value = []
+          }
+        } else {
+          availableRegions.value = []
+        }
+
         initialized.value = true
+        currentProductId.value = targetProductId
+
+        // If selected region is no longer available, reset to null
+        if (selectedRegion.value && !availableRegions.value.find(r => r.code === selectedRegion.value)) {
+          selectedRegion.value = null
+          if (import.meta.client) {
+            localStorage.setItem(STORAGE_KEY, 'null')
+          }
+        }
         return
       }
 
@@ -56,7 +109,7 @@ export const useRegionFilter = () => {
         .from('proxy_countries')
         .select('code, name, flag_emoji')
         .eq('is_active', true)
-        .in('code', countryCodes)
+        .in('code', regionCodes)
         .order('sort_order', { ascending: true })
 
       if (error) {
@@ -64,13 +117,19 @@ export const useRegionFilter = () => {
         return
       }
 
-      // Build region list with "Local" first, then configured countries
-      const regions: RegionInfo[] = [{
-        code: 'local',
-        name: 'Local',
-        flag: '🏠'
-      }]
+      // Build region list - only include regions we have data for
+      const regions: RegionInfo[] = []
 
+      // Check if we have "local" data
+      if (regionCodes.includes('local')) {
+        regions.push({
+          code: 'local',
+          name: 'Local',
+          flag: '🏠'
+        })
+      }
+
+      // Add countries that have data
       for (const country of (countries || [])) {
         regions.push({
           code: country.code,
@@ -79,8 +138,28 @@ export const useRegionFilter = () => {
         })
       }
 
+      // Handle any region codes that aren't in proxy_countries table
+      for (const code of regionCodes) {
+        if (code !== 'local' && !regions.find(r => r.code === code)) {
+          regions.push({
+            code: code,
+            name: code.toUpperCase(),
+            flag: '🌍'
+          })
+        }
+      }
+
       availableRegions.value = regions
       initialized.value = true
+      currentProductId.value = targetProductId
+
+      // If selected region is no longer available, reset to null
+      if (selectedRegion.value && !regions.find(r => r.code === selectedRegion.value)) {
+        selectedRegion.value = null
+        if (import.meta.client) {
+          localStorage.setItem(STORAGE_KEY, 'null')
+        }
+      }
     } catch (error) {
       console.error('Error loading regions:', error)
     } finally {
@@ -102,6 +181,14 @@ export const useRegionFilter = () => {
    */
   const setSelectedRegion = (code: string | null) => {
     selectedRegion.value = code
+    // Persist to localStorage
+    if (import.meta.client) {
+      if (code === null) {
+        localStorage.setItem(STORAGE_KEY, 'null')
+      } else {
+        localStorage.setItem(STORAGE_KEY, code)
+      }
+    }
   }
 
   /**
@@ -144,11 +231,12 @@ export const useRegionFilter = () => {
   }
 
   /**
-   * Refresh regions (e.g., after proxy config changes)
+   * Refresh regions (e.g., after product changes or new scan data)
    */
-  const refreshRegions = async () => {
+  const refreshRegions = async (productId?: string | null) => {
     initialized.value = false
-    await loadAvailableRegions()
+    currentProductId.value = null
+    await loadAvailableRegions(productId)
   }
 
   return {

@@ -65,20 +65,30 @@
                     <div class="text-sm font-medium text-gray-900">
                       Scan {{ formatDate(session.started_at) }}
                     </div>
-                    <div class="text-xs text-gray-500">
-                      {{ session.total_prompts }} prompts across {{ session.platforms?.length || 1 }} platform(s)
+                    <div class="text-xs text-gray-500 flex items-center gap-2">
+                      <span>{{ session.total_prompts }} prompts across {{ session.platforms?.length || 1 }} platform(s)</span>
+                      <!-- Region indicators -->
+                      <span v-if="session.regions?.length > 0" class="flex items-center gap-1">
+                        <span class="text-gray-300">•</span>
+                        <span
+                          v-for="region in session.regions"
+                          :key="region"
+                          :title="getCountryName(region)"
+                          class="text-sm"
+                        >{{ getCountryFlag(region) }}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div class="flex items-center gap-4">
                   <div class="hidden sm:flex items-center gap-3">
-                    <div class="text-center">
+                    <div class="text-center" title="Brand mentioned in response">
                       <div class="text-xs font-medium text-emerald-600">{{ session.mention_rate }}%</div>
-                      <div class="text-[10px] text-gray-400">Mentions</div>
+                      <div class="text-[10px] text-gray-400">Mentioned</div>
                     </div>
-                    <div class="text-center">
+                    <div class="text-center" title="Brand website was cited">
                       <div class="text-xs font-medium text-brand">{{ session.citation_rate }}%</div>
-                      <div class="text-[10px] text-gray-400">Citations</div>
+                      <div class="text-[10px] text-gray-400">Brand Cited</div>
                     </div>
                   </div>
                   <svg
@@ -154,15 +164,44 @@
                     <p class="text-xs text-gray-500">No citations detected in this scan</p>
                   </div>
 
+                  <!-- Region Comparison Chart -->
+                  <div v-if="session.regionStats?.length > 1" class="bg-gray-50/80 rounded-xl p-4">
+                    <h3 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">Mention Rate by Region</h3>
+                    <div class="space-y-2">
+                      <div
+                        v-for="stat in session.regionStats"
+                        :key="stat.region"
+                        class="flex items-center gap-3"
+                      >
+                        <span class="text-lg w-6 text-center" :title="getCountryName(stat.region)">{{ getCountryFlag(stat.region) }}</span>
+                        <div class="flex-1">
+                          <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs text-gray-600">{{ getCountryName(stat.region) }}</span>
+                            <span class="text-xs font-semibold text-gray-900">{{ stat.mentionRate }}%</span>
+                          </div>
+                          <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              class="h-full bg-gradient-to-r from-brand to-brand/80 rounded-full transition-all duration-500"
+                              :style="{ width: `${stat.mentionRate}%` }"
+                            ></div>
+                          </div>
+                        </div>
+                        <span class="text-[10px] text-gray-400 w-16 text-right">{{ stat.mentioned }}/{{ stat.total }}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- Results Table -->
                   <div class="overflow-x-auto -mx-4">
                   <table class="w-full">
                     <thead>
                       <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
                         <th class="text-left px-4 py-2 font-medium">Platform</th>
+                        <th class="text-center px-4 py-2 font-medium">Region</th>
                         <th class="text-left px-4 py-2 font-medium">Prompt</th>
                         <th class="text-center px-4 py-2 font-medium">Mentioned</th>
-                        <th class="text-center px-4 py-2 font-medium">Cited</th>
+                        <th class="text-center px-4 py-2 font-medium" title="AI used sources in response">Sources</th>
+                        <th class="text-center px-4 py-2 font-medium" title="Brand website was cited">Brand Cited</th>
                         <th class="text-center px-4 py-2 font-medium">Limit</th>
                         <th class="text-center px-4 py-2 font-medium">Chat</th>
                       </tr>
@@ -173,6 +212,12 @@
                           <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100/80 text-gray-700">
                             {{ formatModelName(result.ai_model) }}
                           </span>
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                          <span
+                            :title="getCountryName(result.request_country || 'local')"
+                            class="text-base"
+                          >{{ getCountryFlag(result.request_country || 'local') }}</span>
                         </td>
                         <td class="px-4 py-2">
                           <div class="text-gray-900 truncate max-w-xs" :title="result.prompt">
@@ -190,7 +235,17 @@
                         <td class="px-4 py-2 text-center">
                           <span
                             class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
+                            :class="result.has_sources ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'"
+                            :title="result.has_sources ? `${result.source_count} source(s) used` : 'No sources'"
+                          >
+                            {{ result.has_sources ? '✓' : '−' }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                          <span
+                            class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
                             :class="result.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
+                            :title="result.citation_present ? 'Brand website was cited' : 'Brand not cited'"
                           >
                             {{ result.citation_present ? '✓' : '−' }}
                           </span>
@@ -271,6 +326,7 @@ definePageMeta({
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { formatModelName: formatPlatformName } = useAIPlatforms()
+const { getCountryFlag, getCountryName } = useRegionFilter()
 
 const loading = ref(true)
 const loadingResults = ref(false)
@@ -392,7 +448,9 @@ const loadScanSessions = async () => {
             total_prompts: 0,
             mentioned_count: 0,
             cited_count: 0,
-            platforms: new Set()
+            platforms: new Set(),
+            regions: new Set(),
+            regionStats: new Map() // Track per-region stats
           })
         }
 
@@ -401,6 +459,19 @@ const loadScanSessions = async () => {
         if (row.brand_mentioned) session.mentioned_count++
         if (row.citation_present) session.cited_count++
         session.platforms.add(row.ai_model)
+
+        // Track regions
+        const region = row.request_country || 'local'
+        session.regions.add(region)
+
+        // Track per-region stats for comparison chart
+        if (!session.regionStats.has(region)) {
+          session.regionStats.set(region, { total: 0, mentioned: 0 })
+        }
+        const regionStat = session.regionStats.get(region)
+        regionStat.total++
+        if (row.brand_mentioned) regionStat.mentioned++
+
         if (new Date(row.tested_at) < new Date(session.started_at)) {
           session.started_at = row.tested_at
         }
@@ -410,6 +481,13 @@ const loadScanSessions = async () => {
       const sessions = Array.from(sessionMap.values()).map(s => ({
         ...s,
         platforms: Array.from(s.platforms),
+        regions: Array.from(s.regions),
+        regionStats: Array.from(s.regionStats.entries()).map(([region, stats]) => ({
+          region,
+          total: stats.total,
+          mentioned: stats.mentioned,
+          mentionRate: stats.total > 0 ? Math.round((stats.mentioned / stats.total) * 100) : 0
+        })),
         mention_rate: s.total_prompts > 0 ? Math.round((s.mentioned_count / s.total_prompts) * 100) : 0,
         citation_rate: s.total_prompts > 0 ? Math.round((s.cited_count / s.total_prompts) * 100) : 0
       }))
@@ -451,20 +529,35 @@ const toggleSession = async (sessionId: string) => {
       .eq('scan_session_id', sessionId)
       .order('tested_at', { ascending: true })
 
-    sessionResults.value = data?.map(r => ({
+    const results = data?.map(r => ({
       ...r,
-      prompt: r.prompts?.prompt_text || 'Unknown prompt'
+      prompt: r.prompts?.prompt_text || 'Unknown prompt',
+      has_sources: false,
+      source_count: 0
     })) || []
 
-    // Load citations for this session's results
-    const resultIds = sessionResults.value.map(r => r.id)
+    // Load citations for this session's results to determine source counts
+    const resultIds = results.map(r => r.id)
     if (resultIds.length > 0) {
       const { data: citations } = await supabase
         .from('prompt_citations')
-        .select('source_domain, is_brand_source')
+        .select('prompt_result_id, source_domain, is_brand_source')
         .in('prompt_result_id', resultIds)
 
-      // Aggregate by domain
+      // Count sources per result
+      const sourcesPerResult: Record<string, number> = {}
+      for (const citation of citations || []) {
+        sourcesPerResult[citation.prompt_result_id] = (sourcesPerResult[citation.prompt_result_id] || 0) + 1
+      }
+
+      // Update results with source counts
+      for (const result of results) {
+        const count = sourcesPerResult[result.id] || 0
+        result.has_sources = count > 0
+        result.source_count = count
+      }
+
+      // Aggregate by domain for the chart
       const domainCounts: Record<string, { count: number; isBrand: boolean }> = {}
       let total = 0
       let brand = 0
@@ -493,6 +586,8 @@ const toggleSession = async (sessionId: string) => {
       totalSessionCitations.value = 0
       brandSessionCitations.value = 0
     }
+
+    sessionResults.value = results
   } catch (error) {
     console.error('Error loading session results:', error)
     sessionResults.value = []

@@ -153,6 +153,7 @@ class JobProcessor {
       case 'report_generation':
         await reportGenerationQueue.add('generate', {
           organizationId: job.organization_id,
+          productId: job.metadata.productId || job.product_id,
           reportType: job.metadata.reportType || 'executive_summary',
           periodDays: job.metadata.periodDays || 30,
           email: job.metadata.email,

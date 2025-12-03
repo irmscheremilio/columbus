@@ -20,8 +20,9 @@ app.get('/health', (req, res) => {
     workers: {
       initialized: workersInitialized,
       jobProcessor: workersInitialized ? 'running' : 'initializing',
+      promptEvaluation: workersInitialized ? 'running' : 'initializing',
       // visibilityScanner: DEPRECATED - Now handled by browser extension
-      competitorAnalysis: workersInitialized ? 'running' : 'initializing',
+      // competitorAnalysis: DEPRECATED - Gap detection now in prompt-evaluation
       websiteAnalysis: workersInitialized ? 'running' : 'initializing',
       scanScheduler: workersInitialized ? 'running' : 'initializing',
       freshnessChecker: workersInitialized ? 'running' : 'initializing',
@@ -41,7 +42,8 @@ app.listen(PORT, async () => {
   try {
     console.log('Initializing workers...')
     // NOTE: visibilityScanWorker is DEPRECATED - Now handled by browser extension
-    const { competitorAnalysisWorker } = await import('./queue/competitor-analysis.js')
+    // NOTE: competitorAnalysisWorker is DEPRECATED - Gap detection now in prompt-evaluation
+    const { promptEvaluationWorker } = await import('./queue/prompt-evaluation.js')
     const { websiteAnalysisWorker } = await import('./queue/website-analysis.js')
     const { scanSchedulerWorker } = await import('./queue/scan-scheduler.js')
     const { freshnessCheckWorker, scheduleRecurringCheck } = await import('./queue/freshness-checker.js')
@@ -54,8 +56,9 @@ app.listen(PORT, async () => {
     workersInitialized = true
     console.log('Workers initialized:')
     console.log('- Job Processor: Running (polls database every 5 seconds)')
+    console.log('- Prompt Evaluation Worker: Running (evaluates AI responses & detects gaps)')
     console.log('- Visibility Scanner: DEPRECATED (now handled by browser extension)')
-    console.log('- Competitor Analysis Worker: Running')
+    console.log('- Competitor Analysis Worker: DEPRECATED (gap detection now in prompt-evaluation)')
     console.log('- Website Analysis Worker: Running')
     console.log('- Scan Scheduler Worker: Running (checks every 6 hours)')
     console.log('- Freshness Checker Worker: Running (checks every 6 hours)')
@@ -66,7 +69,7 @@ app.listen(PORT, async () => {
       console.log('Shutting down workers...')
       await jobProcessor.stop()
       await Promise.all([
-        competitorAnalysisWorker.close(),
+        promptEvaluationWorker.close(),
         websiteAnalysisWorker.close(),
         scanSchedulerWorker.close(),
         freshnessCheckWorker.close(),

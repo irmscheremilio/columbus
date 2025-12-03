@@ -105,7 +105,7 @@
                   <th class="text-left px-4 py-2 font-medium">Platform</th>
                   <th class="text-center px-4 py-2 font-medium">Tests</th>
                   <th class="text-center px-4 py-2 font-medium">Mentions</th>
-                  <th class="text-center px-4 py-2 font-medium">Citations</th>
+                  <th class="text-center px-4 py-2 font-medium" title="Brand website was cited">Brand Cited</th>
                   <th class="text-center px-4 py-2 font-medium">Mention Rate</th>
                   <th class="text-center px-4 py-2 font-medium">Avg Position</th>
                 </tr>
