@@ -161,7 +161,7 @@
                 <div
                   class="h-full rounded-full transition-all duration-500 ease-out"
                   :class="comp.mentionRate > (visibilityScore?.overall || 0) ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-gray-300 to-gray-400'"
-                  :style="{ width: `${comp.mentionRate}%` }"
+                  :style="{ width: `${Math.min(comp.mentionRate, 100)}%` }"
                 ></div>
               </div>
             </div>
@@ -615,12 +615,15 @@ const loadTopCompetitors = async (productId: string) => {
       return
     }
 
-    // Get competitor mentions (each row = competitor was mentioned)
+    // Get the prompt result IDs we care about (filtered by region if applicable)
+    const promptResultIds = promptResults.map(r => r.id)
+
+    // Get competitor mentions only for the filtered prompt results
     const { data: mentions } = await supabase
       .from('competitor_mentions')
       .select('competitor_id, prompt_result_id')
       .in('competitor_id', competitors.map(c => c.id))
-      .gte('detected_at', startDate.toISOString())
+      .in('prompt_result_id', promptResultIds)
 
     // Calculate mention rate per competitor
     const competitorsWithRates = competitors.map(c => {

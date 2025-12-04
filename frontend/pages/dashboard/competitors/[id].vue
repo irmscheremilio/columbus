@@ -197,13 +197,24 @@
                     <span class="text-sm font-bold text-brand">{{ brandMetrics.citationRate }}%</span>
                   </td>
                   <td class="text-center px-4 py-3">
-                    <span class="text-sm font-bold text-gray-400">N/A</span>
+                    <span class="text-sm font-bold" :class="competitorMetrics.citationRate !== null ? 'text-gray-700' : 'text-gray-400'">
+                      {{ competitorMetrics.citationRate !== null ? `${competitorMetrics.citationRate}%` : 'N/A' }}
+                    </span>
                   </td>
                   <td class="text-center px-4 py-3">
-                    <span class="text-sm text-gray-400">-</span>
+                    <span class="text-sm" :class="citationDiff !== null ? (citationDiff > 0 ? 'text-green-600' : citationDiff < 0 ? 'text-red-600' : 'text-gray-500') : 'text-gray-400'">
+                      {{ citationDiff !== null ? (citationDiff > 0 ? `+${citationDiff}` : citationDiff) : '-' }}
+                    </span>
                   </td>
                   <td class="text-center px-4 py-3">
-                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                    <span
+                      v-if="competitorMetrics.citationRate !== null"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                      :class="citationDiff !== null && citationDiff > 0 ? 'bg-green-50 text-green-700' : citationDiff !== null && citationDiff < 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500'"
+                    >
+                      {{ citationDiff !== null && citationDiff > 0 ? 'Winning' : citationDiff !== null && citationDiff < 0 ? 'Losing' : 'Tied' }}
+                    </span>
+                    <span v-else class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                       N/A
                     </span>
                   </td>
@@ -537,6 +548,11 @@ const positionWinner = computed(() => {
   return 'tie'
 })
 
+const citationDiff = computed(() => {
+  if (competitorMetrics.value.citationRate === null) return null
+  return brandMetrics.value.citationRate - competitorMetrics.value.citationRate
+})
+
 watch([chartMetric, chartPeriod], () => {
   loadChartData()
 })
@@ -628,14 +644,7 @@ const loadCompetitorMetrics = async () => {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  // Load competitor mentions
-  const { data: mentions } = await supabase
-    .from('competitor_mentions')
-    .select('position, sentiment')
-    .eq('competitor_id', competitorId)
-    .gte('detected_at', startDate.toISOString())
-
-  // Load total prompt results count
+  // Load total prompt results count first
   const { data: promptResults } = await supabase
     .from('prompt_results')
     .select('id')
@@ -643,7 +652,27 @@ const loadCompetitorMetrics = async () => {
     .gte('tested_at', startDate.toISOString())
 
   const totalResults = promptResults?.length || 0
-  const mentionCount = mentions?.length || 0
+
+  if (totalResults === 0) {
+    competitorMetrics.value.mentionRate = 0
+    competitorMetrics.value.citationRate = null
+    competitorMetrics.value.avgPosition = null
+    return
+  }
+
+  // Get prompt result IDs for filtering
+  const promptResultIds = promptResults.map(r => r.id)
+
+  // Load competitor mentions only for the filtered prompt results
+  const { data: mentions } = await supabase
+    .from('competitor_mentions')
+    .select('prompt_result_id, position, sentiment')
+    .eq('competitor_id', competitorId)
+    .in('prompt_result_id', promptResultIds)
+
+  // Count unique prompt results where this competitor was mentioned
+  const uniqueResultIds = new Set((mentions || []).map(m => m.prompt_result_id).filter(Boolean))
+  const mentionCount = uniqueResultIds.size
 
   competitorMetrics.value.mentionRate = totalResults > 0
     ? Math.round((mentionCount / totalResults) * 100)
@@ -653,6 +682,34 @@ const loadCompetitorMetrics = async () => {
   competitorMetrics.value.avgPosition = positions.length > 0
     ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
     : null
+
+  // Calculate citation rate by domain matching
+  if (competitor.value?.domain) {
+    const normalizedDomain = competitor.value.domain.toLowerCase().replace('www.', '')
+
+    // Query citations where is_competitor_source = true and domain matches
+    const { data: citations } = await supabase
+      .from('prompt_citations')
+      .select('source_domain, prompt_result_id')
+      .eq('is_competitor_source', true)
+      .in('prompt_result_id', promptResultIds)
+
+    if (citations && citations.length > 0) {
+      // Find citations that match this competitor's domain
+      const matchingCitations = citations.filter(c => {
+        const citationDomain = c.source_domain?.toLowerCase().replace('www.', '') || ''
+        return citationDomain === normalizedDomain || citationDomain.endsWith('.' + normalizedDomain)
+      })
+      const uniqueCitedResults = new Set(matchingCitations.map(c => c.prompt_result_id)).size
+      competitorMetrics.value.citationRate = totalResults > 0
+        ? Math.round((uniqueCitedResults / totalResults) * 100)
+        : null
+    } else {
+      competitorMetrics.value.citationRate = 0
+    }
+  } else {
+    competitorMetrics.value.citationRate = null  // No domain to match
+  }
 }
 
 const loadRecentMentions = async () => {
@@ -683,18 +740,25 @@ const loadChartData = async () => {
     // Load brand data
     const { data: brandResults } = await supabase
       .from('prompt_results')
-      .select('tested_at, brand_mentioned, position')
+      .select('id, tested_at, brand_mentioned, position')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
       .order('tested_at', { ascending: true })
 
-    // Load competitor mentions
-    const { data: competitorMentions } = await supabase
-      .from('competitor_mentions')
-      .select('detected_at, position')
-      .eq('competitor_id', competitorId)
-      .gte('detected_at', startDate.toISOString())
-      .order('detected_at', { ascending: true })
+    // Get prompt result IDs for filtering competitor mentions
+    const promptResultIds = (brandResults || []).map(r => r.id)
+
+    // Load competitor mentions only for the filtered prompt results
+    let competitorMentions: any[] = []
+    if (promptResultIds.length > 0) {
+      const { data } = await supabase
+        .from('competitor_mentions')
+        .select('prompt_result_id, detected_at, position')
+        .eq('competitor_id', competitorId)
+        .in('prompt_result_id', promptResultIds)
+        .order('detected_at', { ascending: true })
+      competitorMentions = data || []
+    }
 
     // Generate labels and group by day
     const labels: string[] = []
@@ -715,7 +779,7 @@ const loadChartData = async () => {
       if (day) day.brandResults.push(result)
     }
 
-    for (const mention of competitorMentions || []) {
+    for (const mention of competitorMentions) {
       const dateKey = new Date(mention.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       const day = dayMap.get(dateKey)
       if (day) day.competitorMentions.push(mention)

@@ -137,6 +137,7 @@ Deno.serve(async (req) => {
     const creditsExhausted = result.creditsExhausted ?? false
     const requestCountry = result.request_country || result.requestCountry || null
 
+    // Save raw result - position/sentiment will be properly evaluated by AI worker
     const { data: promptResult, error: insertError } = await supabaseAdmin
       .from('prompt_results')
       .insert({
@@ -146,11 +147,11 @@ Deno.serve(async (req) => {
         scan_session_id: result.scanSessionId || null,
         ai_model: result.platform,
         response_text: result.responseText,
-        brand_mentioned: result.brandMentioned,  // Extension's basic detection
+        brand_mentioned: result.brandMentioned,  // Basic text search, AI will verify
         citation_present: result.citationPresent,
-        position: result.position,  // Extension's basic detection
-        sentiment: result.sentiment,  // Extension's basic detection
-        competitor_mentions: result.competitorMentions,
+        position: null,  // Will be evaluated by AI worker
+        sentiment: 'neutral',  // Will be evaluated by AI worker
+        competitor_mentions: result.competitorMentions,  // Names only, AI will evaluate details
         credits_exhausted: creditsExhausted,
         chat_url: chatUrl,
         request_country: requestCountry,
@@ -189,48 +190,9 @@ Deno.serve(async (req) => {
         .insert(citationsToInsert)
     }
 
-    // Insert competitor mentions with position data
-    if (result.competitorDetails && result.competitorDetails.length > 0) {
-      // Get competitors for this product to map names to IDs
-      const { data: competitors } = await supabaseAdmin
-        .from('competitors')
-        .select('id, name')
-        .eq('product_id', result.productId)
-        .eq('status', 'tracking')
-
-      if (competitors && competitors.length > 0) {
-        // Create a map of competitor name (lowercase) to ID
-        const competitorNameToId = new Map(
-          competitors.map(c => [c.name.toLowerCase(), c.id])
-        )
-
-        const mentionsToInsert = result.competitorDetails
-          .map(cd => {
-            const competitorId = competitorNameToId.get(cd.name.toLowerCase())
-            if (!competitorId) return null
-            return {
-              organization_id: organizationId,
-              competitor_id: competitorId,
-              prompt_result_id: promptResult.id,
-              ai_model: result.platform,
-              position: cd.position,
-              sentiment: cd.sentiment,
-              detected_at: new Date().toISOString()
-            }
-          })
-          .filter(Boolean)
-
-        if (mentionsToInsert.length > 0) {
-          const { error: mentionsError } = await supabaseAdmin
-            .from('competitor_mentions')
-            .insert(mentionsToInsert)
-
-          if (mentionsError) {
-            console.error('Error inserting competitor mentions:', mentionsError)
-          }
-        }
-      }
-    }
+    // Note: competitor_mentions are inserted by the AI evaluation worker
+    // which properly evaluates position and sentiment using GPT-4
+    // We don't insert them here to avoid duplicates
 
     // Queue a job for AI evaluation (async processing by worker)
     const { error: jobError } = await supabaseAdmin

@@ -205,6 +205,57 @@ export const promptEvaluationWorker = new Worker<PromptEvaluationJobData>(
         // Don't fail the evaluation for detection errors
       }
 
+      // 6b. Evaluate citations for competitor sources
+      // This allows tracking competitor citation rates by domain (even for untracked competitors)
+      try {
+        const { data: citations } = await supabase
+          .from('prompt_citations')
+          .select('id, source_domain, is_brand_source, is_competitor_source')
+          .eq('prompt_result_id', promptResultId)
+          .eq('is_brand_source', false)  // Skip brand's own citations
+          .is('is_competitor_source', null)  // Only evaluate unevaluated citations
+
+        if (citations && citations.length > 0) {
+          // Get unique domains to evaluate
+          const uniqueDomains = [...new Set(citations.map(c => c.source_domain))]
+
+          // Evaluate which domains are competitors
+          const competitorDomains = await evaluateCitationDomains(
+            uniqueDomains,
+            productName,
+            productDomain
+          )
+
+          // Update citations with competitor source flag
+          if (competitorDomains.length > 0) {
+            const { error: updateCitationsError } = await supabase
+              .from('prompt_citations')
+              .update({ is_competitor_source: true })
+              .eq('prompt_result_id', promptResultId)
+              .in('source_domain', competitorDomains)
+
+            if (updateCitationsError) {
+              console.error(`[Prompt Evaluation] Error updating competitor citations:`, updateCitationsError)
+            } else {
+              console.log(`[Prompt Evaluation] Marked ${competitorDomains.length} domains as competitor sources`)
+            }
+          }
+
+          // Also mark non-competitor domains as evaluated (false)
+          const nonCompetitorDomains = uniqueDomains.filter(d => !competitorDomains.includes(d))
+          if (nonCompetitorDomains.length > 0) {
+            await supabase
+              .from('prompt_citations')
+              .update({ is_competitor_source: false })
+              .eq('prompt_result_id', promptResultId)
+              .in('source_domain', nonCompetitorDomains)
+          }
+        }
+      } catch (citationError) {
+        console.error(`[Prompt Evaluation] Citation evaluation error:`, citationError)
+        // Don't fail the evaluation for citation errors
+      }
+
       // 7. Detect visibility gaps - opportunities where competitors are favored over brand
       try {
         const gapAnalysis = await improvementAnalyzer.analyzeResponse(
@@ -485,6 +536,82 @@ function getSuggestedAction(suggestionType: string, competitorName?: string): st
     no_citation: 'create_authoritative_content'
   }
   return actions[suggestionType] || 'review_content_strategy'
+}
+
+/**
+ * Evaluate which citation domains are competitors
+ * Uses AI to determine if cited domains are in the same industry/space
+ */
+async function evaluateCitationDomains(
+  domains: string[],
+  productName: string,
+  productDomain: string
+): Promise<string[]> {
+  if (domains.length === 0) return []
+
+  // Filter out common non-competitor domains (documentation, news, general sites)
+  const excludedPatterns = [
+    'wikipedia.org', 'github.com', 'stackoverflow.com', 'medium.com',
+    'youtube.com', 'twitter.com', 'linkedin.com', 'facebook.com',
+    'reddit.com', 'quora.com', 'docs.google.com', 'support.google.com',
+    'developer.mozilla.org', 'w3schools.com', 'npmjs.com',
+    'forbes.com', 'techcrunch.com', 'wired.com', 'theverge.com',
+    'cnet.com', 'zdnet.com', 'bbc.com', 'nytimes.com', 'wsj.com',
+    'gov', '.edu', 'amazon.com', 'ebay.com'  // General marketplaces
+  ]
+
+  const domainsToEvaluate = domains.filter(domain => {
+    const domainLower = domain.toLowerCase()
+    return !excludedPatterns.some(pattern => domainLower.includes(pattern))
+  })
+
+  if (domainsToEvaluate.length === 0) return []
+
+  const prompt = `You are an expert at identifying competitor relationships between companies.
+
+**Product being analyzed:** "${productName}"${productDomain ? ` (domain: ${productDomain})` : ''}
+
+**Domains to evaluate:**
+${domainsToEvaluate.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+For each domain, determine if it belongs to a DIRECT COMPETITOR of "${productName}" - meaning they offer similar products/services in the same market and compete for the same customers.
+
+Return a JSON object with this format:
+{
+  "competitors": ["domain1.com", "domain2.com"]  // Only domains that are direct competitors
+}
+
+Important rules:
+- Include ONLY domains of companies that directly compete with "${productName}"
+- Do NOT include: news sites, documentation, social media, general info sites, review aggregators
+- Do NOT include: general retailers (Amazon, eBay) unless "${productName}" is itself a retailer
+- If you're unsure about a domain, exclude it
+- Return an empty array if none are competitors`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 300,
+      response_format: { type: 'json_object' }
+    })
+
+    const responseContent = completion.choices[0]?.message?.content || '{}'
+    const parsed = JSON.parse(responseContent)
+
+    if (Array.isArray(parsed.competitors)) {
+      // Filter to only include domains that were in our evaluation list
+      return parsed.competitors.filter((d: string) =>
+        domainsToEvaluate.some(ed => ed.toLowerCase() === d.toLowerCase())
+      )
+    }
+
+    return []
+  } catch (error) {
+    console.error('[Prompt Evaluation] Error evaluating citation domains:', error)
+    return []
+  }
 }
 
 // Event listeners

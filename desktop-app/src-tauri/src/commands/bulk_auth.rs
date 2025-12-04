@@ -372,7 +372,8 @@ async fn authenticate_single(
             }
         }
         LoginState::TwoFactorRequired { method } => {
-            // Already at 2FA page
+            // Already at 2FA page - don't close webview, frontend will handle 2FA
+            // Note: If user doesn't complete 2FA within timeout, cancel_bulk_auth should be called
             return Ok(AuthSingleResult::Needs2FA {
                 method,
                 webview_label: label,
@@ -443,9 +444,21 @@ pub async fn submit_bulk_auth_2fa(
 pub async fn cancel_bulk_auth(app: AppHandle, webview_label: Option<String>) -> Result<(), String> {
     eprintln!("[BulkAuth] Cancelling bulk authentication");
 
-    // Close any open webview
+    // Close the specific webview if provided
     if let Some(label) = webview_label {
         close_webview(&app, &label);
+    }
+
+    // Also close any bulk-auth webviews that might be lingering
+    // This handles cases where the label wasn't passed or multiple webviews exist
+    let platforms = ["chatgpt", "claude", "gemini", "perplexity"];
+    let regions = ["us", "uk", "de", "fr", "es", "it", "nl", "local"]; // Common regions
+
+    for region in regions {
+        for platform in platforms {
+            let label = format!("bulk-auth-{}-{}", region, platform);
+            close_webview(&app, &label);
+        }
     }
 
     // Emit cancellation event

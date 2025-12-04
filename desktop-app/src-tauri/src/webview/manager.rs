@@ -1280,58 +1280,29 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
             const chatUrl = window.location.href.split('#')[0];
             console.log('[Columbus] Chat URL:', chatUrl);
 
-            // Check brand mention
+            // Check brand mention (basic text search - AI worker will do proper evaluation)
             const brandLower = brand.toLowerCase();
             const responseLower = responseText.toLowerCase();
             const brandMentioned = responseLower.includes(brandLower);
             console.log('[Columbus] Brand "' + brand + '" mentioned:', brandMentioned);
 
-            // Check competitor mentions with position calculation
-            // Position = rank among all brands (brand + competitors) based on first mention
-            const allBrands = [
-                {{ name: brand, isBrand: true }},
-                ...competitors.map(c => ({{ name: c, isBrand: false }}))
-            ];
-
-            // Find first occurrence position of each brand
-            const brandPositions = [];
-            for (const b of allBrands) {{
-                const idx = responseLower.indexOf(b.name.toLowerCase());
-                if (idx !== -1) {{
-                    brandPositions.push({{ name: b.name, isBrand: b.isBrand, index: idx }});
-                }}
-            }}
-
-            // Sort by position in text
-            brandPositions.sort((a, b) => a.index - b.index);
-
-            // Calculate position (1-indexed rank)
+            // Check which competitors are mentioned (names only - AI worker will evaluate position/sentiment)
             const competitorMentions = [];
             const competitorDetails = [];
             for (const c of competitors) {{
                 const cLower = c.toLowerCase();
                 if (responseLower.includes(cLower)) {{
                     competitorMentions.push(c);
-                    const rank = brandPositions.findIndex(bp => bp.name.toLowerCase() === cLower);
+                    // Position and sentiment will be evaluated by AI worker
                     competitorDetails.push({{
                         name: c,
-                        position: rank !== -1 ? rank + 1 : null,
+                        position: null,
                         sentiment: 'neutral'
                     }});
                 }}
             }}
 
-            // Also calculate brand position
-            let brandPosition = null;
-            if (brandMentioned) {{
-                const brandRank = brandPositions.findIndex(bp => bp.isBrand);
-                if (brandRank !== -1) {{
-                    brandPosition = brandRank + 1;
-                }}
-            }}
-            console.log('[Columbus] Brand position:', brandPosition);
             console.log('[Columbus] Competitor mentions:', competitorMentions);
-            console.log('[Columbus] Competitor details:', competitorDetails);
 
             // Extract citations (links) using platform-specific selectors
             const citations = [];
@@ -1587,15 +1558,16 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
             }}
 
             // Build result object
+            // Position and sentiment will be evaluated by AI worker - we only collect raw data here
             // citationPresent = true only if the brand's website was cited, not just any citation exists
             const result = {{
-                responseText: responseText.substring(0, 10000), // Limit size for title
+                responseText: responseText.substring(0, 10000), // Limit size
                 brandMentioned,
                 citationPresent: brandCited,
-                position: brandPosition,
-                sentiment: 'neutral',
+                position: null,  // AI worker will evaluate
+                sentiment: 'neutral',  // AI worker will evaluate
                 competitorMentions,
-                competitorDetails,
+                competitorDetails,  // Position/sentiment will be filled by AI worker
                 citations: citations.slice(0, 10), // Limit citations (all citations, not just brand)
                 creditsExhausted,
                 chatUrl: responseText.length > 0 ? chatUrl : null
@@ -1608,6 +1580,7 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
                 responseLen: responseText.length,
                 brandMentioned,
                 brandCited,
+                competitorCount: competitorMentions.length,
                 citationCount: citations.length,
                 creditsExhausted,
                 chatUrl: result.chatUrl

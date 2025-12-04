@@ -762,14 +762,7 @@ const loadCompetitorMetrics = async (productId: string) => {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  // Load competitor mentions (include prompt_result_id to count unique results)
-  const { data: mentions } = await supabase
-    .from('competitor_mentions')
-    .select('competitor_id, prompt_result_id, position, sentiment')
-    .in('competitor_id', trackingIds)
-    .gte('detected_at', startDate.toISOString())
-
-  // Load total prompt results count for the period
+  // Load total prompt results count for the period (with region filter if applicable)
   let promptResultsQuery = supabase
     .from('prompt_results')
     .select('id')
@@ -781,8 +774,56 @@ const loadCompetitorMetrics = async (productId: string) => {
   }
 
   const { data: promptResults } = await promptResultsQuery
-
   const totalResults = promptResults?.length || 0
+
+  if (totalResults === 0) {
+    // No results, set all metrics to null
+    for (const competitorId of trackingIds) {
+      const comp = competitors.value.find(c => c.id === competitorId)
+      if (comp) {
+        comp.mention_rate = null
+        comp.avg_position = null
+      }
+    }
+    return
+  }
+
+  // Get the prompt result IDs we care about (filtered by region if applicable)
+  const promptResultIds = promptResults.map(r => r.id)
+
+  // Load competitor mentions only for the filtered prompt results
+  const { data: mentions } = await supabase
+    .from('competitor_mentions')
+    .select('competitor_id, prompt_result_id, position, sentiment')
+    .in('competitor_id', trackingIds)
+    .in('prompt_result_id', promptResultIds)
+
+  // Load competitor citations by domain matching
+  // Get all competitors with domains to check for citations
+  const competitorsWithDomains = allCompetitors.value.filter(c => c.domain && trackingIds.includes(c.id))
+  const competitorDomains = competitorsWithDomains.map(c => c.domain!.toLowerCase().replace('www.', ''))
+
+  let citationsByDomain: Record<string, Set<string>> = {}
+
+  if (competitorDomains.length > 0) {
+    // Query competitor citations for all competitor domains
+    const { data: citations } = await supabase
+      .from('prompt_citations')
+      .select('source_domain, prompt_result_id')
+      .eq('is_competitor_source', true)
+      .in('prompt_result_id', promptResultIds)
+
+    // Group citations by domain
+    if (citations) {
+      for (const citation of citations) {
+        const normalizedDomain = citation.source_domain?.toLowerCase().replace('www.', '') || ''
+        if (!citationsByDomain[normalizedDomain]) {
+          citationsByDomain[normalizedDomain] = new Set()
+        }
+        citationsByDomain[normalizedDomain].add(citation.prompt_result_id)
+      }
+    }
+  }
 
   // Calculate metrics per competitor
   const metricsMap = new Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null }>()
@@ -799,10 +840,22 @@ const loadCompetitorMetrics = async (productId: string) => {
       ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
       : null
 
-    // Citation rate would need to be tracked separately - for now using mention as proxy
+    // Calculate citation rate by matching competitor domain
+    let citationRate: number | null = null
+    const competitor = allCompetitors.value.find(c => c.id === competitorId)
+    if (competitor?.domain) {
+      const normalizedDomain = competitor.domain.toLowerCase().replace('www.', '')
+      // Find citations that match this competitor's domain (exact or subdomain)
+      const matchingCitations = Object.entries(citationsByDomain)
+        .filter(([domain]) => domain === normalizedDomain || domain.endsWith('.' + normalizedDomain))
+        .flatMap(([_, resultIds]) => [...resultIds])
+      const uniqueCitedResults = new Set(matchingCitations).size
+      citationRate = totalResults > 0 ? Math.round((uniqueCitedResults / totalResults) * 100) : null
+    }
+
     metricsMap.set(competitorId, {
       mention_rate: mentionRate,
-      citation_rate: null, // Would need citation tracking for competitors
+      citation_rate: citationRate,
       avg_position: avgPosition
     })
   }
@@ -824,7 +877,7 @@ const loadChartData = async () => {
     // Load brand data by day
     let brandQuery = supabase
       .from('prompt_results')
-      .select('tested_at, brand_mentioned, citation_present, position')
+      .select('id, tested_at, brand_mentioned, citation_present, position')
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
       .order('tested_at', { ascending: true })
@@ -835,14 +888,22 @@ const loadChartData = async () => {
 
     const { data: brandResults } = await brandQuery
 
-    // Load competitor mentions by day (include prompt_result_id to count unique results)
+    // Get prompt result IDs for filtering competitor mentions (respects region filter)
+    const promptResultIds = (brandResults || []).map(r => r.id).filter(Boolean)
+
+    // Load competitor mentions only for the filtered prompt results
     const competitorIds = chartCompetitors.value.map(c => c.id)
-    const { data: competitorMentions } = await supabase
-      .from('competitor_mentions')
-      .select('competitor_id, prompt_result_id, detected_at, position')
-      .in('competitor_id', competitorIds)
-      .gte('detected_at', startDate.toISOString())
-      .order('detected_at', { ascending: true })
+    let competitorMentions: any[] = []
+
+    if (promptResultIds.length > 0 && competitorIds.length > 0) {
+      const { data } = await supabase
+        .from('competitor_mentions')
+        .select('competitor_id, prompt_result_id, detected_at, position')
+        .in('competitor_id', competitorIds)
+        .in('prompt_result_id', promptResultIds)
+        .order('detected_at', { ascending: true })
+      competitorMentions = data || []
+    }
 
     // Generate labels (days)
     const labels: string[] = []

@@ -326,6 +326,8 @@ async fn run_scan(
                     {
                         let scan = state.scan.lock();
                         if !scan.is_running {
+                            // Clean up all webviews before returning
+                            manager.close_all(&app);
                             return Err("Scan cancelled".to_string());
                         }
                     }
@@ -607,6 +609,9 @@ async fn run_scan(
             eprintln!("No auth token available for finalize scan");
         }
     }
+
+    // Final cleanup - ensure all webviews are closed
+    manager.close_all(&app);
 
     let mention_rate = if total_collected > 0 {
         (total_mentioned as f64 / total_collected as f64) * 100.0
