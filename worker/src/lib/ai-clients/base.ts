@@ -1,4 +1,5 @@
-export type AIModel = 'chatgpt' | 'claude' | 'gemini' | 'perplexity'
+// AIModel is now a string to support dynamic platforms from ai_platforms table
+export type AIModel = string
 export type Sentiment = 'positive' | 'neutral' | 'negative'
 
 export interface AIResponse {
