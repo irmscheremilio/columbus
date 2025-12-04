@@ -12,5 +12,8 @@
         <slot />
       </main>
     </div>
+
+    <!-- Active jobs indicator -->
+    <ActiveJobsBadge />
   </div>
 </template>

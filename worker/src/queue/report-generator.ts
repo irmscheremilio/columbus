@@ -410,14 +410,17 @@ reportGenerationWorker.on('completed', async (job, result) => {
 
   // Update job status if jobId provided
   if (job.data.jobId) {
-    await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({
         status: 'completed',
-        completed_at: new Date().toISOString(),
-        result: { downloadUrl: result.downloadUrl }
+        completed_at: new Date().toISOString()
       })
       .eq('id', job.data.jobId)
+
+    if (error) {
+      console.error(`[Report Generator] Failed to update job status:`, error)
+    }
   }
 })
 
@@ -426,7 +429,7 @@ reportGenerationWorker.on('failed', async (job, err) => {
 
   // Update job status if jobId provided
   if (job?.data.jobId) {
-    await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({
         status: 'failed',
@@ -434,6 +437,10 @@ reportGenerationWorker.on('failed', async (job, err) => {
         error_message: err.message
       })
       .eq('id', job.data.jobId)
+
+    if (error) {
+      console.error(`[Report Generator] Failed to update job status:`, error)
+    }
   }
 })
 

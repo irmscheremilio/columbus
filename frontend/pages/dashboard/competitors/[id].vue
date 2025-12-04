@@ -1200,10 +1200,24 @@ const removeCompetitor = async () => {
 }
 
 const getOverallWinnerClass = () => {
-  const brandWins = (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate ? 1 : 0) +
-    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition ? 1 : 0)
-  const competitorWins = (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate ? 1 : 0) +
-    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition ? 1 : 0)
+  let brandWins = 0
+  let competitorWins = 0
+
+  // Mention rate comparison
+  if (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate) brandWins++
+  else if (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate) competitorWins++
+
+  // Citation rate comparison
+  if (competitorMetrics.value.citationRate !== null) {
+    if (brandMetrics.value.citationRate > competitorMetrics.value.citationRate) brandWins++
+    else if (competitorMetrics.value.citationRate > brandMetrics.value.citationRate) competitorWins++
+  }
+
+  // Position comparison (lower is better)
+  if (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition) {
+    if (brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition) brandWins++
+    else if (competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition) competitorWins++
+  }
 
   if (brandWins > competitorWins) return 'bg-emerald-100 text-emerald-700'
   if (competitorWins > brandWins) return 'bg-red-100 text-red-700'
@@ -1211,10 +1225,24 @@ const getOverallWinnerClass = () => {
 }
 
 const getOverallWinnerText = () => {
-  const brandWins = (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate ? 1 : 0) +
-    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition ? 1 : 0)
-  const competitorWins = (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate ? 1 : 0) +
-    (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition && competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition ? 1 : 0)
+  let brandWins = 0
+  let competitorWins = 0
+
+  // Mention rate comparison
+  if (brandMetrics.value.mentionRate > competitorMetrics.value.mentionRate) brandWins++
+  else if (competitorMetrics.value.mentionRate > brandMetrics.value.mentionRate) competitorWins++
+
+  // Citation rate comparison
+  if (competitorMetrics.value.citationRate !== null) {
+    if (brandMetrics.value.citationRate > competitorMetrics.value.citationRate) brandWins++
+    else if (competitorMetrics.value.citationRate > brandMetrics.value.citationRate) competitorWins++
+  }
+
+  // Position comparison (lower is better)
+  if (brandMetrics.value.avgPosition && competitorMetrics.value.avgPosition) {
+    if (brandMetrics.value.avgPosition < competitorMetrics.value.avgPosition) brandWins++
+    else if (competitorMetrics.value.avgPosition < brandMetrics.value.avgPosition) competitorWins++
+  }
 
   if (brandWins > competitorWins) return 'Winning'
   if (competitorWins > brandWins) return 'Losing'
