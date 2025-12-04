@@ -74,13 +74,13 @@
                 <div class="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
                   <div
                     class="h-full rounded-full bg-gradient-to-r from-brand to-amber-400 transition-all duration-500"
-                    :style="{ width: `${visibilityScore?.byModel?.[platform.id] || 0}%` }"
+                    :style="{ width: `${platformStats[platform.id]?.score || 0}%` }"
                   ></div>
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <div class="text-sm font-bold text-gray-900">{{ visibilityScore?.byModel?.[platform.id] || 0 }}%</div>
-                <div class="text-[10px] text-gray-400">mention rate</div>
+                <div class="text-sm font-bold text-gray-900">{{ platformStats[platform.id]?.score || 0 }}%</div>
+                <div class="text-[10px] text-gray-400">{{ platformStats[platform.id]?.mentions || 0 }}/{{ platformStats[platform.id]?.tests || 0 }}</div>
               </div>
             </a>
           </div>
@@ -90,8 +90,8 @@
         </div>
 
         <!-- Chart Section -->
-        <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" @period-change="onPeriodChange" />
+        <div class="lg:col-span-2 flex">
+          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" @period-change="onPeriodChange" class="flex-1" chart-height="100%" />
         </div>
       </div>
 
@@ -296,14 +296,29 @@ const modelStats = ref({
   chatgpt: { mentions: 0, total: 0 },
   claude: { mentions: 0, total: 0 },
   gemini: { mentions: 0, total: 0 },
-  perplexity: { mentions: 0, total: 0 }
+  perplexity: { mentions: 0, total: 0 },
+  google_aio: { mentions: 0, total: 0 },
+  google_ai_mode: { mentions: 0, total: 0 }
 })
 
 const totalMentionRate = computed(() => {
   const stats = modelStats.value
-  const totalMentions = stats.chatgpt.mentions + stats.claude.mentions + stats.gemini.mentions + stats.perplexity.mentions
-  const totalTests = stats.chatgpt.total + stats.claude.total + stats.gemini.total + stats.perplexity.total
+  const totalMentions = stats.chatgpt.mentions + stats.claude.mentions + stats.gemini.mentions + stats.perplexity.mentions + stats.google_aio.mentions + stats.google_ai_mode.mentions
+  const totalTests = stats.chatgpt.total + stats.claude.total + stats.gemini.total + stats.perplexity.total + stats.google_aio.total + stats.google_ai_mode.total
   return totalTests > 0 ? Math.round((totalMentions / totalTests) * 100) : 0
+})
+
+// Platform stats for platform comparison card (same calculation as visibility.vue)
+const platformStats = computed(() => {
+  const stats: Record<string, { score: number; mentions: number; tests: number }> = {}
+  for (const [platformId, data] of Object.entries(modelStats.value)) {
+    stats[platformId] = {
+      tests: data.total,
+      mentions: data.mentions,
+      score: data.total > 0 ? Math.round((data.mentions / data.total) * 100) : 0
+    }
+  }
+  return stats
 })
 
 watch(activeProductId, async (newProductId) => {
@@ -345,7 +360,9 @@ const loadVisibilityScore = async (productId: string) => {
       chatgpt: { tested: 0, mentioned: 0 },
       claude: { tested: 0, mentioned: 0 },
       gemini: { tested: 0, mentioned: 0 },
-      perplexity: { tested: 0, mentioned: 0 }
+      perplexity: { tested: 0, mentioned: 0 },
+      google_aio: { tested: 0, mentioned: 0 },
+      google_ai_mode: { tested: 0, mentioned: 0 }
     }
 
     if (selectedRegion.value) {
@@ -404,12 +421,18 @@ const loadVisibilityScore = async (productId: string) => {
       ? Math.round((platformTotals.gemini.mentioned / platformTotals.gemini.tested) * 100) : 0
     const perplexityRate = platformTotals.perplexity.tested > 0
       ? Math.round((platformTotals.perplexity.mentioned / platformTotals.perplexity.tested) * 100) : 0
+    const googleAioRate = platformTotals.google_aio.tested > 0
+      ? Math.round((platformTotals.google_aio.mentioned / platformTotals.google_aio.tested) * 100) : 0
+    const googleAiModeRate = platformTotals.google_ai_mode.tested > 0
+      ? Math.round((platformTotals.google_ai_mode.mentioned / platformTotals.google_ai_mode.tested) * 100) : 0
 
     // Overall = average of all platforms with data
     const totalTested = platformTotals.chatgpt.tested + platformTotals.claude.tested +
-      platformTotals.gemini.tested + platformTotals.perplexity.tested
+      platformTotals.gemini.tested + platformTotals.perplexity.tested +
+      platformTotals.google_aio.tested + platformTotals.google_ai_mode.tested
     const totalMentioned = platformTotals.chatgpt.mentioned + platformTotals.claude.mentioned +
-      platformTotals.gemini.mentioned + platformTotals.perplexity.mentioned
+      platformTotals.gemini.mentioned + platformTotals.perplexity.mentioned +
+      platformTotals.google_aio.mentioned + platformTotals.google_ai_mode.mentioned
     const overall = totalTested > 0 ? Math.round((totalMentioned / totalTested) * 100) : 0
 
     visibilityScore.value = {
@@ -419,6 +442,8 @@ const loadVisibilityScore = async (productId: string) => {
         claude: claudeRate,
         gemini: geminiRate,
         perplexity: perplexityRate,
+        google_aio: googleAioRate,
+        google_ai_mode: googleAiModeRate,
       },
       trend: 'stable',
       percentChange: 0,
@@ -491,7 +516,9 @@ const loadModelStats = async (productId: string) => {
       chatgpt: { mentions: 0, total: 0 },
       claude: { mentions: 0, total: 0 },
       gemini: { mentions: 0, total: 0 },
-      perplexity: { mentions: 0, total: 0 }
+      perplexity: { mentions: 0, total: 0 },
+      google_aio: { mentions: 0, total: 0 },
+      google_ai_mode: { mentions: 0, total: 0 }
     }
 
     if (results && results.length > 0) {

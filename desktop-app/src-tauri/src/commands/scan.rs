@@ -116,6 +116,20 @@ pub async fn start_scan_internal(
 
     eprintln!("[Scan] Scan countries (from prompt target_regions): {:?}", scan_countries);
 
+    // Calculate total prompt executions accounting for regional targeting
+    // Each prompt runs once per target region (or once for "local" if no regions specified)
+    let mut total_prompt_executions: usize = 0;
+    for prompt in &prompts_response.prompts {
+        if prompt.target_regions.is_empty() {
+            // No regions specified - runs once in "local"
+            total_prompt_executions += 1;
+        } else {
+            // Runs once per target region
+            total_prompt_executions += prompt.target_regions.len();
+        }
+    }
+    eprintln!("[Scan] Total prompt executions (with regions): {} (base prompts: {})", total_prompt_executions, prompts_response.prompts.len());
+
     // Initialize scan state
     {
         let mut scan = state.scan.lock();
@@ -123,17 +137,19 @@ pub async fn start_scan_internal(
         scan.phase = "initializing".to_string();
         scan.scan_session_id = Some(scan_session_id.clone());
         scan.product_id = Some(product_id.clone());
-        scan.total_prompts = prompts_response.prompts.len() * samples * platform_count;
+        // Total = prompt executions × samples × platforms
+        scan.total_prompts = total_prompt_executions * samples * platform_count;
         scan.completed_prompts = 0;
 
         // Initialize platform states for selected platforms only
+        // Each platform will process all prompt executions
         scan.platforms.clear();
         for platform in &selected_platforms {
             scan.platforms.insert(
                 platform.clone(),
                 PlatformState {
                     status: "pending".to_string(),
-                    total: prompts_response.prompts.len() * samples,
+                    total: total_prompt_executions * samples,
                     submitted: 0,
                     collected: 0,
                     failed: 0,
@@ -338,10 +354,12 @@ async fn run_scan(
                     let webview_label = format!("scan-{}-{}-{}-{}-{}", &scan_session_id[..8], country_code, platform, prompt_idx, sample);
 
                     // Create webview for this prompt (with or without proxy based on country)
+                    let is_visible = false;
+                    eprintln!("[Columbus] Creating scan webview for platform={}, is_visible={}", platform, is_visible);
                     let create_result = if is_local {
-                        manager.create_webview(&app, &webview_label, &url, false).await
+                        manager.create_webview(&app, &webview_label, &url, is_visible).await
                     } else {
-                        manager.create_webview_for_country(&app, &webview_label, &url, false, country_code, platform_str).await
+                        manager.create_webview_for_country(&app, &webview_label, &url, is_visible, country_code, platform_str).await
                     };
 
                     if let Err(e) = create_result {
@@ -362,6 +380,17 @@ async fn run_scan(
                     let submit_result = manager
                         .submit_prompt(&app, &webview_label, platform, &prompt.text)
                         .await;
+
+                    // For google_ai_mode, the first script clicks the AI Mode button which navigates
+                    // to a new page. We need to re-inject the script after navigation completes.
+                    if platform == "google_ai_mode" {
+                        // Wait for navigation to AI Mode page
+                        tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+                        // Re-inject the script on the AI Mode page
+                        let _ = manager
+                            .submit_prompt(&app, &webview_label, platform, &prompt.text)
+                            .await;
+                    }
 
                     if submit_result.is_ok() {
                         {
@@ -630,8 +659,18 @@ async fn run_scan(
         0.0
     };
 
+    // Calculate total prompt executions for the completion stats
+    let mut completion_total: usize = 0;
+    for prompt in &prompts {
+        if prompt.target_regions.is_empty() {
+            completion_total += 1;
+        } else {
+            completion_total += prompt.target_regions.len();
+        }
+    }
+
     Ok(ScanComplete {
-        total_prompts: prompts.len() * samples * 4,
+        total_prompts: completion_total * samples * selected_platforms.len(),
         successful_prompts: total_collected,
         mention_rate,
         citation_rate,

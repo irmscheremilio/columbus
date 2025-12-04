@@ -414,6 +414,80 @@
           </div>
         </div>
 
+        <!-- Cited Pages Chart -->
+        <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-violet-500"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">{{ competitor.name }}'s Most Cited Pages</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Which pages of their site are being cited by AI</p>
+              </div>
+            </div>
+            <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
+              {{ competitorUrlStats.length }} unique pages
+            </span>
+          </div>
+
+          <div v-if="loadingCitations" class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+          </div>
+
+          <div v-else-if="competitorUrlStats.length === 0" class="text-center py-12 text-sm text-gray-500">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            No citations found for {{ competitor.name }}
+          </div>
+
+          <div v-else class="p-4">
+            <!-- Bar Chart -->
+            <div class="space-y-3 overflow-y-auto" :class="showAllCitedPages ? 'max-h-80' : ''">
+              <div
+                v-for="(urlStat, idx) in showAllCitedPages ? competitorUrlStats : competitorUrlStats.slice(0, 10)"
+                :key="urlStat.url"
+                class="group"
+              >
+                <div class="flex items-center gap-3">
+                  <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-red-100 text-red-700 shrink-0">
+                    {{ idx + 1 }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                      <a
+                        :href="urlStat.url"
+                        target="_blank"
+                        class="text-xs font-medium text-gray-700 hover:text-brand truncate transition-colors"
+                        :title="urlStat.url"
+                      >
+                        {{ formatUrlPath(urlStat.url) }}
+                      </a>
+                      <span class="text-xs font-bold text-red-600 ml-2 shrink-0">{{ urlStat.count }}</span>
+                    </div>
+                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500"
+                        :style="{ width: `${(urlStat.count / maxCompetitorUrlCount) * 100}%` }"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="competitorUrlStats.length > 10" class="mt-4 pt-4 border-t border-gray-100 text-center">
+              <button
+                @click="showAllCitedPages = !showAllCitedPages"
+                class="text-xs text-brand hover:text-brand/80 font-medium transition-colors"
+              >
+                {{ showAllCitedPages ? 'Show less' : `+${competitorUrlStats.length - 10} more pages cited` }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Recent Mentions -->
         <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
           <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
@@ -514,9 +588,12 @@ const competitorId = route.params.id as string
 
 const loading = ref(true)
 const chartLoading = ref(false)
+const loadingCitations = ref(false)
 const competitor = ref<any>(null)
 const product = ref<any>(null)
 const recentMentions = ref<any[]>([])
+const competitorUrlStats = ref<{ url: string; count: number }[]>([])
+const showAllCitedPages = ref(false)
 
 const trendChartCanvas = ref<HTMLCanvasElement | null>(null)
 const chartMetric = ref<'mention_rate' | 'position'>('mention_rate')
@@ -557,6 +634,11 @@ const citationDiff = computed(() => {
   return brandMetrics.value.citationRate - competitorMetrics.value.citationRate
 })
 
+const maxCompetitorUrlCount = computed(() => {
+  if (competitorUrlStats.value.length === 0) return 1
+  return competitorUrlStats.value[0].count
+})
+
 // Watch for region filter changes
 watch(selectedRegion, async () => {
   if (activeProductId.value && competitor.value) {
@@ -564,6 +646,7 @@ watch(selectedRegion, async () => {
       loadBrandMetrics(activeProductId.value),
       loadCompetitorMetrics(),
       loadRecentMentions(),
+      loadCompetitorCitations(),
       loadChartData()
     ])
   }
@@ -629,7 +712,8 @@ const loadCompetitor = async () => {
     await Promise.all([
       loadBrandMetrics(productId),
       loadCompetitorMetrics(),
-      loadRecentMentions()
+      loadRecentMentions(),
+      loadCompetitorCitations()
     ])
   } catch (error) {
     console.error('Error loading competitor:', error)
@@ -801,6 +885,85 @@ const loadRecentMentions = async () => {
       .limit(10)
 
     recentMentions.value = data || []
+  }
+}
+
+const loadCompetitorCitations = async () => {
+  if (!competitor.value?.domain) {
+    competitorUrlStats.value = []
+    return
+  }
+
+  loadingCitations.value = true
+  try {
+    const productId = activeProductId.value
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 30)
+    const normalizedDomain = competitor.value.domain.toLowerCase().replace('www.', '')
+
+    // Get filtered result IDs based on region
+    let filteredResultIds: string[] | null = null
+    if (selectedRegion.value) {
+      const { data: regionResults } = await supabase
+        .from('prompt_results')
+        .select('id')
+        .eq('product_id', productId)
+        .ilike('request_country', selectedRegion.value)
+        .gte('tested_at', startDate.toISOString())
+
+      filteredResultIds = (regionResults || []).map(r => r.id)
+      if (filteredResultIds.length === 0) {
+        competitorUrlStats.value = []
+        loadingCitations.value = false
+        return
+      }
+    }
+
+    // Load all citations and filter by competitor domain
+    let allCitationsData: { url: string; source_domain: string }[] = []
+    let offset = 0
+    const batchSize = 1000
+
+    while (true) {
+      let query = supabase
+        .from('prompt_citations')
+        .select('url, source_domain')
+        .eq('product_id', productId)
+        .gte('created_at', startDate.toISOString())
+        .range(offset, offset + batchSize - 1)
+
+      if (filteredResultIds) {
+        query = query.in('prompt_result_id', filteredResultIds)
+      }
+
+      const { data: batchData } = await query
+      if (!batchData || batchData.length === 0) break
+
+      allCitationsData = allCitationsData.concat(batchData)
+      if (batchData.length < batchSize) break
+      offset += batchSize
+    }
+
+    // Filter by competitor domain and aggregate by URL
+    const urlCounts: Record<string, number> = {}
+    for (const c of allCitationsData) {
+      const citationDomain = c.source_domain?.toLowerCase().replace('www.', '') || ''
+      if (citationDomain === normalizedDomain || citationDomain.endsWith('.' + normalizedDomain)) {
+        if (c.url) {
+          urlCounts[c.url] = (urlCounts[c.url] || 0) + 1
+        }
+      }
+    }
+
+    competitorUrlStats.value = Object.entries(urlCounts)
+      .map(([url, count]) => ({ url, count }))
+      .sort((a, b) => b.count - a.count)
+
+  } catch (error) {
+    console.error('Error loading competitor citations:', error)
+    competitorUrlStats.value = []
+  } finally {
+    loadingCitations.value = false
   }
 }
 
@@ -1102,5 +1265,15 @@ const formatDate = (date: string) => {
     hour: 'numeric',
     minute: '2-digit'
   })
+}
+
+const formatUrlPath = (url: string) => {
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname + parsed.search
+    return path.length > 60 ? path.substring(0, 60) + '...' : path || '/'
+  } catch {
+    return url.length > 60 ? url.substring(0, 60) + '...' : url
+  }
 }
 </script>

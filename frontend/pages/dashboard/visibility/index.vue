@@ -114,8 +114,8 @@
         </div>
 
         <!-- Chart Section -->
-        <div class="lg:col-span-2">
-          <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" />
+        <div class="lg:col-span-2 flex">
+          <VisibilityChart :product-id="activeProductId" @period-change="onPeriodChange" class="flex-1" chart-height="100%" />
         </div>
       </div>
 

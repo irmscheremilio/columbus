@@ -386,7 +386,7 @@ impl WebviewManager {
         app: &AppHandle,
         label: &str,
         url: &str,
-        _visible: bool,
+        visible: bool,
     ) -> Result<(), String> {
         for attempt in 0..MAX_CAPTCHA_RETRIES {
             // Create a unique label for retries (close old one first if retrying)
@@ -398,8 +398,8 @@ impl WebviewManager {
                 eprintln!("Retry {} for webview {} with new User-Agent", attempt + 1, label);
             }
 
-            // Create the webview (invisible by default)
-            self.create_webview_internal(app, label, url, false)?;
+            // Create the webview with requested visibility
+            self.create_webview_internal(app, label, url, visible)?;
 
             // Wait for page to load
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
@@ -415,8 +415,10 @@ impl WebviewManager {
                 let solved = self.try_solve_captcha(app, label).await;
 
                 if solved {
-                    // Captcha was solved, hide the window again
-                    self.hide_webview(app, label);
+                    // Captcha was solved, hide the window again if it wasn't meant to be visible
+                    if !visible {
+                        self.hide_webview(app, label);
+                    }
                     eprintln!("Captcha solved successfully on attempt {}", attempt + 1);
                     return Ok(());
                 }
@@ -434,7 +436,7 @@ impl WebviewManager {
                 continue;
             }
 
-            // No captcha, success! Keep window invisible
+            // No captcha, success!
             return Ok(());
         }
 
@@ -1254,6 +1256,101 @@ fn get_submit_script(platform: &str, prompt: &str) -> String {
             }})();
         "#, escaped_prompt),
 
+        "google_ai_mode" => format!(r#"
+            console.log('[Columbus] Google AI Mode script loaded');
+            (async function() {{
+                try {{
+                const prompt = "{}";
+                console.log('[Columbus] Google AI Mode submit starting...');
+                console.log('[Columbus] Current URL:', window.location.href);
+
+                // Helper to find AI Mode input
+                const findAIModeInput = () => {{
+                    let input = document.querySelector('textarea.ITIRGe');
+                    if (!input) input = document.querySelector('textarea[placeholder="Ask anything"]');
+                    if (!input) input = document.querySelector('textarea[aria-label="Ask anything"]');
+                    return input;
+                }};
+
+                // Check if we're already in AI Mode (input exists)
+                let input = findAIModeInput();
+
+                if (input) {{
+                    // Already in AI Mode, just fill the input
+                    console.log('[Columbus] Already in AI Mode, found input');
+                }} else {{
+                    // Need to click the AI Mode button - but page will navigate
+                    // Store the prompt and set up to continue after navigation
+                    console.log('[Columbus] AI Mode input not found, looking for AI Mode button...');
+                    let aiModeBtn = document.querySelector('button[jsname="B6rgad"]');
+                    if (!aiModeBtn) aiModeBtn = document.querySelector('button.plR5qb');
+                    if (!aiModeBtn) aiModeBtn = document.querySelector('a[jsname="B6rgad"]');
+                    if (!aiModeBtn) aiModeBtn = document.querySelector('a.plR5qb');
+
+                    if (aiModeBtn) {{
+                        // Store prompt in sessionStorage so we can retrieve it after navigation
+                        sessionStorage.setItem('columbus_prompt', prompt);
+                        console.log('[Columbus] AI Mode button found, clicking... (will continue after navigation)');
+                        aiModeBtn.click();
+                        return; // Script will end, new script will run after navigation
+                    }} else {{
+                        console.log('[Columbus] No AI Mode button found');
+                        return;
+                    }}
+                }}
+
+                // If we get here, we have the input - fill it
+                console.log('[Columbus] Found input:', input.tagName, input.className);
+
+                // Click and focus the input
+                input.click();
+                await new Promise(r => setTimeout(r, 300));
+                input.focus();
+                await new Promise(r => setTimeout(r, 300));
+
+                // Insert text using document.execCommand (simulates real user input)
+                document.execCommand('selectAll', false, null);
+                document.execCommand('insertText', false, prompt);
+
+                console.log('[Columbus] Prompt inserted, value length:', input.value.length);
+                await new Promise(r => setTimeout(r, 500));
+
+                // Find and click the submit button
+                let submitBtn = document.querySelector('button[jsname="Tg7LZd"]');
+                if (!submitBtn) submitBtn = document.querySelector('button[aria-label*="Send"]');
+                if (!submitBtn) submitBtn = document.querySelector('button[aria-label*="Submit"]');
+                if (!submitBtn) {{
+                    const buttons = document.querySelectorAll('button:not([disabled])');
+                    for (const btn of buttons) {{
+                        const rect = btn.getBoundingClientRect();
+                        const inputRect = input.getBoundingClientRect();
+                        if (Math.abs(rect.top - inputRect.top) < 100 && rect.right > inputRect.right) {{
+                            submitBtn = btn;
+                            break;
+                        }}
+                    }}
+                }}
+
+                console.log('[Columbus] Found submit button:', !!submitBtn);
+                if (submitBtn) {{
+                    submitBtn.click();
+                    console.log('[Columbus] Submit button clicked!');
+                }} else {{
+                    console.log('[Columbus] No submit button, pressing Enter...');
+                    input.dispatchEvent(new KeyboardEvent('keydown', {{
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true
+                    }}));
+                }}
+                }} catch (e) {{
+                    console.error('[Columbus] Error in Google AI Mode script:', e);
+                }}
+            }})();
+        "#, escaped_prompt),
+
         _ => {
             eprintln!("[Columbus] Unknown platform: {}", platform);
             String::new()
@@ -1314,6 +1411,11 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
                     'div[jsname="dvXlsc"]',
                     'div[class*="EyBRub"]',
                     'div[class*="Jzkafd"]'
+                ],
+                'google_ai_mode': [
+                    'div[data-container-id="main-col"]',
+                    'div.mZJni',
+                    'div[class*="mZJni"]'
                 ]
             }};
 
@@ -1680,6 +1782,39 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
                 }}
 
                 console.log('[Columbus] Google AIO total citations found:', citations.length);
+            }} else if (platform === 'google_ai_mode') {{
+                // Google AI Mode citation extraction
+                // Response container: div[data-container-id="main-col"] or div.mZJni
+                // Citations appear as links within the response
+
+                console.log('[Columbus] Starting Google AI Mode citation detection...');
+
+                // Find the main response container
+                const aiModeContainer = document.querySelector('div[data-container-id="main-col"]') ||
+                                        document.querySelector('div.mZJni') ||
+                                        document.querySelector('div[class*="mZJni"]');
+
+                if (aiModeContainer) {{
+                    // Extract all links from the AI Mode response
+                    const links = aiModeContainer.querySelectorAll('a[href^="http"]');
+                    console.log('[Columbus] Google AI Mode links found:', links.length);
+
+                    links.forEach((link) => {{
+                        const url = cleanUrl(link.href);
+                        if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                            citations.push({{
+                                url: url,
+                                title: link.textContent?.trim() || '',
+                                position: citations.length + 1
+                            }});
+                            console.log('[Columbus] Found Google AI Mode source:', url);
+                        }}
+                    }});
+                }} else {{
+                    console.log('[Columbus] Google AI Mode: No response container found');
+                }}
+
+                console.log('[Columbus] Google AI Mode total citations found:', citations.length);
             }} else {{
                 // Fallback for unknown platforms - generic link extraction
                 const genericLinks = document.querySelectorAll('.citation-link a[href], [data-testid="citation"] a[href], a[href^="http"]:not([href*="' + window.location.hostname + '"])');

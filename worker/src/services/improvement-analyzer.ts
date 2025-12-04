@@ -66,15 +66,16 @@ export class ImprovementAnalyzer {
     const suggestions: ImprovementSuggestion[] = []
 
     // Quick rule-based checks first
-    this.addQuickChecks(
-      suggestions,
-      responseText,
-      brandName,
-      brandMentioned,
-      position,
-      citationPresent,
-      competitors
-    )
+    // Do not do rule based checks, they are not helpful
+    // this.addQuickChecks(
+    //   suggestions,
+    //   responseText,
+    //   brandName,
+    //   brandMentioned,
+    //   position,
+    //   citationPresent,
+    //   competitors
+    // )
 
     // AI-powered deep analysis if available
     if (this.hasAI() && brandMentioned) {

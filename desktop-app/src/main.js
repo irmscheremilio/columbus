@@ -17,6 +17,7 @@ let platformAuthStatus = {}; // { "region:platform": true/false }
 // Platform data
 let platforms = [];
 let PLATFORM_URLS = {};
+let PLATFORM_NAMES = {};
 
 // Available countries (fetched from API)
 let availableCountries = []; // Will be populated from fetch_proxy_config
@@ -211,8 +212,10 @@ async function loadPlatforms() {
         console.log('Loaded platforms:', platformsData);
         platforms = platformsData.map(p => p.id);
         PLATFORM_URLS = {};
+        PLATFORM_NAMES = {};
         platformsData.forEach(p => {
             PLATFORM_URLS[p.id] = p.website_url || '';
+            PLATFORM_NAMES[p.id] = p.name || p.id;
         });
         return platformsData;
     } catch (error) {
@@ -223,6 +226,12 @@ async function loadPlatforms() {
             claude: 'https://claude.ai',
             gemini: 'https://gemini.google.com',
             perplexity: 'https://perplexity.ai'
+        };
+        PLATFORM_NAMES = {
+            chatgpt: 'ChatGPT',
+            claude: 'Claude',
+            gemini: 'Gemini',
+            perplexity: 'Perplexity'
         };
         return null;
     }
@@ -984,15 +993,6 @@ async function handleCancelScan() {
         console.error('Cancel scan error:', error);
     }
 }
-
-// Platform display names
-const PLATFORM_NAMES = {
-    'chatgpt': 'ChatGPT',
-    'claude': 'Claude',
-    'gemini': 'Gemini',
-    'perplexity': 'Perplexity',
-    'google_aio': 'Google AI Overview'
-};
 
 function renderPlatformProgressGrid() {
     const grid = document.getElementById('platformProgressGrid');

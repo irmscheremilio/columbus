@@ -18,7 +18,8 @@ const DEFAULT_PLATFORMS: AIPlatform[] = [
   { id: 'claude', name: 'Claude', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/7/78/Anthropic_logo.svg', color: '#d97757', description: 'Anthropic\'s AI assistant focused on safety', website_url: 'https://claude.ai' },
   { id: 'gemini', name: 'Gemini', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg', color: '#4285f4', description: 'Google\'s multimodal AI model', website_url: 'https://gemini.google.com' },
   { id: 'perplexity', name: 'Perplexity', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Perplexity_AI_logo.svg', color: '#20b8cd', description: 'AI-powered search and answer engine', website_url: 'https://perplexity.ai' },
-  { id: 'google_aio', name: 'Google AI Overview', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', color: '#4285f4', description: 'AI-generated overview at the top of Google search results', website_url: 'https://www.google.com' }
+  { id: 'google_aio', name: 'Google AI Overview', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', color: '#4285f4', description: 'AI-generated overview at the top of Google search results', website_url: 'https://www.google.com' },
+  { id: 'google_ai_mode', name: 'Google AI Mode', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', color: '#4285f4', description: 'Google conversational AI search mode', website_url: 'https://www.google.com' }
 ]
 
 // Global state shared across all components

@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
+  <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200 flex flex-col" :class="{ 'h-full': chartHeight === '100%' }">
     <!-- Header -->
     <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
       <div class="flex items-center justify-between">
@@ -72,8 +72,8 @@
       <p class="text-[11px] text-gray-400 mt-1 ml-3">{{ metricLabel }} · {{ groupingMode === 'day' ? 'Daily average' : 'Per scan' }}</p>
     </div>
     <!-- Chart Area -->
-    <div class="p-4">
-      <div class="relative" :style="{ height: chartHeight }">
+    <div class="p-4" :class="{ 'flex-1 flex flex-col min-h-0': chartHeight === '100%' }">
+      <div class="relative" :class="{ 'flex-1 min-h-[200px]': chartHeight === '100%' }" :style="chartHeight !== '100%' ? { height: chartHeight } : undefined">
         <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-lg">
           <div class="flex flex-col items-center gap-2">
             <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
@@ -1400,13 +1400,15 @@ const renderFullscreenChart = (
     label: platform.label,
     data: chartData.platformData[platform.name] || [],
     borderColor: platform.color,
-    backgroundColor: platform.color + '20',
-    borderWidth: 2.5,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
     fill: false,
-    tension: 0.3,
-    pointRadius: 3,
+    tension: 0.4,
+    pointRadius: 0,
     pointHoverRadius: 5,
     pointBackgroundColor: platform.color,
+    pointBorderColor: '#fff',
+    pointBorderWidth: 2,
     spanGaps: true
   }))
 
@@ -1435,14 +1437,21 @@ const renderFullscreenChart = (
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 11, weight: '600', family: 'system-ui' },
+          bodyFont: { size: 11, family: 'system-ui' },
+          padding: { x: 12, y: 10 },
+          cornerRadius: 8,
+          boxPadding: 4,
+          usePointStyle: true,
           callbacks: {
+            title: (items) => items[0].label,
             label: (context) => {
               const value = context.parsed.y
-              if (value === null) return `${context.dataset.label}: No data`
-              if (isPositionMetric) {
-                return `${context.dataset.label}: #${value}`
-              }
-              return `${context.dataset.label}: ${value}%`
+              if (value === null) return ` ${context.dataset.label}: No data`
+              if (isPositionMetric) return ` ${context.dataset.label}: #${value}`
+              return ` ${context.dataset.label}: ${value}%`
             }
           }
         }
@@ -1450,19 +1459,34 @@ const renderFullscreenChart = (
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 12 }, color: '#6b7280' }
+          border: { display: false },
+          ticks: {
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            maxTicksLimit: 8,
+            padding: 8
+          }
         },
         y: {
           min: isPositionMetric ? 1 : 0,
           max: isPositionMetric ? maxPosition : 100,
           reverse: isPositionMetric,
-          grid: { color: '#f3f4f6' },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
-            font: { size: 12 },
-            color: '#6b7280',
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            padding: 8,
             callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
           }
         }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
       }
     }
   })
@@ -1484,33 +1508,42 @@ const renderFullscreenCompetitorChart = (
 
   const isPositionMetric = metric === 'position'
 
+  // Create gradient for brand line fill
+  const brandGradient = ctx.createLinearGradient(0, 0, 0, 400)
+  brandGradient.addColorStop(0, 'rgba(242, 153, 1, 0.15)')
+  brandGradient.addColorStop(1, 'rgba(242, 153, 1, 0)')
+
   const datasets = [
     {
       label: 'Your Brand',
       data: chartData.brandData,
-      borderColor: '#6366f1',
-      backgroundColor: '#6366f120',
-      borderWidth: 3,
-      fill: false,
-      tension: 0.3,
-      pointRadius: 4,
+      borderColor: '#F29901',
+      backgroundColor: brandGradient,
+      borderWidth: 2.5,
+      fill: true,
+      tension: 0.4,
+      pointRadius: 0,
       pointHoverRadius: 6,
-      pointBackgroundColor: '#6366f1',
+      pointBackgroundColor: '#F29901',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
       spanGaps: true
     },
     ...competitors.map((c, i) => ({
       label: c.name,
       data: chartData.competitorData.get(c.id) || [],
-      borderColor: competitorColors[i % competitorColors.length],
-      backgroundColor: competitorColors[i % competitorColors.length] + '20',
-      borderWidth: 2.5,
+      borderColor: competitorColors[i % competitorColors.length] + 'AA',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
       fill: false,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      tension: 0.4,
+      pointRadius: 0,
+      pointHoverRadius: 4,
       pointBackgroundColor: competitorColors[i % competitorColors.length],
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
       spanGaps: true,
-      borderDash: [5, 5]
+      borderDash: [4, 4]
     }))
   ]
 
@@ -1541,14 +1574,21 @@ const renderFullscreenCompetitorChart = (
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 11, weight: '600', family: 'system-ui' },
+          bodyFont: { size: 11, family: 'system-ui' },
+          padding: { x: 12, y: 10 },
+          cornerRadius: 8,
+          boxPadding: 4,
+          usePointStyle: true,
           callbacks: {
+            title: (items) => items[0].label,
             label: (context) => {
               const value = context.parsed.y
-              if (value === null) return `${context.dataset.label}: No data`
-              if (isPositionMetric) {
-                return `${context.dataset.label}: #${value}`
-              }
-              return `${context.dataset.label}: ${value}%`
+              if (value === null) return ` ${context.dataset.label}: No data`
+              if (isPositionMetric) return ` ${context.dataset.label}: #${value}`
+              return ` ${context.dataset.label}: ${value}%`
             }
           }
         }
@@ -1556,19 +1596,34 @@ const renderFullscreenCompetitorChart = (
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 12 }, color: '#6b7280' }
+          border: { display: false },
+          ticks: {
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            maxTicksLimit: 8,
+            padding: 8
+          }
         },
         y: {
           min: isPositionMetric ? 1 : 0,
           max: isPositionMetric ? maxPosition : 100,
           reverse: isPositionMetric,
-          grid: { color: '#f3f4f6' },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
-            font: { size: 12 },
-            color: '#6b7280',
+            font: { size: 10, family: 'system-ui' },
+            color: '#9CA3AF',
+            padding: 8,
             callback: (v) => isPositionMetric ? `#${v}` : `${v}%`
           }
         }
+      },
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
       }
     }
   })
