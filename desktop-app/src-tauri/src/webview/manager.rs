@@ -701,6 +701,47 @@ impl WebviewManager {
             tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
         }
 
+        // For Google AI Overview, click "Show more AI Overview" and "Show all" buttons
+        if platform == "google_aio" {
+            let expand_aio_script = r#"
+                (async function() {
+                    console.log('[Columbus] Google AIO: Looking for Show more button...');
+
+                    // Click "Show more AI Overview" button if present
+                    // Selector: div.Jzkafd[aria-label="Show more AI Overview"] containing div.in7vHe
+                    let showMoreBtn = document.querySelector('div.Jzkafd[aria-label="Show more AI Overview"]');
+                    if (!showMoreBtn) showMoreBtn = document.querySelector('div[aria-label="Show more AI Overview"]');
+                    if (!showMoreBtn) showMoreBtn = document.querySelector('[aria-label*="Show more"][aria-label*="AI Overview"]');
+
+                    if (showMoreBtn) {
+                        const clickable = showMoreBtn.querySelector('div.in7vHe') || showMoreBtn;
+                        clickable.click();
+                        console.log('[Columbus] Google AIO: Clicked Show more button');
+                        await new Promise(r => setTimeout(r, 1500));
+                    } else {
+                        console.log('[Columbus] Google AIO: No Show more button found (may already be expanded)');
+                    }
+
+                    // Click "Show all" button to reveal all sources
+                    // Selector: div.BjvG9b[aria-label="Show all related links"]
+                    let showAllBtn = document.querySelector('div.BjvG9b[aria-label="Show all related links"]');
+                    if (!showAllBtn) showAllBtn = document.querySelector('div[aria-label="Show all related links"]');
+                    if (!showAllBtn) showAllBtn = document.querySelector('[aria-label*="Show all"]');
+
+                    if (showAllBtn) {
+                        showAllBtn.click();
+                        console.log('[Columbus] Google AIO: Clicked Show all button');
+                        await new Promise(r => setTimeout(r, 1000));
+                    } else {
+                        console.log('[Columbus] Google AIO: No Show all button found');
+                    }
+                })();
+            "#;
+            window.eval(expand_aio_script).ok();
+            // Wait for expansions to complete
+            tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
+        }
+
         // Inject script that collects response and sets location.hash with encoded result
         let script = get_collect_script(platform, brand, brand_domain, domain_aliases, competitors);
         window
@@ -1127,6 +1168,63 @@ fn get_submit_script(platform: &str, prompt: &str) -> String {
             }})();
         "#, escaped_prompt),
 
+        "google_aio" => format!(r#"
+            (async function() {{
+                console.log('[Columbus] Google AI Overview submit starting...');
+                const prompt = "{}";
+
+                await new Promise(r => setTimeout(r, 2000));
+
+                // Find Google search input - multiple selector fallbacks
+                let input = document.querySelector('textarea[name="q"]');
+                if (!input) input = document.querySelector('input[name="q"]');
+                if (!input) input = document.querySelector('textarea[title="Search"]');
+                if (!input) input = document.querySelector('input[title="Search"]');
+                if (!input) input = document.querySelector('textarea[aria-label="Search"]');
+                if (!input) input = document.querySelector('input[aria-label="Search"]');
+                if (!input) input = document.querySelector('.gLFyf');
+
+                console.log('[Columbus] Found Google search input:', !!input, input?.tagName);
+                if (!input) {{
+                    console.error('[Columbus] No Google search input found!');
+                    return;
+                }}
+
+                input.focus();
+                await new Promise(r => setTimeout(r, 300));
+
+                // Set value using native setter for React compatibility
+                if (input.tagName === 'TEXTAREA') {{
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                    nativeSetter.call(input, prompt);
+                }} else {{
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeSetter.call(input, prompt);
+                }}
+                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+
+                console.log('[Columbus] Prompt inserted, waiting for search...');
+                await new Promise(r => setTimeout(r, 500));
+
+                // Submit the search form
+                const form = input.closest('form');
+                if (form) {{
+                    form.submit();
+                    console.log('[Columbus] Search form submitted!');
+                }} else {{
+                    // Fallback: press Enter
+                    console.log('[Columbus] No form found, pressing Enter...');
+                    input.dispatchEvent(new KeyboardEvent('keydown', {{
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true
+                    }}));
+                }}
+            }})();
+        "#, escaped_prompt),
+
         _ => {
             eprintln!("[Columbus] Unknown platform: {}", platform);
             String::new()
@@ -1180,6 +1278,13 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
                     '.markdown',
                     '[class*="answer"]',
                     '[class*="response"]'
+                ],
+                'google_aio': [
+                    'div.EyBRub',
+                    'div.pOOWX',
+                    'div[jsname="dvXlsc"]',
+                    'div[class*="EyBRub"]',
+                    'div[class*="Jzkafd"]'
                 ]
             }};
 
@@ -1491,6 +1596,61 @@ fn get_collect_script(platform: &str, brand: &str, brand_domain: Option<&str>, d
                 }}
 
                 console.log('[Columbus] Perplexity total citations found:', citations.length);
+            }} else if (platform === 'google_aio') {{
+                // Google AI Overview citation extraction
+                // Sources are in ul.bTFeG containing li.CyMdWb items
+                // Each source has: a.NDNGvf for link, div.Nn35F for title, span.R0r5R for source name
+
+                console.log('[Columbus] Starting Google AI Overview citation detection...');
+
+                // Primary selector: sources list after "Show all" is clicked
+                const sourceItems = document.querySelectorAll('ul.bTFeG li.CyMdWb');
+                console.log('[Columbus] Google AIO source items found:', sourceItems.length);
+
+                sourceItems.forEach((item, i) => {{
+                    const link = item.querySelector('a.NDNGvf[href]');
+                    if (!link) return;
+
+                    const url = cleanUrl(link.href);
+                    if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                        // Get title from div.Nn35F
+                        const titleEl = item.querySelector('div.Nn35F');
+                        // Get source name from span.R0r5R (optional)
+                        const sourceNameEl = item.querySelector('span.R0r5R');
+                        const title = titleEl?.textContent?.trim() || '';
+
+                        citations.push({{
+                            url: url,
+                            title: title,
+                            position: citations.length + 1
+                        }});
+                        console.log('[Columbus] Found Google AIO source:', url, '- Title:', title);
+                    }}
+                }});
+
+                // Fallback: Try alternative selectors if primary didn't work
+                if (citations.length === 0) {{
+                    console.log('[Columbus] Google AIO: Trying fallback selectors...');
+
+                    // Try any links within the AI Overview container
+                    const aioContainer = document.querySelector('div.EyBRub') || document.querySelector('div[class*="EyBRub"]');
+                    if (aioContainer) {{
+                        const links = aioContainer.querySelectorAll('a[href^="http"]');
+                        links.forEach((link) => {{
+                            const url = cleanUrl(link.href);
+                            if (url && !citations.some(c => c.url === url) && !isExcludedDomain(url)) {{
+                                citations.push({{
+                                    url: url,
+                                    title: link.textContent?.trim() || '',
+                                    position: citations.length + 1
+                                }});
+                                console.log('[Columbus] Found Google AIO fallback source:', url);
+                            }}
+                        }});
+                    }}
+                }}
+
+                console.log('[Columbus] Google AIO total citations found:', citations.length);
             }} else {{
                 // Fallback for unknown platforms - generic link extraction
                 const genericLinks = document.querySelectorAll('.citation-link a[href], [data-testid="citation"] a[href], a[href^="http"]:not([href*="' + window.location.hostname + '"])');

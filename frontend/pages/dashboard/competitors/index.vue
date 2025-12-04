@@ -762,21 +762,20 @@ const loadCompetitorMetrics = async (productId: string) => {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
 
-  // Load total prompt results count for the period (with region filter if applicable)
-  let promptResultsQuery = supabase
+  // Get count of prompt results for the period (for calculating rates)
+  let countQuery = supabase
     .from('prompt_results')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('product_id', productId)
     .gte('tested_at', startDate.toISOString())
 
   if (selectedRegion.value) {
-    promptResultsQuery = promptResultsQuery.ilike('request_country', selectedRegion.value)
+    countQuery = countQuery.ilike('request_country', selectedRegion.value)
   }
 
-  const { data: promptResults } = await promptResultsQuery
-  const totalResults = promptResults?.length || 0
+  const { count: totalResults } = await countQuery
 
-  if (totalResults === 0) {
+  if (!totalResults || totalResults === 0) {
     // No results, set all metrics to null
     for (const competitorId of trackingIds) {
       const comp = competitors.value.find(c => c.id === competitorId)
@@ -788,30 +787,42 @@ const loadCompetitorMetrics = async (productId: string) => {
     return
   }
 
-  // Get the prompt result IDs we care about (filtered by region if applicable)
-  const promptResultIds = promptResults.map(r => r.id)
-
-  // Load competitor mentions only for the filtered prompt results
-  const { data: mentions } = await supabase
+  // Query competitor mentions directly by product_id and date range
+  // This is much faster than passing hundreds of prompt_result_ids
+  let mentionsQuery = supabase
     .from('competitor_mentions')
-    .select('competitor_id, prompt_result_id, position, sentiment')
+    .select('competitor_id, prompt_result_id, position, sentiment, prompt_results!inner(request_country)')
+    .eq('product_id', productId)
     .in('competitor_id', trackingIds)
-    .in('prompt_result_id', promptResultIds)
+    .gte('detected_at', startDate.toISOString())
+
+  // Filter by region through the joined prompt_results
+  if (selectedRegion.value) {
+    mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
+  }
+
+  const { data: mentions } = await mentionsQuery
 
   // Load competitor citations by domain matching
   // Get all competitors with domains to check for citations
   const competitorsWithDomains = allCompetitors.value.filter(c => c.domain && trackingIds.includes(c.id))
-  const competitorDomains = competitorsWithDomains.map(c => c.domain!.toLowerCase().replace('www.', ''))
 
   let citationsByDomain: Record<string, Set<string>> = {}
 
-  if (competitorDomains.length > 0) {
-    // Query competitor citations for all competitor domains
-    const { data: citations } = await supabase
+  if (competitorsWithDomains.length > 0) {
+    // Query competitor citations directly by product_id and date
+    let citationsQuery = supabase
       .from('prompt_citations')
-      .select('source_domain, prompt_result_id')
+      .select('source_domain, prompt_result_id, prompt_results!inner(request_country)')
+      .eq('product_id', productId)
       .eq('is_competitor_source', true)
-      .in('prompt_result_id', promptResultIds)
+      .gte('created_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      citationsQuery = citationsQuery.ilike('prompt_results.request_country', selectedRegion.value)
+    }
+
+    const { data: citations } = await citationsQuery
 
     // Group citations by domain
     if (citations) {
@@ -888,20 +899,24 @@ const loadChartData = async () => {
 
     const { data: brandResults } = await brandQuery
 
-    // Get prompt result IDs for filtering competitor mentions (respects region filter)
-    const promptResultIds = (brandResults || []).map(r => r.id).filter(Boolean)
-
-    // Load competitor mentions only for the filtered prompt results
+    // Load competitor mentions using direct filters (much faster than IN with hundreds of IDs)
     const competitorIds = chartCompetitors.value.map(c => c.id)
     let competitorMentions: any[] = []
 
-    if (promptResultIds.length > 0 && competitorIds.length > 0) {
-      const { data } = await supabase
+    if (competitorIds.length > 0) {
+      let mentionsQuery = supabase
         .from('competitor_mentions')
-        .select('competitor_id, prompt_result_id, detected_at, position')
+        .select('competitor_id, prompt_result_id, detected_at, position, prompt_results!inner(request_country)')
+        .eq('product_id', productId)
         .in('competitor_id', competitorIds)
-        .in('prompt_result_id', promptResultIds)
+        .gte('detected_at', startDate.toISOString())
         .order('detected_at', { ascending: true })
+
+      if (selectedRegion.value) {
+        mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
+      }
+
+      const { data } = await mentionsQuery
       competitorMentions = data || []
     }
 

@@ -22,12 +22,13 @@ pub use webview::*;
 pub const SUPABASE_URL: &str = "https://yvhzxuoqodutmllfhcsa.supabase.co";
 pub const SUPABASE_ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2aHp4dW9xb2R1dG1sbGZoY3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MDMwOTIsImV4cCI6MjA3OTQ3OTA5Mn0.UxDcyOAGSGKBW26ElQXAyiVC6GRicphIVcrMs8tdkRI";
 
-// Platform URLs
+// Platform URLs (fallback - primary source is ai_platforms table in database)
 pub const PLATFORM_URLS: &[(&str, &str)] = &[
     ("chatgpt", "https://chatgpt.com/"),
     ("claude", "https://claude.ai/new"),
     ("gemini", "https://gemini.google.com/app"),
     ("perplexity", "https://www.perplexity.ai/"),
+    ("google_aio", "https://www.google.com/"),
 ];
 
 // Application state

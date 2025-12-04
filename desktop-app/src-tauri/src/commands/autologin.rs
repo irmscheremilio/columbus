@@ -62,11 +62,8 @@ pub async fn open_country_login(
         return open_local_login(app, platform).await;
     }
 
-    let platform_urls = crate::PLATFORM_URLS;
-    let url = platform_urls
-        .iter()
-        .find(|(p, _)| *p == platform)
-        .map(|(_, u)| *u)
+    // Get platform URL from database/cache
+    let url = crate::commands::api::get_platform_url(&platform)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
     let base_label = format!("login-{}-{}", country_code, platform);
@@ -104,7 +101,7 @@ pub async fn open_country_login(
 
     // Create webview with country proxy and isolated data directory
     manager
-        .create_webview_for_country(&app, &label, url, true, &country_code, &platform)
+        .create_webview_for_country(&app, &label, &url, true, &country_code, &platform)
         .await
         .map_err(|e| format!("Failed to create login webview: {}", e))?;
 
@@ -119,11 +116,8 @@ pub async fn open_country_login(
 /// Open a platform login webview for local (no proxy)
 #[tauri::command]
 pub async fn open_local_login(app: AppHandle, platform: String) -> Result<String, String> {
-    let platform_urls = crate::PLATFORM_URLS;
-    let url = platform_urls
-        .iter()
-        .find(|(p, _)| *p == platform)
-        .map(|(_, u)| *u)
+    // Get platform URL from database/cache
+    let url = crate::commands::api::get_platform_url(&platform)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
     let base_label = format!("login-local-{}", platform);
@@ -162,7 +156,7 @@ pub async fn open_local_login(app: AppHandle, platform: String) -> Result<String
 
     // Create webview with isolated data directory (no proxy)
     manager
-        .create_webview_local(&app, &label, url, true, &platform)
+        .create_webview_local(&app, &label, &url, true, &platform)
         .map_err(|e| format!("Failed to create login webview: {}", e))?;
 
     eprintln!("[AutoLogin] Opened local login webview for platform={}", platform);

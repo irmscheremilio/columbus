@@ -299,11 +299,8 @@ async fn authenticate_single(
     email: &str,
     password: &str,
 ) -> Result<AuthSingleResult, String> {
-    let platform_urls = crate::PLATFORM_URLS;
-    let url = platform_urls
-        .iter()
-        .find(|(p, _)| *p == platform)
-        .map(|(_, u)| *u)
+    // Get platform URL from database/cache
+    let url = crate::commands::api::get_platform_url(platform)
         .ok_or_else(|| format!("Unknown platform: {}", platform))?;
 
     let label = format!("bulk-auth-{}-{}", region, platform);
@@ -315,7 +312,7 @@ async fn authenticate_single(
     // In debug builds, make webviews visible for debugging
     let visible = cfg!(debug_assertions);
     manager
-        .create_webview_for_country(app, &label, url, visible, region, platform)
+        .create_webview_for_country(app, &label, &url, visible, region, platform)
         .await
         .map_err(|e| format!("Failed to create webview: {}", e))?;
 
@@ -451,7 +448,7 @@ pub async fn cancel_bulk_auth(app: AppHandle, webview_label: Option<String>) -> 
 
     // Also close any bulk-auth webviews that might be lingering
     // This handles cases where the label wasn't passed or multiple webviews exist
-    let platforms = ["chatgpt", "claude", "gemini", "perplexity"];
+    let platforms = ["chatgpt", "claude", "gemini", "perplexity", "google_aio"];
     let regions = ["us", "uk", "de", "fr", "es", "it", "nl", "local"]; // Common regions
 
     for region in regions {

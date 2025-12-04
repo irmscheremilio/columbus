@@ -41,7 +41,7 @@ pub async fn start_scan_internal(
 ) -> Result<(), String> {
     // Default to common platforms if none specified
     let selected_platforms: Vec<String> = platforms.unwrap_or_else(|| {
-        vec!["chatgpt".to_string(), "claude".to_string(), "gemini".to_string(), "perplexity".to_string()]
+        vec!["chatgpt".to_string(), "claude".to_string(), "gemini".to_string(), "perplexity".to_string(), "google_aio".to_string()]
     });
     // Check if scan is already running
     {

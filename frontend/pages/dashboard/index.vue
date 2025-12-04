@@ -596,34 +596,39 @@ const loadTopCompetitors = async (productId: string) => {
       return
     }
 
-    // Get total prompt results for calculating mention rate
-    let promptResultsQuery = supabase
+    // Get total prompt results count for calculating mention rate
+    // Use direct filter on product_id + date instead of fetching all IDs
+    let totalResultsQuery = supabase
       .from('prompt_results')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('product_id', productId)
       .gte('tested_at', startDate.toISOString())
 
     if (selectedRegion.value) {
-      promptResultsQuery = promptResultsQuery.ilike('request_country', selectedRegion.value)
+      totalResultsQuery = totalResultsQuery.ilike('request_country', selectedRegion.value)
     }
 
-    const { data: promptResults } = await promptResultsQuery
-    const totalResults = promptResults?.length || 0
+    const { count: totalResults } = await totalResultsQuery
 
-    if (totalResults === 0) {
+    if (!totalResults || totalResults === 0) {
       topCompetitors.value = []
       return
     }
 
-    // Get the prompt result IDs we care about (filtered by region if applicable)
-    const promptResultIds = promptResults.map(r => r.id)
-
-    // Get competitor mentions only for the filtered prompt results
-    const { data: mentions } = await supabase
+    // Get competitor mentions using direct filters with join for region
+    // This avoids passing hundreds of IDs in an IN() clause
+    let mentionsQuery = supabase
       .from('competitor_mentions')
-      .select('competitor_id, prompt_result_id')
+      .select('competitor_id, prompt_result_id, prompt_results!inner(request_country)')
+      .eq('product_id', productId)
       .in('competitor_id', competitors.map(c => c.id))
-      .in('prompt_result_id', promptResultIds)
+      .gte('detected_at', startDate.toISOString())
+
+    if (selectedRegion.value) {
+      mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
+    }
+
+    const { data: mentions } = await mentionsQuery
 
     // Calculate mention rate per competitor
     const competitorsWithRates = competitors.map(c => {

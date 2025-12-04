@@ -217,6 +217,7 @@ pub fn get_platform_url(platform_id: &str) -> Option<String> {
         "claude" => Some("https://claude.ai/new".to_string()),
         "gemini" => Some("https://gemini.google.com/app".to_string()),
         "perplexity" => Some("https://www.perplexity.ai/".to_string()),
+        "google_aio" => Some("https://www.google.com/".to_string()),
         _ => None,
     }
 }
