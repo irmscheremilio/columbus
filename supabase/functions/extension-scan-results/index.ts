@@ -14,7 +14,7 @@ interface CompetitorDetail {
 interface ScanResult {
   productId: string
   scanSessionId?: string
-  platform: 'chatgpt' | 'claude' | 'gemini' | 'perplexity'
+  platform: string  // Platform ID from ai_platforms table (validated at runtime)
   promptId: string
   promptText: string
   responseText: string
@@ -93,6 +93,19 @@ Deno.serve(async (req) => {
     if (!result.productId || !result.platform || !result.promptId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: productId, platform, promptId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate platform against ai_platforms table
+    const { data: validPlatforms } = await supabaseAdmin
+      .from('ai_platforms')
+      .select('id')
+
+    const platformIds = validPlatforms?.map(p => p.id) || []
+    if (platformIds.length > 0 && !platformIds.includes(result.platform)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid platform: ${result.platform}. Valid platforms: ${platformIds.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

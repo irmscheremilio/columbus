@@ -310,6 +310,7 @@ async function checkAuthStatus() {
             const scanRunning = await invoke('is_scan_running');
             if (scanRunning) {
                 isScanning = true;
+                renderPlatformProgressGrid();
                 showView('scanning');
                 const progress = await invoke('get_scan_progress');
                 updateScanProgress(progress);
@@ -984,7 +985,43 @@ async function handleCancelScan() {
     }
 }
 
+// Platform display names
+const PLATFORM_NAMES = {
+    'chatgpt': 'ChatGPT',
+    'claude': 'Claude',
+    'gemini': 'Gemini',
+    'perplexity': 'Perplexity',
+    'google_aio': 'Google AI Overview'
+};
+
+function renderPlatformProgressGrid() {
+    const grid = document.getElementById('platformProgressGrid');
+    if (!grid) return;
+
+    let html = '';
+    platforms.forEach(platform => {
+        const displayName = PLATFORM_NAMES[platform] || capitalizeFirst(platform);
+        html += `
+            <div class="platform-progress-item" data-platform="${platform}">
+                <div class="platform-progress-header">
+                    <span class="platform-progress-icon ${platform}"></span>
+                    <span class="platform-progress-name">${displayName}</span>
+                    <span class="platform-progress-status" id="progress-${platform}-status">pending</span>
+                </div>
+                <div class="platform-progress-bar">
+                    <div class="platform-progress-fill" id="progress-${platform}-fill" style="width: 0%"></div>
+                </div>
+                <span class="platform-progress-count" id="progress-${platform}-count">0/0</span>
+            </div>
+        `;
+    });
+    grid.innerHTML = html;
+}
+
 function resetProgressUI() {
+    // Ensure the platform progress grid is rendered
+    renderPlatformProgressGrid();
+
     progressFill.style.width = '0%';
     progressText.textContent = '0%';
     phaseIndicator.textContent = 'Initializing...';

@@ -515,7 +515,7 @@ const brandAvgPosition = ref<number | null>(null)
 const product = ref<any>(null)
 
 // Competitor metrics map
-const competitorMetrics = ref<Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null }>>(new Map())
+const competitorMetrics = ref<Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null; detection_count: number }>>(new Map())
 
 // Split competitors by status
 const trackingCompetitorsRaw = computed(() =>
@@ -528,6 +528,8 @@ const trackingCompetitorsRaw = computed(() =>
         mention_rate: metrics?.mention_rate ?? null,
         citation_rate: metrics?.citation_rate ?? null,
         avg_position: metrics?.avg_position ?? null,
+        // Use detection_count from competitor record (updated by worker) as source of truth
+        detection_count: c.detection_count ?? 0,
         is_own_brand: false
       }
     })
@@ -803,19 +805,22 @@ const loadCompetitorMetrics = async (productId: string) => {
 
   const { data: mentions } = await mentionsQuery
 
-  // Load competitor citations by domain matching
+  // Load citations and match to competitors by domain
   // Get all competitors with domains to check for citations
   const competitorsWithDomains = allCompetitors.value.filter(c => c.domain && trackingIds.includes(c.id))
 
   let citationsByDomain: Record<string, Set<string>> = {}
 
   if (competitorsWithDomains.length > 0) {
-    // Query competitor citations directly by product_id and date
+    // Get all competitor domains for matching (normalized)
+    const competitorDomains = competitorsWithDomains.map(c => c.domain.toLowerCase().replace('www.', ''))
+
+    // Query all citations for the product (not filtered by is_competitor_source)
+    // We match directly by source_domain to competitor domains
     let citationsQuery = supabase
       .from('prompt_citations')
       .select('source_domain, prompt_result_id, prompt_results!inner(request_country)')
       .eq('product_id', productId)
-      .eq('is_competitor_source', true)
       .gte('created_at', startDate.toISOString())
 
     if (selectedRegion.value) {
@@ -824,20 +829,29 @@ const loadCompetitorMetrics = async (productId: string) => {
 
     const { data: citations } = await citationsQuery
 
-    // Group citations by domain
+    // Group citations by domain, only including those that match a competitor domain
     if (citations) {
       for (const citation of citations) {
         const normalizedDomain = citation.source_domain?.toLowerCase().replace('www.', '') || ''
-        if (!citationsByDomain[normalizedDomain]) {
-          citationsByDomain[normalizedDomain] = new Set()
+        if (!normalizedDomain) continue
+
+        // Check if this citation's domain matches any competitor domain
+        const matchesCompetitor = competitorDomains.some(cd =>
+          normalizedDomain === cd || normalizedDomain.endsWith('.' + cd)
+        )
+
+        if (matchesCompetitor) {
+          if (!citationsByDomain[normalizedDomain]) {
+            citationsByDomain[normalizedDomain] = new Set()
+          }
+          citationsByDomain[normalizedDomain].add(citation.prompt_result_id)
         }
-        citationsByDomain[normalizedDomain].add(citation.prompt_result_id)
       }
     }
   }
 
   // Calculate metrics per competitor
-  const metricsMap = new Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null }>()
+  const metricsMap = new Map<string, { mention_rate: number | null; citation_rate: number | null; avg_position: number | null; detection_count: number }>()
 
   for (const competitorId of trackingIds) {
     const competitorMentions = (mentions || []).filter(m => m.competitor_id === competitorId)
@@ -845,6 +859,9 @@ const loadCompetitorMetrics = async (productId: string) => {
     const uniqueResultIds = new Set(competitorMentions.map(m => m.prompt_result_id).filter(Boolean))
     const mentionCount = uniqueResultIds.size
     const mentionRate = totalResults > 0 ? Math.round((mentionCount / totalResults) * 100) : null
+
+    // Detection count is the total number of times this competitor was mentioned
+    const detectionCount = competitorMentions.length
 
     const positions = competitorMentions.filter(m => m.position !== null).map(m => m.position as number)
     const avgPosition = positions.length > 0
@@ -867,7 +884,8 @@ const loadCompetitorMetrics = async (productId: string) => {
     metricsMap.set(competitorId, {
       mention_rate: mentionRate,
       citation_rate: citationRate,
-      avg_position: avgPosition
+      avg_position: avgPosition,
+      detection_count: detectionCount
     })
   }
 

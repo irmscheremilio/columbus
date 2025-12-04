@@ -102,6 +102,15 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single()
 
+    // Get available platforms from database
+    const { data: platformsData } = await supabaseAdmin
+      .from('ai_platforms')
+      .select('id, name, website_url')
+      .order('name')
+
+    const platforms = platformsData || []
+    const platformIds = platforms.map(p => p.id)
+
     // Calculate today's scan status per product
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -121,12 +130,10 @@ Deno.serve(async (req) => {
           .select('*', { count: 'exact', head: true })
           .eq('product_id', product.id)
 
-        // Count results per platform
-        const platformCounts: Record<string, number> = {
-          chatgpt: 0,
-          claude: 0,
-          gemini: 0,
-          perplexity: 0
+        // Count results per platform (dynamically based on available platforms)
+        const platformCounts: Record<string, number> = {}
+        for (const platformId of platformIds) {
+          platformCounts[platformId] = 0
         }
 
         if (todayResults) {
@@ -139,6 +146,12 @@ Deno.serve(async (req) => {
 
         const promptCount = totalPrompts || 0
 
+        // Build today status dynamically
+        const todayStatus: Record<string, { tested: number; total: number }> = {}
+        for (const platformId of platformIds) {
+          todayStatus[platformId] = { tested: platformCounts[platformId] || 0, total: promptCount }
+        }
+
         return {
           id: product.id,
           name: product.name,
@@ -146,12 +159,7 @@ Deno.serve(async (req) => {
           domain: product.domain,
           isActive: product.is_active,
           promptCount,
-          todayStatus: {
-            chatgpt: { tested: platformCounts.chatgpt, total: promptCount },
-            claude: { tested: platformCounts.claude, total: promptCount },
-            gemini: { tested: platformCounts.gemini, total: promptCount },
-            perplexity: { tested: platformCounts.perplexity, total: promptCount }
-          },
+          todayStatus,
           todayComplete: Object.values(platformCounts).every(count => count >= promptCount) && promptCount > 0
         }
       })
@@ -175,12 +183,11 @@ Deno.serve(async (req) => {
           scanPreferences: session.scan_preferences || {},
           extensionVersion: session.extension_version
         } : null,
-        platforms: [
-          { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com' },
-          { id: 'claude', name: 'Claude', url: 'https://claude.ai' },
-          { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com' },
-          { id: 'perplexity', name: 'Perplexity', url: 'https://www.perplexity.ai' }
-        ]
+        platforms: platforms.map(p => ({
+          id: p.id,
+          name: p.name,
+          url: p.website_url
+        }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

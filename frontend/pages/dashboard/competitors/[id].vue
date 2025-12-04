@@ -64,7 +64,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                   </svg>
                 </div>
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">Your Brand</div>
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">{{ productName }}</div>
                 <div class="text-4xl font-bold text-gray-900">{{ brandMetrics.mentionRate }}%</div>
                 <div class="text-gray-400 text-xs mt-1">Mention Rate</div>
               </div>
@@ -105,15 +105,15 @@
             <!-- Quick Stats Row -->
             <div class="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
               <div class="text-center">
-                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Your Position</div>
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">{{ productName }} Position</div>
                 <div class="text-xl font-bold text-gray-900 mt-1">{{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}</div>
               </div>
               <div class="text-center">
-                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Their Position</div>
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">{{ competitor.name }} Position</div>
                 <div class="text-xl font-bold text-gray-900 mt-1">{{ competitorMetrics.avgPosition ? `#${competitorMetrics.avgPosition}` : '-' }}</div>
               </div>
               <div class="text-center">
-                <div class="text-gray-400 text-[10px] uppercase tracking-wider">Your Citations</div>
+                <div class="text-gray-400 text-[10px] uppercase tracking-wider">{{ productName }} Citations</div>
                 <div class="text-xl font-bold text-gray-900 mt-1">{{ brandMetrics.citationRate }}%</div>
               </div>
               <div class="text-center">
@@ -138,7 +138,7 @@
               <thead>
                 <tr class="bg-gray-50/80">
                   <th class="text-left text-xs font-medium text-gray-500 px-4 py-3">Metric</th>
-                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Your Brand</th>
+                  <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">{{ productName }}</th>
                   <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">{{ competitor.name }}</th>
                   <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Difference</th>
                   <th class="text-center text-xs font-medium text-gray-500 px-4 py-3">Winner</th>
@@ -202,20 +202,19 @@
                     </span>
                   </td>
                   <td class="text-center px-4 py-3">
-                    <span class="text-sm" :class="citationDiff !== null ? (citationDiff > 0 ? 'text-green-600' : citationDiff < 0 ? 'text-red-600' : 'text-gray-500') : 'text-gray-400'">
-                      {{ citationDiff !== null ? (citationDiff > 0 ? `+${citationDiff}` : citationDiff) : '-' }}
+                    <span
+                      class="text-sm font-medium"
+                      :class="competitorMetrics.citationRate !== null ? (citationDiff !== null && citationDiff >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400'"
+                    >
+                      {{ competitorMetrics.citationRate !== null ? (citationDiff !== null && citationDiff > 0 ? `+${citationDiff}%` : `${citationDiff}%`) : '-' }}
                     </span>
                   </td>
                   <td class="text-center px-4 py-3">
                     <span
-                      v-if="competitorMetrics.citationRate !== null"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
-                      :class="citationDiff !== null && citationDiff > 0 ? 'bg-green-50 text-green-700' : citationDiff !== null && citationDiff < 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500'"
+                      :class="getWinnerBadgeClass(brandMetrics.citationRate, competitorMetrics.citationRate, 'higher')"
                     >
-                      {{ citationDiff !== null && citationDiff > 0 ? 'Winning' : citationDiff !== null && citationDiff < 0 ? 'Losing' : 'Tied' }}
-                    </span>
-                    <span v-else class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                      N/A
+                      {{ getWinnerText(brandMetrics.citationRate, competitorMetrics.citationRate, 'higher') }}
                     </span>
                   </td>
                 </tr>
@@ -281,7 +280,7 @@
               <div class="space-y-4">
                 <div>
                   <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-medium text-gray-700">Your Brand</span>
+                    <span class="text-xs font-medium text-gray-700">{{ productName }}</span>
                     <span class="text-sm font-bold text-brand">{{ brandMetrics.mentionRate }}%</span>
                   </div>
                   <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
@@ -309,7 +308,7 @@
                   class="text-sm font-medium"
                   :class="brandMetrics.mentionRate >= competitorMetrics.mentionRate ? 'text-emerald-600' : 'text-red-600'"
                 >
-                  {{ brandMetrics.mentionRate >= competitorMetrics.mentionRate ? 'You are winning' : 'Competitor is winning' }}
+                  {{ brandMetrics.mentionRate >= competitorMetrics.mentionRate ? `${productName} is winning` : `${competitor.name} is winning` }}
                   by {{ Math.abs(brandMetrics.mentionRate - competitorMetrics.mentionRate) }} percentage points
                 </span>
               </div>
@@ -333,7 +332,7 @@
                       {{ brandMetrics.avgPosition ? `#${brandMetrics.avgPosition}` : '-' }}
                     </span>
                   </div>
-                  <span class="text-xs font-medium text-gray-700">Your Brand</span>
+                  <span class="text-xs font-medium text-gray-700">{{ productName }}</span>
                 </div>
                 <div class="text-2xl font-bold text-gray-300">VS</div>
                 <div class="text-center">
@@ -354,7 +353,7 @@
                   class="text-sm font-medium"
                   :class="positionWinner === 'brand' ? 'text-emerald-600' : 'text-red-600'"
                 >
-                  {{ positionWinner === 'brand' ? 'You rank higher' : 'Competitor ranks higher' }}
+                  {{ positionWinner === 'brand' ? `${productName} ranks higher` : `${competitor.name} ranks higher` }}
                   <span class="text-gray-400">(lower position = better)</span>
                 </span>
                 <span v-else class="text-sm text-gray-400">Position data unavailable</span>
@@ -405,7 +404,7 @@
             <div class="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-full bg-brand"></div>
-                <span class="text-xs text-gray-700 font-medium">Your Brand</span>
+                <span class="text-xs text-gray-700 font-medium">{{ productName }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-full bg-red-400"></div>
@@ -516,6 +515,7 @@ const competitorId = route.params.id as string
 const loading = ref(true)
 const chartLoading = ref(false)
 const competitor = ref<any>(null)
+const product = ref<any>(null)
 const recentMentions = ref<any[]>([])
 
 const trendChartCanvas = ref<HTMLCanvasElement | null>(null)
@@ -541,6 +541,9 @@ const competitorMetrics = ref({
   citationRate: null as number | null,
   avgPosition: null as number | null
 })
+
+// Product name for display
+const productName = computed(() => product.value?.name || 'Your Brand')
 
 const positionWinner = computed(() => {
   if (!brandMetrics.value.avgPosition || !competitorMetrics.value.avgPosition) return null
@@ -598,6 +601,15 @@ const loadCompetitor = async () => {
 
   loading.value = true
   try {
+    // Load product data for brand name display
+    const { data: productData } = await supabase
+      .from('products')
+      .select('id, name, domain, icon_url')
+      .eq('id', productId)
+      .single()
+
+    product.value = productData
+
     // Load competitor
     const { data } = await supabase
       .from('competitors')
@@ -711,16 +723,17 @@ const loadCompetitorMetrics = async () => {
     ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
     : null
 
-  // Calculate citation rate by domain matching
+  // Calculate citation rate by direct domain matching
+  // Link citations through source_domain in prompt_citations to domain in competitors
   if (competitor.value?.domain) {
     const normalizedDomain = competitor.value.domain.toLowerCase().replace('www.', '')
 
-    // Query citations directly by product_id and date (much faster)
+    // Query all citations for the product (not filtered by is_competitor_source)
+    // We match directly by source_domain to competitor domain
     let citationsQuery = supabase
       .from('prompt_citations')
       .select('source_domain, prompt_result_id, prompt_results!inner(request_country)')
       .eq('product_id', productId)
-      .eq('is_competitor_source', true)
       .gte('created_at', startDate.toISOString())
 
     if (selectedRegion.value) {
@@ -730,7 +743,7 @@ const loadCompetitorMetrics = async () => {
     const { data: citations } = await citationsQuery
 
     if (citations && citations.length > 0) {
-      // Find citations that match this competitor's domain
+      // Find citations that match this competitor's domain (exact or subdomain match)
       const matchingCitations = citations.filter(c => {
         const citationDomain = c.source_domain?.toLowerCase().replace('www.', '') || ''
         return citationDomain === normalizedDomain || citationDomain.endsWith('.' + normalizedDomain)
@@ -916,7 +929,7 @@ const renderChart = (labels: string[], brandData: (number | null)[], competitorD
 
   const datasets = [
     {
-      label: 'Your Brand',
+      label: productName.value,
       data: brandData,
       borderColor: '#F29901',
       backgroundColor: '#F2990115',
@@ -1067,7 +1080,7 @@ const getWinnerText = (brandValue: number | null, competitorValue: number | null
   const isTied = brandValue === competitorValue
 
   if (isTied) return 'Tied'
-  return brandWins ? 'You' : competitor.value?.name || 'Competitor'
+  return brandWins ? productName.value : competitor.value?.name || 'Competitor'
 }
 
 const getSentimentClass = (sentiment: string) => {

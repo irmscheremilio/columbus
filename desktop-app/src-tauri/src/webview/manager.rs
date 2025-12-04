@@ -126,6 +126,7 @@ impl WebviewManager {
             .map_err(|e| format!("Failed to create webview: {}", e))?;
 
         self.active_webviews.insert(label.to_string());
+        eprintln!("[Columbus] Created webview '{}', active webviews: {:?}", label, self.active_webviews);
         Ok(())
     }
 
@@ -574,18 +575,46 @@ impl WebviewManager {
     }
 
     pub fn close_webview(&mut self, app: &AppHandle, label: &str) {
+        eprintln!("[Columbus] close_webview called for label: {}", label);
         if let Some(window) = app.get_webview_window(label) {
-            let _ = window.close();
+            eprintln!("[Columbus] Found webview window '{}', closing...", label);
+
+            // Navigate to about:blank first to help release WebView2 resources
+            let _ = window.eval("window.location.href = 'about:blank';");
+
+            // Destroy the window (more aggressive than close)
+            match window.destroy() {
+                Ok(_) => eprintln!("[Columbus] Successfully destroyed webview '{}'", label),
+                Err(e) => eprintln!("[Columbus] ERROR destroying webview '{}': {:?}", label, e),
+            }
+        } else {
+            eprintln!("[Columbus] Webview '{}' not found (may already be closed)", label);
         }
-        self.active_webviews.remove(label);
+        let was_tracked = self.active_webviews.remove(label);
+        eprintln!("[Columbus] Removed '{}' from active_webviews tracking: {}", label, was_tracked);
+        eprintln!("[Columbus] Remaining active webviews: {:?}", self.active_webviews);
     }
 
     pub fn close_all(&mut self, app: &AppHandle) {
+        let count = self.active_webviews.len();
+        eprintln!("[Columbus] close_all called - {} webviews to close: {:?}", count, self.active_webviews);
+
         for label in self.active_webviews.drain() {
+            eprintln!("[Columbus] close_all: closing '{}'", label);
             if let Some(window) = app.get_webview_window(&label) {
-                let _ = window.close();
+                // Navigate to about:blank first to help release WebView2 resources
+                let _ = window.eval("window.location.href = 'about:blank';");
+
+                // Destroy the window (more aggressive than close)
+                match window.destroy() {
+                    Ok(_) => eprintln!("[Columbus] close_all: successfully destroyed '{}'", label),
+                    Err(e) => eprintln!("[Columbus] close_all: ERROR destroying '{}': {:?}", label, e),
+                }
+            } else {
+                eprintln!("[Columbus] close_all: webview '{}' not found", label);
             }
         }
+        eprintln!("[Columbus] close_all complete - remaining: {:?}", self.active_webviews);
     }
 
     pub async fn check_login(

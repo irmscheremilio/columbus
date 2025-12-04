@@ -98,6 +98,15 @@ Deno.serve(async (req) => {
       .eq('product_id', productId)
       .eq('is_active', true)
 
+    // Get available platforms from database
+    const { data: platformsData } = await supabaseAdmin
+      .from('ai_platforms')
+      .select('id, name')
+      .order('name')
+
+    const platforms = platformsData || []
+    const platformIds = platforms.map(p => p.id)
+
     // Check which prompts have already been tested today for each platform
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -119,19 +128,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Format prompts with testing status
-    const formattedPrompts = prompts?.map(prompt => ({
-      id: prompt.id,
-      text: prompt.prompt_text,
-      category: prompt.category,
-      targetRegions: prompt.target_regions || [],
-      testedToday: {
-        chatgpt: testedMap[prompt.id]?.has('chatgpt') || false,
-        claude: testedMap[prompt.id]?.has('claude') || false,
-        gemini: testedMap[prompt.id]?.has('gemini') || false,
-        perplexity: testedMap[prompt.id]?.has('perplexity') || false
+    // Format prompts with testing status (dynamically based on available platforms)
+    const formattedPrompts = prompts?.map(prompt => {
+      const testedToday: Record<string, boolean> = {}
+      for (const platformId of platformIds) {
+        testedToday[platformId] = testedMap[prompt.id]?.has(platformId) || false
       }
-    })) || []
+      return {
+        id: prompt.id,
+        text: prompt.prompt_text,
+        category: prompt.category,
+        targetRegions: prompt.target_regions || [],
+        testedToday
+      }
+    }) || []
 
     return new Response(
       JSON.stringify({
@@ -145,7 +155,7 @@ Deno.serve(async (req) => {
         prompts: formattedPrompts,
         competitors: competitors?.map(c => c.name) || [],
         totalPrompts: formattedPrompts.length,
-        platforms: ['chatgpt', 'claude', 'gemini', 'perplexity']
+        platforms: platformIds
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

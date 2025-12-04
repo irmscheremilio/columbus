@@ -1,6 +1,8 @@
 export type PlanType = 'free' | 'pro' | 'agency' | 'enterprise'
 
-export type AIModel = 'chatgpt' | 'claude' | 'gemini' | 'perplexity'
+// AIModel is now a string to support dynamic platforms from ai_platforms table
+// Known platforms for type hints, but any string is valid
+export type AIModel = string
 
 export type Sentiment = 'positive' | 'neutral' | 'negative'
 
@@ -46,7 +48,7 @@ export interface AIResponse {
 
 export interface VisibilityScore {
   overall: number
-  byModel: Record<AIModel, number>
+  byModel: Record<string, number>  // Dynamic platform IDs from ai_platforms table
   trend: 'up' | 'down' | 'stable'
   percentChange: number
 }

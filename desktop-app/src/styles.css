@@ -360,6 +360,7 @@ body {
 .platform-icon.claude { background: #d97757; }
 .platform-icon.gemini { background: #4285f4; }
 .platform-icon.perplexity { background: #20b8cd; }
+.platform-icon.google_aio { background: #4285f4; }
 
 .platform-name {
   font-size: 13px;
@@ -876,6 +877,7 @@ body {
 .platform-progress-icon.claude { background: #d97757; }
 .platform-progress-icon.gemini { background: #4285f4; }
 .platform-progress-icon.perplexity { background: #20b8cd; }
+.platform-progress-icon.google_aio { background: #4285f4; }
 
 .platform-progress-name {
   font-size: 11px;
@@ -1825,6 +1827,7 @@ body {
 .auth-platform-icon.claude { background: #d97757; }
 .auth-platform-icon.gemini { background: #4285f4; }
 .auth-platform-icon.perplexity { background: #20b8cd; }
+.auth-platform-icon.google_aio { background: #4285f4; }
 
 .auth-platform-info {
   display: flex;
@@ -2052,6 +2055,7 @@ body {
 .auth-region-badge .platform-dot.claude.authenticated { background: #d97757; }
 .auth-region-badge .platform-dot.gemini.authenticated { background: #4285f4; }
 .auth-region-badge .platform-dot.perplexity.authenticated { background: #20b8cd; }
+.auth-region-badge .platform-dot.google_aio.authenticated { background: #4285f4; }
 
 /* Onboarding Regions Selection */
 .regions-selection {

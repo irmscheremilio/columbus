@@ -195,78 +195,110 @@
                   <div class="overflow-x-auto -mx-4">
                   <table class="w-full">
                     <thead>
-                      <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
-                        <th class="text-left px-4 py-2 font-medium">Platform</th>
-                        <th class="text-center px-4 py-2 font-medium">Region</th>
-                        <th class="text-left px-4 py-2 font-medium">Prompt</th>
-                        <th class="text-center px-4 py-2 font-medium">Mentioned</th>
-                        <th class="text-center px-4 py-2 font-medium" title="AI used sources in response">Sources</th>
-                        <th class="text-center px-4 py-2 font-medium" title="Brand website was cited">Brand Cited</th>
-                        <th class="text-center px-4 py-2 font-medium">Limit</th>
-                        <th class="text-center px-4 py-2 font-medium">Chat</th>
+                      <tr class="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-100/80 bg-gray-50/30">
+                        <th class="text-left px-4 py-2.5 font-medium w-[130px]">Platform</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[70px]">Region</th>
+                        <th class="text-left px-4 py-2.5 font-medium">Prompt</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[75px]">Mentioned</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[70px]" title="AI used sources in response">Sources</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[80px]" title="Brand website was cited">Cited</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[55px]">Limit</th>
+                        <th class="text-center px-4 py-2.5 font-medium w-[55px]">Chat</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100/50">
-                      <tr v-for="result in sessionResults" :key="result.id" class="text-sm">
-                        <td class="px-4 py-2">
-                          <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100/80 text-gray-700">
-                            {{ formatModelName(result.ai_model) }}
-                          </span>
+                      <tr
+                        v-for="result in sessionResults"
+                        :key="result.id"
+                        class="group text-sm hover:bg-gray-50/80 transition-colors cursor-pointer"
+                        @click="openResultDetail(result)"
+                      >
+                        <td class="px-4 py-2.5">
+                          <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-lg bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                              <img
+                                v-if="getPlatformLogo(result.ai_model)"
+                                :src="getPlatformLogo(result.ai_model)"
+                                :alt="formatModelName(result.ai_model)"
+                                class="w-3.5 h-3.5 object-contain"
+                                @error="($event.target as HTMLImageElement).style.display = 'none'"
+                              />
+                              <span v-else class="text-[9px] font-bold text-gray-500">{{ formatModelName(result.ai_model).charAt(0) }}</span>
+                            </div>
+                            <span class="text-xs font-medium text-gray-700 truncate">{{ formatModelName(result.ai_model) }}</span>
+                          </div>
                         </td>
-                        <td class="px-4 py-2 text-center">
+                        <td class="px-4 py-2.5 text-center">
                           <span
                             :title="getCountryName(result.request_country || 'local')"
                             class="text-base"
                           >{{ getCountryFlag(result.request_country || 'local') }}</span>
                         </td>
-                        <td class="px-4 py-2">
-                          <div class="text-gray-900 truncate max-w-xs" :title="result.prompt">
+                        <td class="px-4 py-2.5">
+                          <div class="text-gray-900 truncate max-w-xs text-sm" :title="result.prompt">
                             {{ result.prompt }}
                           </div>
                         </td>
-                        <td class="px-4 py-2 text-center">
-                          <span
-                            class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
-                            :class="result.brand_mentioned ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'"
-                          >
-                            {{ result.brand_mentioned ? '✓' : '−' }}
-                          </span>
+                        <td class="px-4 py-2.5 text-center">
+                          <div class="flex items-center justify-center">
+                            <span
+                              class="inline-flex w-5 h-5 rounded-full items-center justify-center"
+                              :class="result.brand_mentioned ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'"
+                            >
+                              <svg v-if="result.brand_mentioned" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span v-else class="text-[10px]">−</span>
+                            </span>
+                          </div>
                         </td>
-                        <td class="px-4 py-2 text-center">
-                          <span
-                            class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
-                            :class="result.has_sources ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'"
-                            :title="result.has_sources ? `${result.source_count} source(s) used` : 'No sources'"
-                          >
-                            {{ result.has_sources ? '✓' : '−' }}
-                          </span>
+                        <td class="px-4 py-2.5 text-center">
+                          <div class="flex items-center justify-center">
+                            <span
+                              class="inline-flex w-5 h-5 rounded-full items-center justify-center"
+                              :class="result.has_sources ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'"
+                              :title="result.has_sources ? `${result.source_count} source(s) used` : 'No sources'"
+                            >
+                              <svg v-if="result.has_sources" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span v-else class="text-[10px]">−</span>
+                            </span>
+                          </div>
                         </td>
-                        <td class="px-4 py-2 text-center">
-                          <span
-                            class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs"
-                            :class="result.citation_present ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
-                            :title="result.citation_present ? 'Brand website was cited' : 'Brand not cited'"
-                          >
-                            {{ result.citation_present ? '✓' : '−' }}
-                          </span>
+                        <td class="px-4 py-2.5 text-center">
+                          <div class="flex items-center justify-center">
+                            <span
+                              class="inline-flex w-5 h-5 rounded-full items-center justify-center"
+                              :class="result.citation_present ? 'bg-brand/15 text-brand' : 'bg-gray-100 text-gray-400'"
+                              :title="result.citation_present ? 'Brand website was cited' : 'Brand not cited'"
+                            >
+                              <svg v-if="result.citation_present" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span v-else class="text-[10px]">−</span>
+                            </span>
+                          </div>
                         </td>
-                        <td class="px-4 py-2 text-center">
+                        <td class="px-4 py-2.5 text-center">
                           <span
                             v-if="result.credits_exhausted"
-                            class="inline-flex w-5 h-5 rounded-full items-center justify-center text-xs bg-amber-50 text-amber-600"
+                            class="inline-flex w-5 h-5 rounded-full items-center justify-center bg-amber-100 text-amber-600"
                             title="Credit limit exceeded"
                           >
-                            ⚠
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
                           </span>
                           <span v-else class="text-gray-300">−</span>
                         </td>
-                        <td class="px-4 py-2 text-center">
+                        <td class="px-4 py-2.5 text-center">
                           <a
                             v-if="result.chat_url"
                             :href="result.chat_url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="inline-flex w-5 h-5 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+                            class="inline-flex w-5 h-5 rounded items-center justify-center bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
                             title="Open chat"
                             @click.stop
                           >
@@ -312,6 +344,213 @@
         </div>
       </div>
     </div>
+
+    <!-- Scan Result Detail Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDetailModal && selectedResult"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        @click.self="closeDetailModal"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                <img
+                  v-if="getPlatformLogo(selectedResult.ai_model)"
+                  :src="getPlatformLogo(selectedResult.ai_model)"
+                  :alt="formatModelName(selectedResult.ai_model)"
+                  class="w-5 h-5 object-contain"
+                />
+                <span v-else class="text-sm font-bold text-gray-500">{{ formatModelName(selectedResult.ai_model).charAt(0) }}</span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-semibold text-gray-900">{{ formatModelName(selectedResult.ai_model) }}</h3>
+                  <span
+                    v-if="selectedResult.request_country"
+                    class="text-base"
+                    :title="getCountryName(selectedResult.request_country)"
+                  >{{ getCountryFlag(selectedResult.request_country) }}</span>
+                </div>
+                <p class="text-xs text-gray-500">{{ formatDateTime(selectedResult.tested_at) }}</p>
+              </div>
+            </div>
+            <button
+              @click="closeDetailModal"
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- Status Indicators Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.brand_mentioned ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.brand_mentioned ? 'bg-emerald-100' : 'bg-gray-200'">
+                  <svg class="w-4 h-4" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path v-if="selectedResult.brand_mentioned" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'">Brand</div>
+                  <div class="text-xs font-semibold" :class="selectedResult.brand_mentioned ? 'text-emerald-700' : 'text-gray-500'">{{ selectedResult.brand_mentioned ? 'Mentioned' : 'Not Mentioned' }}</div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.has_sources ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.has_sources ? 'bg-blue-100' : 'bg-gray-200'">
+                  <svg class="w-4 h-4" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'">Sources</div>
+                  <div class="text-xs font-semibold" :class="selectedResult.has_sources ? 'text-blue-700' : 'text-gray-500'">{{ selectedResult.has_sources ? selectedResult.source_count : 'None' }}</div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.citation_present ? 'bg-brand/5 border-brand/30' : 'bg-gray-50 border-gray-200'">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.citation_present ? 'bg-brand/15' : 'bg-gray-200'">
+                  <svg class="w-4 h-4" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'">Brand Cited</div>
+                  <div class="text-xs font-semibold" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-500'">{{ selectedResult.citation_present ? 'Yes' : 'No' }}</div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.position ? 'bg-violet-50 border-violet-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.position ? 'bg-violet-100' : 'bg-gray-200'">
+                  <span class="text-xs font-bold" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">#</span>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">Position</div>
+                  <div class="text-xs font-semibold" :class="selectedResult.position ? 'text-violet-700' : 'text-gray-500'">{{ selectedResult.position || 'N/A' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Additional Status Row -->
+            <div class="flex flex-wrap gap-2">
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border" :class="getSentimentClass(selectedResult.sentiment)">
+                <span class="w-2 h-2 rounded-full" :class="selectedResult.sentiment === 'positive' ? 'bg-emerald-500' : selectedResult.sentiment === 'negative' ? 'bg-red-500' : 'bg-gray-400'"></span>
+                <span class="text-xs font-medium capitalize">{{ selectedResult.sentiment || 'neutral' }} sentiment</span>
+              </div>
+              <div v-if="selectedResult.credits_exhausted" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span class="text-xs font-medium">Credit Limit Exceeded</span>
+              </div>
+              <a
+                v-if="selectedResult.chat_url"
+                :href="selectedResult.chat_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span class="text-xs font-medium">View Original Chat</span>
+              </a>
+            </div>
+
+            <!-- Prompt Section -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-4 rounded-full bg-gray-300"></div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Prompt</h3>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <p class="text-sm text-gray-800 leading-relaxed">{{ selectedResult.prompt }}</p>
+              </div>
+            </div>
+
+            <!-- Response Section -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-4 rounded-full bg-brand"></div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Response</h3>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 max-h-[350px] overflow-y-auto">
+                <p v-if="selectedResult.response_text" class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ selectedResult.response_text }}</p>
+                <p v-else class="text-sm text-gray-400 italic">Response not available</p>
+              </div>
+            </div>
+
+            <!-- Competitor Mentions -->
+            <div v-if="selectedResult.competitor_mentions?.length">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-4 rounded-full bg-orange-400"></div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Competitor Mentions</h3>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="competitor in selectedResult.competitor_mentions"
+                  :key="competitor"
+                  class="px-3 py-1.5 bg-orange-50 text-orange-700 text-xs font-medium rounded-lg border border-orange-200"
+                >
+                  {{ competitor }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Citations Section -->
+            <div v-if="selectedResultCitations.length > 0">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-4 rounded-full bg-blue-400"></div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Citations</h3>
+                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ selectedResultCitations.length }}</span>
+              </div>
+              <div class="space-y-2">
+                <a
+                  v-for="citation in selectedResultCitations"
+                  :key="citation.id"
+                  :href="citation.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors group"
+                  :class="citation.is_brand_source ? 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50' : 'bg-gray-50/50 border-gray-100 hover:bg-gray-100'"
+                >
+                  <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" :class="citation.is_brand_source ? 'bg-emerald-100' : 'bg-gray-200'">
+                    <span class="text-xs font-bold" :class="citation.is_brand_source ? 'text-emerald-600' : 'text-gray-500'">#{{ citation.citation_position }}</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate" :class="citation.is_brand_source ? 'text-emerald-700' : 'text-gray-700'">
+                      {{ citation.source_title || citation.source_domain }}
+                    </div>
+                    <div class="text-xs text-gray-400 truncate">{{ citation.source_domain }}</div>
+                  </div>
+                  <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/80">
+            <button
+              @click="closeDetailModal"
+              class="w-full px-4 py-2.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-all duration-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -325,7 +564,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
-const { formatModelName: formatPlatformName } = useAIPlatforms()
+const { formatModelName: formatPlatformName, getPlatformLogo } = useAIPlatforms()
 const { getCountryFlag, getCountryName } = useRegionFilter()
 
 const loading = ref(true)
@@ -340,6 +579,11 @@ const currentPage = ref(1)
 const pageSize = 10
 const totalScans = ref(0)
 let sourcesChart: Chart | null = null
+
+// Detail modal state
+const showDetailModal = ref(false)
+const selectedResult = ref<any>(null)
+const selectedResultCitations = ref<any[]>([])
 
 // Region filter
 const selectedRegion = ref<string | null>(null)
@@ -684,6 +928,49 @@ const formatDate = (date: string) => {
 
 const formatModelName = (model: string) => {
   return formatPlatformName(model)
+}
+
+const formatDateTime = (date: string) => {
+  return new Date(date).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+const openResultDetail = async (result: any) => {
+  selectedResult.value = result
+  showDetailModal.value = true
+
+  // Load citations for this result
+  try {
+    const { data: citations } = await supabase
+      .from('prompt_citations')
+      .select('*')
+      .eq('prompt_result_id', result.id)
+      .order('position', { ascending: true })
+
+    selectedResultCitations.value = citations || []
+  } catch (error) {
+    console.error('Error loading citations:', error)
+    selectedResultCitations.value = []
+  }
+}
+
+const closeDetailModal = () => {
+  showDetailModal.value = false
+  selectedResult.value = null
+  selectedResultCitations.value = []
+}
+
+const getSentimentClass = (sentiment: string) => {
+  switch (sentiment) {
+    case 'positive': return 'bg-emerald-50 border-emerald-200 text-emerald-700'
+    case 'negative': return 'bg-red-50 border-red-200 text-red-700'
+    default: return 'bg-gray-100 border-gray-200 text-gray-500'
+  }
 }
 
 onUnmounted(() => {

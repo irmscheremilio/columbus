@@ -90,8 +90,14 @@ export const visibilityScanWorker = new Worker<ScanJobData, ScanJobResult>(
     // Combine provided competitors with tracking competitors
     const allCompetitors = [...new Set([...competitors, ...trackingCompetitorNames])]
 
-    // AI models to test with
-    const models: AIModel[] = ['chatgpt', 'claude', 'gemini', 'perplexity']
+    // Get AI platforms from database
+    const { data: platformsData } = await supabase
+      .from('ai_platforms')
+      .select('id')
+      .order('name')
+
+    // Use platforms from database, fallback to defaults if empty
+    const models: AIModel[] = platformsData?.map(p => p.id) || ['chatgpt', 'claude', 'gemini', 'perplexity', 'google_aio']
 
     const allResults: AIResponse[] = []
 

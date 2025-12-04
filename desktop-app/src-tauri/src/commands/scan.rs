@@ -291,6 +291,7 @@ async fn run_scan(
             eprintln!("[Scan] Platform {} ({}) login check result: {}", platform_str, country_code, is_logged_in);
 
             // Close check webview
+            eprintln!("[Columbus] Closing login check webview for {} ({})", platform_str, country_code);
             manager.close_webview(&app, &webview_label);
 
             if !is_logged_in {
@@ -327,6 +328,7 @@ async fn run_scan(
                         let scan = state.scan.lock();
                         if !scan.is_running {
                             // Clean up all webviews before returning
+                            eprintln!("[Columbus] Scan cancelled - cleaning up all webviews");
                             manager.close_all(&app);
                             return Err("Scan cancelled".to_string());
                         }
@@ -547,7 +549,8 @@ async fn run_scan(
 
                 emit_progress_with_state(&app, &state);
 
-                // Close webview
+                // Close webview after collecting response
+                eprintln!("[Columbus] Closing scan webview after response collection: {}", webview_label);
                 manager.close_webview(&app, &webview_label);
             }
         }
@@ -611,7 +614,9 @@ async fn run_scan(
     }
 
     // Final cleanup - ensure all webviews are closed
+    eprintln!("[Columbus] Scan complete - performing final webview cleanup");
     manager.close_all(&app);
+    eprintln!("[Columbus] Final webview cleanup complete");
 
     let mention_rate = if total_collected > 0 {
         (total_mentioned as f64 / total_collected as f64) * 100.0
