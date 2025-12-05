@@ -2,12 +2,13 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Visibility</h1>
           <p class="text-sm text-gray-500">Track brand presence across AI platforms</p>
         </div>
         <div class="flex items-center gap-3">
+          <DateRangeSelector />
           <button
             class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
             @click="refreshData"
@@ -441,9 +442,9 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms: aiPlatforms, loadPlatforms, formatModelName, getPlatformColor, getPlatformLogo } = useAIPlatforms()
 const { selectedRegion } = useRegionFilter()
+const { dateRange } = useDateRange()
 
 const loading = ref(true)
-const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
 const overallScore = ref(0)
 const totalTests = ref(0)
 const mentionRate = ref(0)
@@ -458,20 +459,19 @@ const results = ref<any[]>([])
 const showDetailModal = ref(false)
 const selectedResult = ref<any>(null)
 
-const onPeriodChange = (days: number) => {
-  selectedPeriodDays.value = days
-  // Reload stats with new date range
-  if (activeProductId.value) {
-    loadVisibilityData()
-  }
-}
-
 // Watch for global region filter changes
 watch(selectedRegion, () => {
   if (activeProductId.value) {
     loadVisibilityData()
   }
 })
+
+// Watch for global date range changes
+watch(dateRange, () => {
+  if (activeProductId.value) {
+    loadVisibilityData()
+  }
+}, { deep: true })
 
 // Combine platform data with stats for display
 const platformsWithStats = computed(() => {
@@ -523,17 +523,18 @@ const loadVisibilityData = async () => {
     // Load platforms first
     await loadPlatforms()
 
-    // Calculate date range based on selected period
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
     // Build base query for ALL results within date range for accurate stats calculation
     let allResultsQuery = supabase
       .from('prompt_results')
       .select('id, ai_model, brand_mentioned, citation_present, position, sentiment, request_country')
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      allResultsQuery = allResultsQuery.gte('tested_at', startDate.toISOString())
+    }
 
     // Apply region filter if selected
     if (selectedRegion.value) {
@@ -547,7 +548,10 @@ const loadVisibilityData = async () => {
       .from('prompt_results')
       .select('*, prompts(prompt_text)')
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      promptResultsQuery = promptResultsQuery.gte('tested_at', startDate.toISOString())
+    }
 
     // Apply region filter if selected
     if (selectedRegion.value) {

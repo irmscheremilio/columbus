@@ -2,12 +2,13 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Platforms</h1>
           <p class="text-sm text-gray-500">Performance across AI platforms</p>
         </div>
         <div class="flex items-center gap-3">
+          <DateRangeSelector />
           <button
             class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
             @click="loadPlatformData"
@@ -26,59 +27,6 @@
       </div>
 
       <template v-else>
-        <!-- Platform Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div
-            v-for="platform in platformsWithStats"
-            :key="platform.id"
-            class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-4 hover:shadow-md transition-all duration-200"
-          >
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                <img
-                  v-if="platform.logo_url"
-                  :src="platform.logo_url"
-                  :alt="platform.name"
-                  class="w-6 h-6 object-contain"
-                  @error="($event.target as HTMLImageElement).style.display = 'none'"
-                />
-                <span v-else class="text-sm font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
-              </div>
-              <div class="flex-1">
-                <h3 class="text-sm font-semibold text-gray-900">{{ platform.name }}</h3>
-                <p class="text-xs text-gray-500">{{ platform.provider }}</p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xs text-gray-500">Mention Rate</span>
-                  <span class="text-sm font-bold" :class="getScoreColor(platform.mentionRate)">{{ platform.mentionRate }}%</span>
-                </div>
-                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all duration-500"
-                    :class="getBarColor(platform.mentionRate)"
-                    :style="{ width: `${platform.mentionRate}%` }"
-                  ></div>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                <div>
-                  <div class="text-[10px] text-gray-400 uppercase">Tests</div>
-                  <div class="text-sm font-semibold text-gray-900">{{ platform.tests }}</div>
-                </div>
-                <div>
-                  <div class="text-[10px] text-gray-400 uppercase">Mentions</div>
-                  <div class="text-sm font-semibold text-brand">{{ platform.mentions }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Empty State -->
         <div v-if="platformsWithStats.length === 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-12 text-center">
           <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
@@ -108,34 +56,51 @@
                   <th class="text-center px-4 py-2 font-medium" title="Brand website was cited">Brand Cited</th>
                   <th class="text-center px-4 py-2 font-medium">Mention Rate</th>
                   <th class="text-center px-4 py-2 font-medium">Avg Position</th>
+                  <th class="w-10"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100/50">
-                <tr v-for="platform in platformsWithStats" :key="platform.id" class="text-sm hover:bg-gray-50/50">
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <div class="w-6 h-6 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
-                        <img
-                          v-if="platform.logo_url"
-                          :src="platform.logo_url"
-                          :alt="platform.name"
-                          class="w-4 h-4 object-contain"
-                        />
-                        <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
+                <NuxtLink
+                  v-for="platform in platformsWithStats"
+                  :key="platform.id"
+                  :to="`/dashboard/platforms/${platform.id}`"
+                  custom
+                  v-slot="{ navigate }"
+                >
+                  <tr
+                    class="text-sm hover:bg-gray-50/50 cursor-pointer transition-colors"
+                    @click="navigate"
+                  >
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
+                          <img
+                            v-if="platform.logo_url"
+                            :src="platform.logo_url"
+                            :alt="platform.name"
+                            class="w-4 h-4 object-contain"
+                          />
+                          <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
+                        </div>
+                        <span class="font-medium text-gray-900">{{ platform.name }}</span>
                       </div>
-                      <span class="font-medium text-gray-900">{{ platform.name }}</span>
-                    </div>
-                  </td>
-                  <td class="text-center px-4 py-3 text-gray-600">{{ platform.tests }}</td>
-                  <td class="text-center px-4 py-3 text-gray-600">{{ platform.mentions }}</td>
-                  <td class="text-center px-4 py-3 text-gray-600">{{ platform.citations }}</td>
-                  <td class="text-center px-4 py-3">
-                    <span class="font-semibold" :class="getScoreColor(platform.mentionRate)">{{ platform.mentionRate }}%</span>
-                  </td>
-                  <td class="text-center px-4 py-3 text-gray-600">
-                    {{ platform.avgPosition ? `#${platform.avgPosition}` : '-' }}
-                  </td>
-                </tr>
+                    </td>
+                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.tests }}</td>
+                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.mentions }}</td>
+                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.citations }}</td>
+                    <td class="text-center px-4 py-3">
+                      <span class="font-semibold" :class="getScoreColor(platform.mentionRate)">{{ platform.mentionRate }}%</span>
+                    </td>
+                    <td class="text-center px-4 py-3 text-gray-600">
+                      {{ platform.avgPosition ? `#${platform.avgPosition}` : '-' }}
+                    </td>
+                    <td class="px-2 py-3">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </td>
+                  </tr>
+                </NuxtLink>
               </tbody>
             </table>
           </div>
@@ -155,6 +120,7 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms: aiPlatforms, loadPlatforms } = useAIPlatforms()
 const { selectedRegion } = useRegionFilter()
+const { dateRange } = useDateRange()
 
 const loading = ref(true)
 
@@ -178,6 +144,13 @@ watch(selectedRegion, () => {
     loadPlatformData()
   }
 })
+
+// Watch for global date range changes
+watch(dateRange, () => {
+  if (activeProductId.value) {
+    loadPlatformData()
+  }
+}, { deep: true })
 
 watch(activeProductId, async (newProductId) => {
   if (newProductId) await loadPlatformData()
@@ -207,11 +180,18 @@ const loadPlatformData = async () => {
 
   loading.value = true
   try {
+    // Use global date range
+    const startDate = dateRange.value.startDate
+
     // Get prompt results for this product
     let query = supabase
       .from('prompt_results')
       .select('ai_model, brand_mentioned, citation_present, position')
       .eq('product_id', productId)
+
+    if (startDate) {
+      query = query.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       query = query.ilike('request_country', selectedRegion.value)

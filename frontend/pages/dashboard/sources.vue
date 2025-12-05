@@ -2,21 +2,13 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Citation Sources</h1>
           <p class="text-sm text-gray-500">Track which sources AI models cite when mentioning your brand</p>
         </div>
         <div class="flex items-center gap-3">
-          <select
-            v-model="selectedPeriod"
-            class="text-sm bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 shadow-sm"
-          >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="all">All time</option>
-          </select>
+          <DateRangeSelector />
         </div>
       </div>
 
@@ -462,10 +454,10 @@ const supabase = useSupabaseClient()
 const { activeProductId } = useActiveProduct()
 const { selectedRegion } = useRegionFilter()
 const { formatModelName } = useAIPlatforms()
+const { dateRange } = useDateRange()
 
 const loading = ref(false)
 const loadingCitations = ref(false)
-const selectedPeriod = ref('30')
 const searchQuery = ref('')
 const brandSearchQuery = ref('')
 const currentPage = ref(1)
@@ -549,11 +541,8 @@ const paginatedBrandCitations = computed(() => {
 
 // Build date filter
 const getDateFilter = () => {
-  if (selectedPeriod.value === 'all') return null
-  const daysAgo = parseInt(selectedPeriod.value)
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - daysAgo)
-  return startDate.toISOString()
+  const startDate = dateRange.value.startDate
+  return startDate ? startDate.toISOString() : null
 }
 
 // Get filtered result IDs based on region
@@ -846,12 +835,20 @@ const formatUrlPath = (url: string) => {
 }
 
 // Initial load
-watch([() => activeProductId.value, selectedPeriod], async () => {
+watch(() => activeProductId.value, async () => {
   currentPage.value = 1
   brandCurrentPage.value = 1
   await loadAggregateData()
   await loadCitationsPage()
 }, { immediate: true })
+
+// Watch for global date range changes
+watch(dateRange, async () => {
+  currentPage.value = 1
+  brandCurrentPage.value = 1
+  await loadAggregateData()
+  await loadCitationsPage()
+}, { deep: true })
 
 // Watch for search query changes (debounced)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null

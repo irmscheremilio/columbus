@@ -2,24 +2,12 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Regional Analysis</h1>
           <p class="text-sm text-gray-500">Compare AI visibility across different regions</p>
         </div>
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-xl p-0.5 shadow-sm border border-white/50">
-            <button
-              v-for="period in periods"
-              :key="period.value"
-              @click="selectedPeriod = period.value"
-              class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
-              :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-            >
-              {{ period.label }}
-            </button>
-          </div>
-        </div>
+        <DateRangeSelector />
       </div>
 
       <!-- Loading State -->
@@ -314,18 +302,12 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { getCountryFlag, getCountryName } = useRegionFilter()
 const { formatModelName, platforms: aiPlatforms } = useAIPlatforms()
+const { dateRange } = useDateRange()
 
 const loading = ref(true)
-const selectedPeriod = ref('30')
 const selectedMetric = ref<'mention' | 'citation'>('mention')
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
-
-const periods = [
-  { value: '7', label: '7D' },
-  { value: '30', label: '30D' },
-  { value: '90', label: '90D' }
-]
 
 interface PlatformStat {
   platform: string
@@ -419,11 +401,11 @@ watch(activeProductId, async (newProductId) => {
   }
 })
 
-watch(selectedPeriod, async () => {
+watch(dateRange, async () => {
   if (activeProductId.value) {
     await loadRegionStats()
   }
-})
+}, { deep: true })
 
 watch(selectedMetric, () => {
   renderChart()
@@ -451,15 +433,19 @@ const loadRegionStats = async () => {
 
   loading.value = true
   try {
-    const daysAgo = parseInt(selectedPeriod.value)
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysAgo)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
-    const { data } = await supabase
+    let query = supabase
       .from('prompt_results')
       .select('request_country, ai_model, brand_mentioned, citation_present')
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      query = query.gte('tested_at', startDate.toISOString())
+    }
+
+    const { data } = await query
 
     if (!data || data.length === 0) {
       regionStats.value = []

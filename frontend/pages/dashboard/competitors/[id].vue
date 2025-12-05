@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex items-center gap-4">
           <NuxtLink
             to="/dashboard/competitors"
@@ -29,15 +29,18 @@
             </a>
           </div>
         </div>
-        <button
-          @click="removeCompetitor"
-          class="inline-flex items-center gap-2 px-3 py-1.5 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          Stop Tracking
-        </button>
+        <div class="flex items-center gap-3">
+          <DateRangeSelector />
+          <button
+            @click="removeCompetitor"
+            class="inline-flex items-center gap-2 px-3 py-1.5 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Stop Tracking
+          </button>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -118,7 +121,7 @@
               </div>
               <div class="text-center">
                 <div class="text-gray-400 text-[10px] uppercase tracking-wider">Period</div>
-                <div class="text-xl font-bold text-gray-900 mt-1">30D</div>
+                <div class="text-xl font-bold text-gray-900 mt-1">{{ displayLabel }}</div>
               </div>
             </div>
           </div>
@@ -372,26 +375,13 @@
                 <p class="text-[10px] text-gray-500 mt-0.5">Performance over time</p>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <select
-                v-model="chartMetric"
-                class="text-xs bg-gray-100 border-0 rounded-lg pl-2 pr-6 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
-              >
-                <option value="mention_rate">Mention Rate</option>
-                <option value="position">Avg Position</option>
-              </select>
-              <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-                <button
-                  v-for="period in periods"
-                  :key="period.value"
-                  @click="chartPeriod = period.value"
-                  class="px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200"
-                  :class="chartPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                >
-                  {{ period.label }}
-                </button>
-              </div>
-            </div>
+            <select
+              v-model="chartMetric"
+              class="text-xs bg-gray-100 border-0 rounded-lg pl-2 pr-6 py-1.5 text-gray-600 cursor-pointer focus:ring-1 focus:ring-brand/30"
+            >
+              <option value="mention_rate">Mention Rate</option>
+              <option value="position">Avg Position</option>
+            </select>
           </div>
           <div class="p-4">
             <div class="relative h-72">
@@ -583,6 +573,7 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { selectedRegion } = useRegionFilter()
+const { dateRange, displayLabel } = useDateRange()
 
 const competitorId = route.params.id as string
 
@@ -597,14 +588,7 @@ const showAllCitedPages = ref(false)
 
 const trendChartCanvas = ref<HTMLCanvasElement | null>(null)
 const chartMetric = ref<'mention_rate' | 'position'>('mention_rate')
-const chartPeriod = ref('30')
 let trendChart: Chart | null = null
-
-const periods = [
-  { value: '7', label: '7D' },
-  { value: '30', label: '30D' },
-  { value: '90', label: '90D' }
-]
 
 // Metrics
 const brandMetrics = ref({
@@ -652,9 +636,22 @@ watch(selectedRegion, async () => {
   }
 })
 
-watch([chartMetric, chartPeriod], () => {
+watch(chartMetric, () => {
   loadChartData()
 })
+
+// Watch for global date range changes
+watch(dateRange, async () => {
+  if (activeProductId.value && competitor.value) {
+    await Promise.all([
+      loadBrandMetrics(activeProductId.value),
+      loadCompetitorMetrics(),
+      loadRecentMentions(),
+      loadCompetitorCitations(),
+      loadChartData()
+    ])
+  }
+}, { deep: true })
 
 onMounted(async () => {
   if (productInitialized.value && activeProductId.value) {
@@ -726,14 +723,16 @@ const loadCompetitor = async () => {
 }
 
 const loadBrandMetrics = async (productId: string) => {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - 30)
+  const startDate = dateRange.value.startDate
 
   let query = supabase
     .from('prompt_results')
     .select('brand_mentioned, citation_present, position')
     .eq('product_id', productId)
-    .gte('tested_at', startDate.toISOString())
+
+  if (startDate) {
+    query = query.gte('tested_at', startDate.toISOString())
+  }
 
   if (selectedRegion.value) {
     query = query.ilike('request_country', selectedRegion.value)
@@ -756,8 +755,7 @@ const loadBrandMetrics = async (productId: string) => {
 }
 
 const loadCompetitorMetrics = async () => {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - 30)
+  const startDate = dateRange.value.startDate
   const productId = activeProductId.value
 
   // Get count of prompt results for the period (for calculating rates)
@@ -765,7 +763,10 @@ const loadCompetitorMetrics = async () => {
     .from('prompt_results')
     .select('id', { count: 'exact', head: true })
     .eq('product_id', productId)
-    .gte('tested_at', startDate.toISOString())
+
+  if (startDate) {
+    countQuery = countQuery.gte('tested_at', startDate.toISOString())
+  }
 
   if (selectedRegion.value) {
     countQuery = countQuery.ilike('request_country', selectedRegion.value)
@@ -786,7 +787,10 @@ const loadCompetitorMetrics = async () => {
     .select('prompt_result_id, position, sentiment, prompt_results!inner(request_country)')
     .eq('product_id', productId)
     .eq('competitor_id', competitorId)
-    .gte('detected_at', startDate.toISOString())
+
+  if (startDate) {
+    mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+  }
 
   if (selectedRegion.value) {
     mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
@@ -818,7 +822,10 @@ const loadCompetitorMetrics = async () => {
       .from('prompt_citations')
       .select('source_domain, prompt_result_id, prompt_results!inner(request_country)')
       .eq('product_id', productId)
-      .gte('created_at', startDate.toISOString())
+
+    if (startDate) {
+      citationsQuery = citationsQuery.gte('created_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       citationsQuery = citationsQuery.ilike('prompt_results.request_country', selectedRegion.value)
@@ -897,19 +904,23 @@ const loadCompetitorCitations = async () => {
   loadingCitations.value = true
   try {
     const productId = activeProductId.value
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 30)
+    const startDate = dateRange.value.startDate
     const normalizedDomain = competitor.value.domain.toLowerCase().replace('www.', '')
 
     // Get filtered result IDs based on region
     let filteredResultIds: string[] | null = null
     if (selectedRegion.value) {
-      const { data: regionResults } = await supabase
+      let regionQuery = supabase
         .from('prompt_results')
         .select('id')
         .eq('product_id', productId)
         .ilike('request_country', selectedRegion.value)
-        .gte('tested_at', startDate.toISOString())
+
+      if (startDate) {
+        regionQuery = regionQuery.gte('tested_at', startDate.toISOString())
+      }
+
+      const { data: regionResults } = await regionQuery
 
       filteredResultIds = (regionResults || []).map(r => r.id)
       if (filteredResultIds.length === 0) {
@@ -929,8 +940,11 @@ const loadCompetitorCitations = async () => {
         .from('prompt_citations')
         .select('url, source_domain')
         .eq('product_id', productId)
-        .gte('created_at', startDate.toISOString())
         .range(offset, offset + batchSize - 1)
+
+      if (startDate) {
+        query = query.gte('created_at', startDate.toISOString())
+      }
 
       if (filteredResultIds) {
         query = query.in('prompt_result_id', filteredResultIds)
@@ -974,17 +988,20 @@ const loadChartData = async () => {
   chartLoading.value = true
 
   try {
-    const daysAgo = parseInt(chartPeriod.value)
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysAgo)
+    const startDate = dateRange.value.startDate
+    // Calculate number of days for label generation
+    const daysAgo = startDate ? Math.ceil((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 30
 
     // Load brand data (with region filter)
     let brandQuery = supabase
       .from('prompt_results')
       .select('id, tested_at, brand_mentioned, position')
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
       .order('tested_at', { ascending: true })
+
+    if (startDate) {
+      brandQuery = brandQuery.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       brandQuery = brandQuery.ilike('request_country', selectedRegion.value)
@@ -999,8 +1016,11 @@ const loadChartData = async () => {
       .select('prompt_result_id, detected_at, position, prompt_results!inner(request_country)')
       .eq('product_id', productId)
       .eq('competitor_id', competitorId)
-      .gte('detected_at', startDate.toISOString())
       .order('detected_at', { ascending: true })
+
+    if (startDate) {
+      mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
@@ -1013,8 +1033,9 @@ const loadChartData = async () => {
     const labels: string[] = []
     const dayMap = new Map<string, { brandResults: any[], competitorMentions: any[] }>()
 
+    const chartStartDate = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     for (let i = 0; i < daysAgo; i++) {
-      const date = new Date(startDate)
+      const date = new Date(chartStartDate)
       date.setDate(date.getDate() + i)
       const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       labels.push(dateKey)

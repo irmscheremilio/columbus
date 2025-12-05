@@ -55,18 +55,6 @@
             <option value="session">By Scan</option>
             <option value="day">By Day</option>
           </select>
-          <!-- Period Toggle -->
-          <div class="flex items-center bg-gray-100/80 rounded-md p-0.5">
-            <button
-              v-for="period in periods"
-              :key="period.value"
-              @click="selectPeriod(period.value)"
-              class="px-2 py-0.5 text-[11px] font-medium rounded transition-all duration-200"
-              :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-            >
-              {{ period.label }}
-            </button>
-          </div>
         </div>
       </div>
       <p class="text-[11px] text-gray-400 mt-1 ml-3">{{ metricLabel }} · {{ groupingMode === 'day' ? 'Daily average' : 'Per scan' }}</p>
@@ -159,17 +147,6 @@
                   <option value="session">By Scan</option>
                   <option value="day">By Day</option>
                 </select>
-                <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                  <button
-                    v-for="period in periods"
-                    :key="period.value"
-                    @click="selectPeriod(period.value)"
-                    class="px-3 py-1 text-sm font-medium rounded-md transition-all duration-200"
-                    :class="selectedPeriod === period.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                  >
-                    {{ period.label }}
-                  </button>
-                </div>
                 <button
                   @click="closeFullscreen"
                   class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -227,17 +204,14 @@ const props = withDefaults(defineProps<{
   chartHeight: '12rem'
 })
 
-const emit = defineEmits<{
-  (e: 'period-change', days: number): void
-}>()
-
 const supabase = useSupabaseClient()
 const { platforms: aiPlatforms, loadPlatforms, platformIds } = useAIPlatforms()
 const { selectedRegion } = useRegionFilter()
+const { subscribe: subscribeRealtime, unsubscribe: unsubscribeRealtime } = useDashboardRealtime()
+const { dateRange, selectedPreset } = useDateRange()
 
 const loading = ref(false)
 const hasData = ref(false)
-const selectedPeriod = ref('30')
 const viewMode = ref<'platforms' | 'competitors'>('platforms')
 const groupingMode = ref<'session' | 'day'>('day')
 const selectedMetric = ref<'mention_rate' | 'position'>('mention_rate')
@@ -254,12 +228,6 @@ let lastChartData: any = null
 let lastChartType: 'platform' | 'competitor' = 'platform'
 let lastMetric: 'mention_rate' | 'position' = 'mention_rate'
 let lastCompetitors: any[] = []
-
-const periods = [
-  { value: '7', label: '7d' },
-  { value: '30', label: '30d' },
-  { value: '90', label: '90d' }
-]
 
 // Transform platforms for chart display
 const platforms = computed(() =>
@@ -305,10 +273,10 @@ const loadData = async () => {
 }
 
 const loadPlatformData = async () => {
-  const daysAgo = parseInt(selectedPeriod.value)
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - daysAgo)
-  startDate.setHours(0, 0, 0, 0)
+  const startDate = dateRange.value.startDate
+  const daysAgo = selectedPreset.value === 'all' || selectedPreset.value === 'custom'
+    ? 90 // Default for chart X-axis labels when using 'all' or 'custom'
+    : parseInt(selectedPreset.value)
   const metric = selectedMetric.value
 
   // When a region is selected, we need to query prompt_results directly
@@ -322,9 +290,12 @@ const loadPlatformData = async () => {
       .from('prompt_results')
       .select('tested_at, ai_model, brand_mentioned, position')
       .eq('product_id', props.productId)
-      .gte('tested_at', startDate.toISOString())
       .ilike('request_country', selectedRegion.value)
       .order('tested_at', { ascending: true })
+
+    if (startDate) {
+      resultsQuery = resultsQuery.gte('tested_at', startDate.toISOString())
+    }
 
     const { data: results } = await resultsQuery
 
@@ -343,13 +314,17 @@ const loadPlatformData = async () => {
     }
   } else {
     // No region filter - use visibility_history for mention rate
-    const { data } = await supabase
+    let historyQuery = supabase
       .from('visibility_history')
       .select('*')
       .eq('product_id', props.productId)
-      .gte('recorded_at', startDate.toISOString())
       .order('recorded_at', { ascending: true })
 
+    if (startDate) {
+      historyQuery = historyQuery.gte('recorded_at', startDate.toISOString())
+    }
+
+    const { data } = await historyQuery
     historyData = data || []
 
     // Get position data from prompt_results if showing position metric
@@ -360,7 +335,10 @@ const loadPlatformData = async () => {
         .eq('product_id', props.productId)
         .eq('brand_mentioned', true)
         .not('position', 'is', null)
-        .gte('tested_at', startDate.toISOString())
+
+      if (startDate) {
+        posQuery = posQuery.gte('tested_at', startDate.toISOString())
+      }
 
       const { data } = await posQuery.order('tested_at', { ascending: true })
       positionData = data || []
@@ -405,10 +383,10 @@ const loadPlatformData = async () => {
 }
 
 const loadCompetitorData = async () => {
-  const daysAgo = parseInt(selectedPeriod.value)
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - daysAgo)
-  startDate.setHours(0, 0, 0, 0)
+  const startDate = dateRange.value.startDate
+  const daysAgo = selectedPreset.value === 'all' || selectedPreset.value === 'custom'
+    ? 90
+    : parseInt(selectedPreset.value)
 
   const selectedModel = competitorModel.value
   const metric = selectedMetric.value
@@ -418,8 +396,11 @@ const loadCompetitorData = async () => {
     .from('visibility_history')
     .select('recorded_at, mention_rate, prompts_tested, prompts_mentioned, ai_model')
     .eq('product_id', props.productId)
-    .gte('recorded_at', startDate.toISOString())
     .order('recorded_at', { ascending: true })
+
+  if (startDate) {
+    brandQuery = brandQuery.gte('recorded_at', startDate.toISOString())
+  }
 
   // Filter by model if not 'overall'
   if (selectedModel !== 'overall') {
@@ -437,7 +418,10 @@ const loadCompetitorData = async () => {
       .eq('product_id', props.productId)
       .eq('brand_mentioned', true)
       .not('position', 'is', null)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      positionQuery = positionQuery.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedModel !== 'overall') {
       positionQuery = positionQuery.eq('ai_model', selectedModel)
@@ -498,8 +482,11 @@ const loadCompetitorData = async () => {
       .from('competitor_mentions')
       .select('competitor_id, detected_at, ai_model, prompt_result_id, position, sentiment')
       .in('competitor_id', competitorIds)
-      .gte('detected_at', startDate.toISOString())
       .order('detected_at', { ascending: true })
+
+    if (startDate) {
+      mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+    }
 
     if (selectedModel !== 'overall') {
       mentionsQuery = mentionsQuery.eq('ai_model', selectedModel)
@@ -515,7 +502,10 @@ const loadCompetitorData = async () => {
     .from('prompt_results')
     .select('tested_at, ai_model')
     .eq('product_id', props.productId)
-    .gte('tested_at', startDate.toISOString())
+
+  if (startDate) {
+    promptQuery = promptQuery.gte('tested_at', startDate.toISOString())
+  }
 
   if (selectedModel !== 'overall') {
     promptQuery = promptQuery.eq('ai_model', selectedModel)
@@ -1355,12 +1345,6 @@ const renderChart = (
   })
 }
 
-const selectPeriod = (period: string) => {
-  selectedPeriod.value = period
-  emit('period-change', parseInt(period))
-  loadData()
-}
-
 const openFullscreen = () => {
   isFullscreen.value = true
   // Render to fullscreen canvas after modal is visible
@@ -1646,6 +1630,13 @@ watch(selectedRegion, () => {
   }
 })
 
+// Watch for global date range changes - reload data
+watch(dateRange, () => {
+  if (props.productId && isReady.value) {
+    loadData()
+  }
+}, { deep: true })
+
 // Watch for platforms being loaded - trigger initial load
 watch(isReady, (ready) => {
   if (ready && props.productId) {
@@ -1656,13 +1647,18 @@ watch(isReady, (ready) => {
 onMounted(async () => {
   // Ensure platforms are loaded first
   await loadPlatforms()
-  // Emit initial period
-  emit('period-change', parseInt(selectedPeriod.value))
   // Mark as ready - this will trigger data load via watcher
   isReady.value = true
+  // Subscribe to realtime updates
+  subscribeRealtime(() => {
+    if (props.productId && isReady.value) {
+      loadData()
+    }
+  })
 })
 
 onUnmounted(() => {
+  unsubscribeRealtime()
   if (chart) {
     chart.destroy()
   }

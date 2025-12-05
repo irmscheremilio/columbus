@@ -2,20 +2,23 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
           <p class="text-sm text-gray-500">AI visibility overview</p>
         </div>
-        <NuxtLink
-          to="/dashboard/extension"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
-          </svg>
-          Get Desktop App
-        </NuxtLink>
+        <div class="flex items-center gap-3">
+          <DateRangeSelector />
+          <NuxtLink
+            to="/dashboard/extension"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+            </svg>
+            Get Desktop App
+          </NuxtLink>
+        </div>
       </div>
 
       <!-- Average Mention Rate Hero Card -->
@@ -37,7 +40,7 @@
           </div>
           <div class="text-right hidden sm:block">
             <div class="text-xs text-gray-500 mb-0.5">Across all platforms</div>
-            <div class="text-xs text-gray-400">Last {{ selectedPeriodDays }} days</div>
+            <div class="text-xs text-gray-400">{{ displayLabel }}</div>
           </div>
         </div>
       </div>
@@ -46,12 +49,15 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Platform Comparison Table -->
         <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
-            <div class="w-1 h-4 rounded-full bg-brand"></div>
-            <div>
-              <h2 class="text-sm font-semibold text-gray-900">Platform Comparison</h2>
-              <p class="text-[10px] text-gray-500 mt-0.5">Visibility by AI platform</p>
+          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-4 rounded-full bg-brand"></div>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Platform Comparison</h2>
+                <p class="text-[10px] text-gray-500 mt-0.5">Visibility by AI platform</p>
+              </div>
             </div>
+            <NuxtLink to="/dashboard/platforms" class="text-xs text-brand hover:text-brand/80 font-medium transition-colors">View all →</NuxtLink>
           </div>
           <div class="divide-y divide-gray-100/80">
             <a
@@ -91,7 +97,7 @@
 
         <!-- Chart Section -->
         <div class="lg:col-span-2 flex">
-          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" @period-change="onPeriodChange" class="flex-1" chart-height="100%" />
+          <VisibilityChart :product-id="activeProductId" title="Visibility Over Time" class="flex-1" chart-height="100%" />
         </div>
       </div>
 
@@ -269,6 +275,7 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms, loadPlatforms } = useAIPlatforms()
 const { selectedRegion } = useRegionFilter()
+const { subscribe: subscribeRealtime, unsubscribe: unsubscribeRealtime } = useDashboardRealtime()
 
 const loading = ref(true)
 const visibilityScore = ref<VisibilityScore | null>(null)
@@ -276,11 +283,10 @@ const recommendations = ref<any[]>([])
 const topPrompts = ref<any[]>([])
 const topCompetitors = ref<any[]>([])
 const visibilityGaps = ref<any[]>([])
-const selectedPeriodDays = ref(30) // Default to 30 days, synced with chart
+const { dateRange, displayLabel } = useDateRange()
 
-const onPeriodChange = async (days: number) => {
-  selectedPeriodDays.value = days
-  // Reload stats with new date range
+// Watch for global date range changes - reload data
+watch(dateRange, async () => {
   if (activeProductId.value) {
     await loadVisibilityScore(activeProductId.value)
     await Promise.all([
@@ -289,7 +295,7 @@ const onPeriodChange = async (days: number) => {
       loadTopCompetitors(activeProductId.value)
     ])
   }
-}
+}, { deep: true })
 
 
 const modelStats = ref({
@@ -337,22 +343,28 @@ watch(selectedRegion, () => {
 onMounted(async () => {
   if (productInitialized.value && activeProductId.value) {
     await loadDashboardData()
+    // Subscribe to realtime updates
+    subscribeRealtime(() => loadDashboardData())
   } else {
     const unwatch = watch(productInitialized, async (initialized) => {
       if (initialized && activeProductId.value) {
         await loadDashboardData()
+        // Subscribe to realtime updates
+        subscribeRealtime(() => loadDashboardData())
         unwatch()
       }
     })
   }
 })
 
+onUnmounted(() => {
+  unsubscribeRealtime()
+})
+
 const loadVisibilityScore = async (productId: string) => {
   try {
-    // Calculate date range based on selected period
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
     // When a region is selected, query prompt_results directly
     // because visibility_history doesn't have region data
@@ -367,12 +379,17 @@ const loadVisibilityScore = async (productId: string) => {
 
     if (selectedRegion.value) {
       // Query prompt_results directly for region-filtered data
-      const { data: results } = await supabase
+      let resultsQuery = supabase
         .from('prompt_results')
         .select('ai_model, brand_mentioned')
         .eq('product_id', productId)
-        .gte('tested_at', startDate.toISOString())
         .ilike('request_country', selectedRegion.value)
+
+      if (startDate) {
+        resultsQuery = resultsQuery.gte('tested_at', startDate.toISOString())
+      }
+
+      const { data: results } = await resultsQuery
 
       if (!results || results.length === 0) {
         visibilityScore.value = null
@@ -391,11 +408,16 @@ const loadVisibilityScore = async (productId: string) => {
       }
     } else {
       // No region filter - use visibility_history for better performance
-      const { data: historyData } = await supabase
+      let historyQuery = supabase
         .from('visibility_history')
         .select('ai_model, prompts_tested, prompts_mentioned')
         .eq('product_id', productId)
-        .gte('recorded_at', startDate.toISOString())
+
+      if (startDate) {
+        historyQuery = historyQuery.gte('recorded_at', startDate.toISOString())
+      }
+
+      const { data: historyData } = await historyQuery
 
       if (!historyData || historyData.length === 0) {
         visibilityScore.value = null
@@ -494,17 +516,18 @@ const loadDashboardData = async () => {
 
 const loadModelStats = async (productId: string) => {
   try {
-    // Calculate date range based on selected period
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
     // Filter by date range and region
     let query = supabase
       .from('prompt_results')
       .select('ai_model, brand_mentioned')
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      query = query.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       query = query.ilike('request_country', selectedRegion.value)
@@ -539,9 +562,8 @@ const loadModelStats = async (productId: string) => {
 
 const loadTopPrompts = async (productId: string) => {
   try {
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
     // Get prompts for this product
     const { data: prompts } = await supabase
@@ -561,7 +583,10 @@ const loadTopPrompts = async (productId: string) => {
       .from('prompt_results')
       .select('prompt_id, brand_mentioned')
       .in('prompt_id', promptIds)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      query = query.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       query = query.ilike('request_country', selectedRegion.value)
@@ -607,9 +632,8 @@ const loadTopPrompts = async (productId: string) => {
 
 const loadTopCompetitors = async (productId: string) => {
   try {
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - selectedPeriodDays.value)
-    startDate.setHours(0, 0, 0, 0)
+    // Use global date range
+    const startDate = dateRange.value.startDate
 
     // Get tracking competitors
     const { data: competitors } = await supabase
@@ -629,7 +653,10 @@ const loadTopCompetitors = async (productId: string) => {
       .from('prompt_results')
       .select('*', { count: 'exact', head: true })
       .eq('product_id', productId)
-      .gte('tested_at', startDate.toISOString())
+
+    if (startDate) {
+      totalResultsQuery = totalResultsQuery.gte('tested_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       totalResultsQuery = totalResultsQuery.ilike('request_country', selectedRegion.value)
@@ -649,7 +676,10 @@ const loadTopCompetitors = async (productId: string) => {
       .select('competitor_id, prompt_result_id, prompt_results!inner(request_country)')
       .eq('product_id', productId)
       .in('competitor_id', competitors.map(c => c.id))
-      .gte('detected_at', startDate.toISOString())
+
+    if (startDate) {
+      mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       mentionsQuery = mentionsQuery.ilike('prompt_results.request_country', selectedRegion.value)
