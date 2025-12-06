@@ -406,13 +406,15 @@ const handleUpgrade = async (planId: string) => {
   }
 }
 
-useHead({
-  title: 'Pricing - Columbus | AI Engine Optimization Platform',
-  meta: [
-    {
-      name: 'description',
-      content: 'Simple, transparent pricing for Columbus. Start free and upgrade as your needs grow. No hidden fees, cancel anytime.'
-    }
-  ]
+// SEO setup with OG and Twitter tags
+const { setupSeo } = usePageSeo({
+  title: 'Pricing - Columbus | Free AI Engine Optimization Platform',
+  description: 'Simple, transparent pricing for Columbus. Start free forever and upgrade as your needs grow. No hidden fees, cancel anytime.',
+  canonicalPath: '/pricing',
 })
+setupSeo()
+
+// Software schema for pricing page
+const { injectSchema } = useSoftwareSchema()
+injectSchema()
 </script>

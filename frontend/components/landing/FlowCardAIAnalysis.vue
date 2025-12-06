@@ -207,8 +207,8 @@ const startAnimation = () => {
       })
       .filter(flash => flash.progress < 1)
 
-    // Spawn new flash rarely
-    if (flashes.value.length < 2 && Math.random() > 0.985) {
+    // Spawn new flashes more frequently
+    if (flashes.value.length < 4 && Math.random() > 0.94) {
       const randomPath = Math.floor(Math.random() * pathData.length)
       flashes.value.push({
         id: flashIdCounter++,

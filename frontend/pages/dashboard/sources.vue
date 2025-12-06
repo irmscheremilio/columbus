@@ -4,8 +4,8 @@
       <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Citation Sources</h1>
-          <p class="text-sm text-gray-500">Track which sources AI models cite when mentioning your brand</p>
+          <h1 class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">Citation Sources</h1>
+          <p class="text-xs sm:text-sm text-gray-500">Track which sources AI models cite when mentioning your brand</p>
         </div>
         <div class="flex items-center gap-3">
           <DateRangeSelector />
@@ -14,37 +14,38 @@
 
       <!-- Brand Citation Rate Hero Card -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
-        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="px-3 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-4 border-l-brand">
+          <div class="flex items-center gap-3 sm:gap-4">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
             </div>
             <div>
-              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Brand Citation Rate</div>
-              <div class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold text-gray-900">{{ stats.brandPercent }}</span>
-                <span class="text-lg font-medium text-gray-400">%</span>
+              <div class="text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Brand Citation Rate</div>
+              <div class="flex items-baseline gap-1.5 sm:gap-2">
+                <span class="text-2xl sm:text-3xl font-bold text-gray-900">{{ stats.brandPercent }}</span>
+                <span class="text-base sm:text-lg font-medium text-gray-400">%</span>
               </div>
             </div>
           </div>
-          <div class="hidden sm:flex items-center gap-4">
-            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
-              <div class="text-base font-bold text-gray-900">{{ stats.totalCitations }}</div>
-              <div class="text-[10px] text-gray-500">Total Citations</div>
+          <!-- Mobile: horizontal scroll stats -->
+          <div class="flex items-center gap-2 sm:gap-4 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-50 rounded-lg flex-shrink-0">
+              <div class="text-sm sm:text-base font-bold text-gray-900">{{ stats.totalCitations }}</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500 whitespace-nowrap">Citations</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg">
-              <div class="text-base font-bold text-emerald-600">{{ stats.brandCitations }}</div>
-              <div class="text-[10px] text-gray-500">Your Domain</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-50 rounded-lg flex-shrink-0">
+              <div class="text-sm sm:text-base font-bold text-emerald-600">{{ stats.brandCitations }}</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500 whitespace-nowrap">Your Domain</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
-              <div class="text-base font-bold text-gray-900">{{ stats.uniqueDomains }}</div>
-              <div class="text-[10px] text-gray-500">Unique Sources</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-50 rounded-lg flex-shrink-0">
+              <div class="text-sm sm:text-base font-bold text-gray-900">{{ stats.uniqueDomains }}</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500 whitespace-nowrap">Sources</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-blue-50 rounded-lg">
-              <div class="text-base font-bold text-blue-600">{{ brandUrlStats.length }}</div>
-              <div class="text-[10px] text-gray-500">Your Pages Cited</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 rounded-lg flex-shrink-0">
+              <div class="text-sm sm:text-base font-bold text-blue-600">{{ brandUrlStats.length }}</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500 whitespace-nowrap">Pages</div>
             </div>
           </div>
         </div>
@@ -53,19 +54,19 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Top Sources List -->
         <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
-            <div class="w-1 h-4 rounded-full bg-brand"></div>
+          <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
+            <div class="w-1 h-3 sm:h-4 rounded-full bg-brand"></div>
             <div>
-              <h2 class="text-sm font-semibold text-gray-900">Top Citation Sources</h2>
-              <p class="text-[10px] text-gray-500 mt-0.5">Most cited domains</p>
+              <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Top Citation Sources</h2>
+              <p class="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">Most cited domains</p>
             </div>
           </div>
 
-          <div v-if="loading" class="flex items-center justify-center py-12">
-            <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+          <div v-if="loading" class="flex items-center justify-center py-8 sm:py-12">
+            <div class="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-2 border-brand border-t-transparent"></div>
           </div>
 
-          <div v-else-if="sources.length === 0" class="text-center py-12 text-sm text-gray-500">
+          <div v-else-if="sources.length === 0" class="text-center py-8 sm:py-12 text-xs sm:text-sm text-gray-500">
             No citation data available
           </div>
 
@@ -73,22 +74,22 @@
             <div
               v-for="(source, idx) in sources.slice(0, 8)"
               :key="source.domain"
-              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors"
+              class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-50/50 transition-colors"
             >
-              <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0"
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-md flex items-center justify-center text-[9px] sm:text-[10px] font-bold shrink-0"
                    :class="source.isBrand ? 'bg-emerald-100 text-emerald-700' : idx < 3 ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-500'">
                 {{ idx + 1 }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-medium truncate" :class="source.isBrand ? 'text-brand' : 'text-gray-900'">
+                <div class="flex items-center gap-1 sm:gap-1.5">
+                  <span class="text-[10px] sm:text-xs font-medium truncate" :class="source.isBrand ? 'text-brand' : 'text-gray-900'">
                     {{ source.domain }}
                   </span>
-                  <span v-if="source.isBrand" class="px-1.5 py-0.5 text-[9px] font-medium bg-emerald-50 text-emerald-700 rounded-full shrink-0">
+                  <span v-if="source.isBrand" class="px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-medium bg-emerald-50 text-emerald-700 rounded-full shrink-0">
                     You
                   </span>
                 </div>
-                <div class="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                <div class="h-1 sm:h-1.5 bg-gray-100 rounded-full mt-1 sm:mt-1.5 overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all duration-500"
                     :class="source.isBrand ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : 'bg-gradient-to-r from-brand to-amber-400'"
@@ -97,8 +98,8 @@
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <div class="text-sm font-bold text-gray-900">{{ Math.round((source.count / stats.totalCitations) * 100) }}%</div>
-                <div class="text-[10px] text-gray-400">{{ source.count }} cites</div>
+                <div class="text-xs sm:text-sm font-bold text-gray-900">{{ Math.round((source.count / stats.totalCitations) * 100) }}%</div>
+                <div class="text-[9px] sm:text-[10px] text-gray-400">{{ source.count }}</div>
               </div>
             </div>
           </div>
@@ -112,57 +113,57 @@
 
       <!-- Brand Pages Performance Chart -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
+            <div class="w-1 h-3 sm:h-4 rounded-full bg-emerald-500"></div>
             <div>
-              <h2 class="text-sm font-semibold text-gray-900">Your Most Cited Pages</h2>
-              <p class="text-[10px] text-gray-500 mt-0.5">Which pages of your site are being cited by AI</p>
+              <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Your Most Cited Pages</h2>
+              <p class="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">Which pages of your site are being cited by AI</p>
             </div>
           </div>
-          <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
-            {{ brandUrlStats.length }} unique pages
+          <span class="text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap">
+            {{ brandUrlStats.length }} pages
           </span>
         </div>
 
-        <div v-if="loading" class="flex items-center justify-center py-12">
-          <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
+        <div v-if="loading" class="flex items-center justify-center py-8 sm:py-12">
+          <div class="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-2 border-brand border-t-transparent"></div>
         </div>
 
-        <div v-else-if="brandUrlStats.length === 0" class="text-center py-12 text-sm text-gray-500">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div v-else-if="brandUrlStats.length === 0" class="text-center py-8 sm:py-12 text-xs sm:text-sm text-gray-500">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
           </div>
           No brand citations yet
         </div>
 
-        <div v-else class="p-4">
+        <div v-else class="p-3 sm:p-4">
           <!-- Bar Chart -->
-          <div class="space-y-3">
+          <div class="space-y-2 sm:space-y-3">
             <div
               v-for="(urlStat, idx) in brandUrlStats.slice(0, 10)"
               :key="urlStat.url"
               class="group"
             >
-              <div class="flex items-center gap-3">
-                <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-md flex items-center justify-center text-[9px] sm:text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">
                   {{ idx + 1 }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center justify-between mb-0.5 sm:mb-1">
                     <a
                       :href="urlStat.url"
                       target="_blank"
-                      class="text-xs font-medium text-gray-700 hover:text-brand truncate transition-colors"
+                      class="text-[10px] sm:text-xs font-medium text-gray-700 hover:text-brand truncate transition-colors"
                       :title="urlStat.url"
                     >
                       {{ formatUrlPath(urlStat.url) }}
                     </a>
-                    <span class="text-xs font-bold text-emerald-600 ml-2 shrink-0">{{ urlStat.count }}</span>
+                    <span class="text-[10px] sm:text-xs font-bold text-emerald-600 ml-2 shrink-0">{{ urlStat.count }}</span>
                   </div>
-                  <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-1.5 sm:h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div
                       class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
                       :style="{ width: `${(urlStat.count / maxBrandUrlCount) * 100}%` }"
@@ -173,8 +174,8 @@
             </div>
           </div>
 
-          <div v-if="brandUrlStats.length > 10" class="mt-4 pt-4 border-t border-gray-100 text-center">
-            <span class="text-xs text-gray-500">
+          <div v-if="brandUrlStats.length > 10" class="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 text-center">
+            <span class="text-[10px] sm:text-xs text-gray-500">
               +{{ brandUrlStats.length - 10 }} more pages cited
             </span>
           </div>
@@ -183,12 +184,12 @@
 
       <!-- Brand Citations Table -->
       <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 hover:shadow-md transition-shadow duration-200">
-        <div class="flex items-center justify-between p-4 pb-3 border-b border-gray-100/80">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 pb-2.5 sm:pb-3 gap-2 border-b border-gray-100/80">
           <div class="flex items-center gap-2">
-            <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
-            <h2 class="text-sm font-semibold text-gray-900">Brand Citations</h2>
-            <span class="text-xs text-gray-500 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
-              {{ totalBrandCitations }} total
+            <div class="w-1 h-3 sm:h-4 rounded-full bg-emerald-500"></div>
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Brand Citations</h2>
+            <span class="text-[10px] sm:text-xs text-gray-500 bg-emerald-50 text-emerald-700 px-1.5 sm:px-2 py-0.5 rounded-full">
+              {{ totalBrandCitations }}
             </span>
           </div>
           <div class="flex items-center gap-2">
@@ -196,7 +197,7 @@
               v-model="brandSearchQuery"
               type="text"
               placeholder="Search URLs..."
-              class="text-sm bg-gray-50/80 border border-gray-200/50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-40"
+              class="text-xs sm:text-sm bg-gray-50/80 border border-gray-200/50 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-full sm:w-40"
             />
           </div>
         </div>
@@ -205,14 +206,14 @@
           <table class="w-full table-fixed">
             <thead class="bg-gray-50/50">
               <tr>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5">URL</th>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[100px]">Platform</th>
-                <th class="text-center text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[70px]">Chat</th>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[120px]">Date</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-3 sm:px-4 py-2 sm:py-2.5">URL</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[70px] sm:w-[100px] hidden sm:table-cell">Platform</th>
+                <th class="text-center text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[50px] sm:w-[70px]">Chat</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[80px] sm:w-[120px]">Date</th>
               </tr>
             </thead>
           </table>
-          <div class="max-h-80 overflow-y-auto">
+          <div class="max-h-60 sm:max-h-80 overflow-y-auto">
             <table class="w-full table-fixed">
               <tbody class="divide-y divide-gray-100/80">
                 <tr
@@ -220,38 +221,38 @@
                   :key="citation.id"
                   class="hover:bg-emerald-50/30 transition-colors"
                 >
-                  <td class="py-2.5 px-4">
+                  <td class="py-2 sm:py-2.5 px-3 sm:px-4">
                     <a
                       :href="citation.url"
                       target="_blank"
-                      class="text-sm text-emerald-600 hover:text-emerald-800 truncate block transition-colors"
+                      class="text-[10px] sm:text-sm text-emerald-600 hover:text-emerald-800 truncate block transition-colors"
                       :title="citation.url"
                     >
                       {{ citation.url }}
                     </a>
                   </td>
-                  <td class="py-2.5 px-4 w-[100px]">
-                    <span class="text-xs font-medium text-gray-600">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[70px] sm:w-[100px] hidden sm:table-cell">
+                    <span class="text-[10px] sm:text-xs font-medium text-gray-600 truncate block">
                       {{ formatModelName(citation.ai_model) }}
                     </span>
                   </td>
-                  <td class="py-2.5 px-4 w-[70px] text-center">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[50px] sm:w-[70px] text-center">
                     <a
                       v-if="citation.chat_url"
                       :href="citation.chat_url"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="inline-flex w-6 h-6 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+                      class="inline-flex w-5 h-5 sm:w-6 sm:h-6 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
                       title="Open chat"
                     >
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
                     <span v-else class="text-gray-300">−</span>
                   </td>
-                  <td class="py-2.5 px-4 w-[120px]">
-                    <span class="text-xs text-gray-500 whitespace-nowrap">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[80px] sm:w-[120px]">
+                    <span class="text-[9px] sm:text-xs text-gray-500 whitespace-nowrap">
                       {{ formatDate(citation.created_at) }}
                     </span>
                   </td>
@@ -260,28 +261,29 @@
             </table>
           </div>
 
-          <div v-if="filteredBrandCitations.length === 0" class="text-center py-8">
-            <p class="text-sm text-gray-500">No brand citations found</p>
+          <div v-if="filteredBrandCitations.length === 0" class="text-center py-6 sm:py-8">
+            <p class="text-xs sm:text-sm text-gray-500">No brand citations found</p>
           </div>
         </div>
 
         <!-- Brand Citations Pagination -->
-        <div v-if="totalBrandPages > 1" class="flex items-center justify-between px-4 py-3 border-t border-gray-100/80 bg-gray-50/30">
-          <span class="text-xs text-gray-500">
-            Page {{ brandCurrentPage }} of {{ totalBrandPages }} ({{ filteredBrandCitations.length }} results)
+        <div v-if="totalBrandPages > 1" class="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100/80 bg-gray-50/30">
+          <span class="text-[10px] sm:text-xs text-gray-500">
+            <span class="hidden sm:inline">Page </span>{{ brandCurrentPage }}/{{ totalBrandPages }}
           </span>
           <div class="flex items-center gap-1">
             <button
               @click="brandCurrentPage = Math.max(1, brandCurrentPage - 1)"
               :disabled="brandCurrentPage === 1"
-              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Previous
+              <span class="hidden sm:inline">Previous</span>
+              <span class="sm:hidden">Prev</span>
             </button>
             <button
               @click="brandCurrentPage = Math.min(totalBrandPages, brandCurrentPage + 1)"
               :disabled="brandCurrentPage === totalBrandPages"
-              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
@@ -291,12 +293,12 @@
 
       <!-- All Citations Table -->
       <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 hover:shadow-md transition-shadow duration-200">
-        <div class="flex items-center justify-between p-4 pb-3 border-b border-gray-100/80">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 pb-2.5 sm:pb-3 gap-2 border-b border-gray-100/80">
           <div class="flex items-center gap-2">
-            <div class="w-1 h-4 rounded-full bg-blue-500"></div>
-            <h2 class="text-sm font-semibold text-gray-900">All Citations</h2>
-            <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
-              {{ totalCitations }} total
+            <div class="w-1 h-3 sm:h-4 rounded-full bg-blue-500"></div>
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">All Citations</h2>
+            <span class="text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-1.5 sm:px-2 py-0.5 rounded-full">
+              {{ totalCitations }}
             </span>
           </div>
           <div class="flex items-center gap-2">
@@ -304,7 +306,7 @@
               v-model="searchQuery"
               type="text"
               placeholder="Search domains..."
-              class="text-sm bg-gray-50/80 border border-gray-200/50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-40"
+              class="text-xs sm:text-sm bg-gray-50/80 border border-gray-200/50 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/20 w-full sm:w-40"
             />
           </div>
         </div>
@@ -313,15 +315,15 @@
           <table class="w-full table-fixed">
             <thead class="bg-gray-50/50">
               <tr>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[140px]">Source</th>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5">URL</th>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[100px]">Platform</th>
-                <th class="text-center text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[70px]">Chat</th>
-                <th class="text-left text-[11px] font-medium text-gray-500 uppercase tracking-wide px-4 py-2.5 w-[120px]">Date</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-3 sm:px-4 py-2 sm:py-2.5 w-[100px] sm:w-[140px]">Source</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 hidden sm:table-cell">URL</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[70px] sm:w-[100px] hidden md:table-cell">Platform</th>
+                <th class="text-center text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[50px] sm:w-[70px]">Chat</th>
+                <th class="text-left text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wide px-2 sm:px-4 py-2 sm:py-2.5 w-[80px] sm:w-[120px]">Date</th>
               </tr>
             </thead>
           </table>
-          <div class="max-h-80 overflow-y-auto">
+          <div class="max-h-60 sm:max-h-80 overflow-y-auto">
             <table class="w-full table-fixed">
               <tbody class="divide-y divide-gray-100/80">
                 <tr
@@ -329,10 +331,10 @@
                   :key="citation.id"
                   class="hover:bg-gray-50/50 transition-colors"
                 >
-                  <td class="py-2.5 px-4 w-[140px]">
-                    <div class="flex items-center gap-1.5">
+                  <td class="py-2 sm:py-2.5 px-3 sm:px-4 w-[100px] sm:w-[140px]">
+                    <div class="flex items-center gap-1 sm:gap-1.5">
                       <span
-                        class="font-medium text-sm truncate"
+                        class="font-medium text-[10px] sm:text-sm truncate"
                         :class="citation.is_brand_source ? 'text-brand' : 'text-gray-900'"
                         :title="citation.source_domain"
                       >
@@ -340,43 +342,43 @@
                       </span>
                       <span
                         v-if="citation.is_brand_source"
-                        class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"
+                        class="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 flex-shrink-0"
                         title="Your domain"
                       ></span>
                     </div>
                   </td>
-                  <td class="py-2.5 px-4">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 hidden sm:table-cell">
                     <a
                       :href="citation.url"
                       target="_blank"
-                      class="text-sm text-blue-600 hover:text-blue-800 truncate block transition-colors"
+                      class="text-[10px] sm:text-sm text-blue-600 hover:text-blue-800 truncate block transition-colors"
                       :title="citation.url"
                     >
                       {{ citation.url }}
                     </a>
                   </td>
-                  <td class="py-2.5 px-4 w-[100px]">
-                    <span class="text-xs font-medium text-gray-600">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[70px] sm:w-[100px] hidden md:table-cell">
+                    <span class="text-[10px] sm:text-xs font-medium text-gray-600 truncate block">
                       {{ formatModelName(citation.ai_model) }}
                     </span>
                   </td>
-                  <td class="py-2.5 px-4 w-[70px] text-center">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[50px] sm:w-[70px] text-center">
                     <a
                       v-if="citation.chat_url"
                       :href="citation.chat_url"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="inline-flex w-6 h-6 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+                      class="inline-flex w-5 h-5 sm:w-6 sm:h-6 rounded items-center justify-center text-xs bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
                       title="Open chat"
                     >
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
                     <span v-else class="text-gray-300">−</span>
                   </td>
-                  <td class="py-2.5 px-4 w-[120px]">
-                    <span class="text-xs text-gray-500 whitespace-nowrap">
+                  <td class="py-2 sm:py-2.5 px-2 sm:px-4 w-[80px] sm:w-[120px]">
+                    <span class="text-[9px] sm:text-xs text-gray-500 whitespace-nowrap">
                       {{ formatDate(citation.created_at) }}
                     </span>
                   </td>
@@ -385,55 +387,56 @@
             </table>
           </div>
 
-          <div v-if="loadingCitations" class="flex items-center justify-center py-8">
+          <div v-if="loadingCitations" class="flex items-center justify-center py-6 sm:py-8">
             <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
           </div>
 
-          <div v-else-if="citations.length === 0" class="text-center py-8">
-            <p class="text-sm text-gray-500">No citations found</p>
+          <div v-else-if="citations.length === 0" class="text-center py-6 sm:py-8">
+            <p class="text-xs sm:text-sm text-gray-500">No citations found</p>
           </div>
         </div>
 
         <!-- All Citations Pagination -->
-        <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100/80 bg-gray-50/30">
-          <span class="text-xs text-gray-500">
-            Page {{ currentPage }} of {{ totalPages }} ({{ totalCitations }} total)
+        <div class="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100/80 bg-gray-50/30">
+          <span class="text-[10px] sm:text-xs text-gray-500">
+            <span class="hidden sm:inline">Page </span>{{ currentPage }}/{{ totalPages }}
           </span>
           <div class="flex items-center gap-1">
             <button
               @click="goToPage(1)"
               :disabled="currentPage === 1"
-              class="px-2 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-1.5 sm:px-2 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors hidden sm:block"
               title="First page"
             >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               </svg>
             </button>
             <button
               @click="goToPage(currentPage - 1)"
               :disabled="currentPage === 1"
-              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Previous
+              <span class="hidden sm:inline">Previous</span>
+              <span class="sm:hidden">Prev</span>
             </button>
-            <span class="px-2 text-xs text-gray-500">
-              {{ currentPage }} / {{ totalPages }}
+            <span class="px-1.5 sm:px-2 text-[10px] sm:text-xs text-gray-500">
+              {{ currentPage }}/{{ totalPages }}
             </span>
             <button
               @click="goToPage(currentPage + 1)"
               :disabled="currentPage === totalPages"
-              class="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
             <button
               @click="goToPage(totalPages)"
               :disabled="currentPage === totalPages"
-              class="px-2 py-1 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="px-1.5 sm:px-2 py-1 text-[10px] sm:text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-100/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors hidden sm:block"
               title="Last page"
             >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
               </svg>
             </button>
@@ -454,7 +457,7 @@ const supabase = useSupabaseClient()
 const { activeProductId } = useActiveProduct()
 const { selectedRegion } = useRegionFilter()
 const { formatModelName } = useAIPlatforms()
-const { dateRange } = useDateRange()
+const { dateRange, version: dateRangeVersion } = useDateRange()
 
 const loading = ref(false)
 const loadingCitations = ref(false)
@@ -542,11 +545,15 @@ const paginatedBrandCitations = computed(() => {
 // Build date filter
 const getDateFilter = () => {
   const startDate = dateRange.value.startDate
-  return startDate ? startDate.toISOString() : null
+  const endDate = dateRange.value.endDate
+  return {
+    start: startDate ? startDate.toISOString() : null,
+    end: endDate ? endDate.toISOString() : null
+  }
 }
 
 // Get filtered result IDs based on region
-const getFilteredResultIds = async (dateFilter: string | null): Promise<string[] | null> => {
+const getFilteredResultIds = async (dateFilter: { start: string | null; end: string | null }): Promise<string[] | null> => {
   if (!selectedRegion.value) return null
 
   let resultsQuery = supabase
@@ -555,8 +562,11 @@ const getFilteredResultIds = async (dateFilter: string | null): Promise<string[]
     .eq('product_id', activeProductId.value)
     .ilike('request_country', selectedRegion.value)
 
-  if (dateFilter) {
-    resultsQuery = resultsQuery.gte('tested_at', dateFilter)
+  if (dateFilter.start) {
+    resultsQuery = resultsQuery.gte('tested_at', dateFilter.start)
+  }
+  if (dateFilter.end) {
+    resultsQuery = resultsQuery.lte('tested_at', dateFilter.end)
   }
 
   const { data: regionResults } = await resultsQuery
@@ -587,8 +597,11 @@ const loadAggregateData = async () => {
       .select('*', { count: 'exact', head: true })
       .eq('product_id', activeProductId.value)
 
-    if (dateFilter) {
-      countQuery = countQuery.gte('created_at', dateFilter)
+    if (dateFilter.start) {
+      countQuery = countQuery.gte('created_at', dateFilter.start)
+    }
+    if (dateFilter.end) {
+      countQuery = countQuery.lte('created_at', dateFilter.end)
     }
 
     if (filteredResultIds) {
@@ -610,8 +623,11 @@ const loadAggregateData = async () => {
         .eq('product_id', activeProductId.value)
         .range(offset, offset + batchSize - 1)
 
-      if (dateFilter) {
-        allCitationsQuery = allCitationsQuery.gte('created_at', dateFilter)
+      if (dateFilter.start) {
+        allCitationsQuery = allCitationsQuery.gte('created_at', dateFilter.start)
+      }
+      if (dateFilter.end) {
+        allCitationsQuery = allCitationsQuery.lte('created_at', dateFilter.end)
       }
 
       if (filteredResultIds) {
@@ -660,7 +676,7 @@ const loadAggregateData = async () => {
   }
 }
 
-const loadBrandCitations = async (dateFilter: string | null, filteredResultIds: string[] | null) => {
+const loadBrandCitations = async (dateFilter: { start: string | null; end: string | null }, filteredResultIds: string[] | null) => {
   try {
     // Get brand citations count
     let brandCountQuery = supabase
@@ -669,8 +685,11 @@ const loadBrandCitations = async (dateFilter: string | null, filteredResultIds: 
       .eq('product_id', activeProductId.value)
       .eq('is_brand_source', true)
 
-    if (dateFilter) {
-      brandCountQuery = brandCountQuery.gte('created_at', dateFilter)
+    if (dateFilter.start) {
+      brandCountQuery = brandCountQuery.gte('created_at', dateFilter.start)
+    }
+    if (dateFilter.end) {
+      brandCountQuery = brandCountQuery.lte('created_at', dateFilter.end)
     }
 
     if (filteredResultIds) {
@@ -694,8 +713,11 @@ const loadBrandCitations = async (dateFilter: string | null, filteredResultIds: 
         .order('created_at', { ascending: false })
         .range(offset, offset + batchSize - 1)
 
-      if (dateFilter) {
-        query = query.gte('created_at', dateFilter)
+      if (dateFilter.start) {
+        query = query.gte('created_at', dateFilter.start)
+      }
+      if (dateFilter.end) {
+        query = query.lte('created_at', dateFilter.end)
       }
 
       if (filteredResultIds) {
@@ -765,8 +787,11 @@ const loadCitationsPage = async () => {
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
-    if (dateFilter) {
-      query = query.gte('created_at', dateFilter)
+    if (dateFilter.start) {
+      query = query.gte('created_at', dateFilter.start)
+    }
+    if (dateFilter.end) {
+      query = query.lte('created_at', dateFilter.end)
     }
 
     if (filteredResultIds) {
@@ -843,12 +868,12 @@ watch(() => activeProductId.value, async () => {
 }, { immediate: true })
 
 // Watch for global date range changes
-watch(dateRange, async () => {
+watch(dateRangeVersion, async () => {
   currentPage.value = 1
   brandCurrentPage.value = 1
   await loadAggregateData()
   await loadCitationsPage()
-}, { deep: true })
+})
 
 // Watch for search query changes (debounced)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null

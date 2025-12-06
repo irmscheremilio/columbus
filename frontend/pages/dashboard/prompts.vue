@@ -1,56 +1,58 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
-    <div class="p-4 lg:p-6 space-y-5">
+    <div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Prompts</h1>
-          <p class="text-sm text-gray-500">Manage search prompts for visibility testing</p>
+          <h1 class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">Prompts</h1>
+          <p class="text-xs sm:text-sm text-gray-500">Manage search prompts for visibility testing</p>
         </div>
         <button
-          class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+          class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-brand text-white text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
           @click="showAddPrompt = true"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Add Prompt
+          <span class="hidden xs:inline">Add Prompt</span>
+          <span class="xs:hidden">Add</span>
         </button>
       </div>
 
       <!-- Hero Card -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
-        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="px-3 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-4 border-l-brand">
+          <div class="flex items-center gap-3 sm:gap-4">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Total Prompts</div>
-              <div class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold text-gray-900">{{ prompts.length }}</span>
-                <span class="text-base font-medium text-gray-400">configured</span>
+              <div class="text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Total Prompts</div>
+              <div class="flex items-baseline gap-1.5 sm:gap-2">
+                <span class="text-2xl sm:text-3xl font-bold text-gray-900">{{ prompts.length }}</span>
+                <span class="text-sm sm:text-base font-medium text-gray-400">configured</span>
               </div>
             </div>
           </div>
-          <div class="hidden sm:flex items-center gap-3">
-            <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg">
-              <div class="text-base font-bold text-emerald-600">{{ promptsByLevel[1] || 0 }}</div>
-              <div class="text-[10px] text-emerald-600">Broad (L1)</div>
+          <!-- Mobile: Grid of stats, Desktop: Flex row -->
+          <div class="grid grid-cols-4 sm:flex items-center gap-2 sm:gap-3">
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-50 rounded-lg">
+              <div class="text-sm sm:text-base font-bold text-emerald-600">{{ promptsByLevel[1] || 0 }}</div>
+              <div class="text-[9px] sm:text-[10px] text-emerald-600">L1</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-amber-50 rounded-lg">
-              <div class="text-base font-bold text-amber-600">{{ promptsByLevel[2] || 0 }}</div>
-              <div class="text-[10px] text-amber-600">Specific (L2)</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-50 rounded-lg">
+              <div class="text-sm sm:text-base font-bold text-amber-600">{{ promptsByLevel[2] || 0 }}</div>
+              <div class="text-[9px] sm:text-[10px] text-amber-600">L2</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-orange-50 rounded-lg">
-              <div class="text-base font-bold text-orange-600">{{ promptsByLevel[3] || 0 }}</div>
-              <div class="text-[10px] text-orange-600">Detailed (L3)</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-50 rounded-lg">
+              <div class="text-sm sm:text-base font-bold text-orange-600">{{ promptsByLevel[3] || 0 }}</div>
+              <div class="text-[9px] sm:text-[10px] text-orange-600">L3</div>
             </div>
-            <div class="text-center px-3 py-1.5 bg-gray-50 rounded-lg">
-              <div class="text-base font-bold text-violet-600">{{ prompts.filter(p => p.is_custom).length }}</div>
-              <div class="text-[10px] text-gray-500">Custom</div>
+            <div class="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-50 rounded-lg">
+              <div class="text-sm sm:text-base font-bold text-violet-600">{{ prompts.filter(p => p.is_custom).length }}</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500">Custom</div>
             </div>
           </div>
         </div>
@@ -58,123 +60,122 @@
 
       <!-- Filters -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
           <div class="w-1 h-4 rounded-full bg-violet-500"></div>
           <div>
-            <h2 class="text-sm font-semibold text-gray-900">Filters</h2>
-            <p class="text-[10px] text-gray-500 mt-0.5">Filter prompts by level or type</p>
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Filters</h2>
           </div>
         </div>
-        <div class="p-4">
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5">
+        <div class="p-3 sm:p-4">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div class="flex items-center gap-0.5 sm:gap-1 bg-gray-100/80 rounded-lg p-0.5 overflow-x-auto">
               <button
                 v-for="f in filters"
                 :key="f.value"
                 @click="filter = f.value"
-                class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap"
                 :class="filter === f.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ f.label }}
               </button>
             </div>
-            <div class="ml-auto text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md">{{ filteredPrompts.length }} prompts</div>
+            <div class="ml-auto text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md">{{ filteredPrompts.length }} prompts</div>
           </div>
         </div>
       </div>
 
       <!-- Prompts Table -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
           <div class="w-1 h-4 rounded-full bg-brand"></div>
           <div>
-            <h2 class="text-sm font-semibold text-gray-900">All Prompts</h2>
-            <p class="text-[10px] text-gray-500 mt-0.5">Click a prompt to view performance analytics</p>
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">All Prompts</h2>
+            <p class="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">Tap to view performance</p>
           </div>
         </div>
-        <div v-if="filteredPrompts.length === 0" class="text-center py-12">
-          <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <div v-if="filteredPrompts.length === 0" class="text-center py-8 sm:py-12 px-4">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p class="text-sm text-gray-500">No prompts found for this filter</p>
+          <p class="text-xs sm:text-sm text-gray-500">No prompts found for this filter</p>
         </div>
         <div v-else class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
-                <th class="text-left px-4 py-3 font-medium">Prompt</th>
-                <th class="text-center px-4 py-3 font-medium w-20">Level</th>
-                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell">Regions</th>
-                <th class="text-center px-4 py-3 font-medium hidden sm:table-cell">Type</th>
-                <th class="text-right px-4 py-3 font-medium w-24">Actions</th>
+              <tr class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
+                <th class="text-left px-3 sm:px-4 py-2 sm:py-3 font-medium">Prompt</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium w-12 sm:w-20">Level</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium hidden md:table-cell">Regions</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium hidden md:table-cell">Type</th>
+                <th class="text-right px-2 sm:px-4 py-2 sm:py-3 font-medium w-16 sm:w-24">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100/80">
               <tr
                 v-for="prompt in filteredPrompts"
                 :key="prompt.id"
-                class="text-sm hover:bg-gray-50/80 cursor-pointer transition-colors"
+                class="text-xs sm:text-sm hover:bg-gray-50/80 cursor-pointer transition-colors"
                 @click="openPerformanceModal(prompt)"
               >
-                <td class="px-4 py-3">
-                  <div class="text-gray-900 flex items-center gap-2">
-                    {{ prompt.prompt_text }}
-                    <svg class="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <td class="px-3 sm:px-4 py-2.5 sm:py-3">
+                  <div class="text-gray-900 flex items-start sm:items-center gap-1.5 sm:gap-2">
+                    <span class="line-clamp-2 sm:line-clamp-1">{{ prompt.prompt_text }}</span>
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-300 flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <div v-if="prompt.category" class="text-xs text-gray-400 mt-0.5">{{ prompt.category }}</div>
+                  <div v-if="prompt.category" class="text-[10px] sm:text-xs text-gray-400 mt-0.5">{{ prompt.category }}</div>
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center">
                   <span
-                    class="inline-flex w-7 h-7 rounded-lg text-xs font-bold text-white items-center justify-center shadow-sm"
+                    class="inline-flex w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-[10px] sm:text-xs font-bold text-white items-center justify-center shadow-sm"
                     :class="getLevelColor(prompt.granularity_level)"
                   >
                     {{ prompt.granularity_level }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-center hidden sm:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden md:table-cell">
                   <div v-if="prompt.target_regions && prompt.target_regions.length > 0" class="flex items-center justify-center gap-0.5">
                     <span
                       v-for="code in prompt.target_regions.slice(0, 3)"
                       :key="code"
-                      class="text-base"
+                      class="text-sm sm:text-base"
                       :title="getCountryName(code)"
                     >{{ getCountryFlag(code) }}</span>
-                    <span v-if="prompt.target_regions.length > 3" class="text-xs text-gray-400 ml-1">
+                    <span v-if="prompt.target_regions.length > 3" class="text-[10px] sm:text-xs text-gray-400 ml-1">
                       +{{ prompt.target_regions.length - 3 }}
                     </span>
                   </div>
-                  <span v-else class="text-xs text-gray-400">Local</span>
+                  <span v-else class="text-[10px] sm:text-xs text-gray-400">Local</span>
                 </td>
-                <td class="px-4 py-3 text-center hidden sm:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden md:table-cell">
                   <span
                     v-if="prompt.is_custom"
-                    class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-violet-100 text-violet-700"
+                    class="inline-flex px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-medium bg-violet-100 text-violet-700"
                   >
                     Custom
                   </span>
-                  <span v-else class="text-xs text-gray-400">Auto</span>
+                  <span v-else class="text-[10px] sm:text-xs text-gray-400">Auto</span>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-1">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-right">
+                  <div class="flex items-center justify-end gap-0.5 sm:gap-1">
                     <button
                       @click.stop="editPrompt(prompt)"
-                      class="p-1.5 text-gray-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors"
+                      class="p-1 sm:p-1.5 text-gray-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors"
                       title="Edit"
                     >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                       </svg>
                     </button>
                     <button
                       @click.stop="deletePrompt(prompt.id)"
-                      class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      class="p-1 sm:p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete"
                     >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                       </svg>
                     </button>
@@ -191,27 +192,27 @@
     <Teleport to="body">
       <div
         v-if="showAddPrompt || editingPrompt"
-        class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
         @click.self="closeModal"
       >
-        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 max-w-md w-full border border-white/50">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ editingPrompt ? 'Edit Prompt' : 'Add Prompt' }}</h3>
-          <div class="space-y-4">
+        <div class="bg-white/95 backdrop-blur-md rounded-t-2xl sm:rounded-2xl shadow-xl p-4 sm:p-6 max-w-md w-full border border-white/50 max-h-[90vh] overflow-y-auto">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">{{ editingPrompt ? 'Edit Prompt' : 'Add Prompt' }}</h3>
+          <div class="space-y-3 sm:space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Prompt Text</label>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Prompt Text</label>
               <textarea
                 v-model="promptForm.text"
-                rows="3"
-                class="w-full px-3.5 py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none transition-all duration-200"
+                rows="2"
+                class="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none transition-all duration-200"
                 placeholder="What tools can help with..."
               ></textarea>
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Level</label>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Level</label>
                 <select
                   v-model.number="promptForm.level"
-                  class="w-full px-3.5 py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
+                  class="w-full px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
                 >
                   <option :value="1">1 - Broad</option>
                   <option :value="2">2 - Specific</option>
@@ -219,11 +220,11 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Category</label>
                 <input
                   v-model="promptForm.category"
                   type="text"
-                  class="w-full px-3.5 py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
+                  class="w-full px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
                   placeholder="Optional"
                 />
               </div>
@@ -231,24 +232,24 @@
 
             <!-- Target Regions -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Target Regions</label>
-              <p class="text-xs text-gray-400 mb-2">Select regions where this prompt should be tested.</p>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Target Regions</label>
+              <p class="text-[10px] sm:text-xs text-gray-400 mb-2">Select regions where this prompt should be tested.</p>
               <div class="relative">
                 <button
                   type="button"
                   @click="showRegionDropdown = !showRegionDropdown"
-                  class="w-full px-3.5 py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all duration-200"
+                  class="w-full px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-sm border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all duration-200"
                 >
-                  <span v-if="promptForm.targetRegions.length === 0" class="text-gray-400">
+                  <span v-if="promptForm.targetRegions.length === 0" class="text-gray-400 text-xs sm:text-sm">
                     Select regions...
                   </span>
                   <span v-else class="flex flex-wrap gap-1">
                     <span
                       v-for="code in promptForm.targetRegions"
                       :key="code"
-                      class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-brand/10 text-brand rounded-md text-xs"
+                      class="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 bg-brand/10 text-brand rounded-md text-[10px] sm:text-xs"
                     >
-                      <span class="text-sm">{{ getRegionDisplay(code).flag }}</span>
+                      <span class="text-xs sm:text-sm">{{ getRegionDisplay(code).flag }}</span>
                       {{ getRegionDisplay(code).label }}
                     </span>
                   </span>
@@ -260,16 +261,16 @@
                 <!-- Dropdown -->
                 <div
                   v-if="showRegionDropdown"
-                  class="absolute z-10 mt-1 w-full bg-white/95 backdrop-blur-md border border-gray-200/80 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                  class="absolute z-10 mt-1 w-full bg-white/95 backdrop-blur-md border border-gray-200/80 rounded-xl shadow-lg max-h-48 sm:max-h-60 overflow-y-auto"
                 >
                   <!-- Local option -->
                   <div
                     @click="toggleRegion('local')"
-                    class="px-3.5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
+                    class="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm cursor-pointer hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
                     :class="{ 'bg-brand/5': promptForm.targetRegions.includes('local') }"
                   >
-                    <span class="text-lg">🏠</span>
-                    <span class="flex-1">Local (Your Location)</span>
+                    <span class="text-base sm:text-lg">🏠</span>
+                    <span class="flex-1">Local</span>
                     <svg
                       v-if="promptForm.targetRegions.includes('local')"
                       class="w-4 h-4 text-brand"
@@ -284,10 +285,10 @@
                     v-for="country in availableCountries"
                     :key="country.code"
                     @click="toggleRegion(country.code)"
-                    class="px-3.5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 flex items-center gap-2"
+                    class="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm cursor-pointer hover:bg-gray-50 flex items-center gap-2"
                     :class="{ 'bg-brand/5': promptForm.targetRegions.includes(country.code) }"
                   >
-                    <span class="text-lg">{{ country.flag_emoji || '🌐' }}</span>
+                    <span class="text-base sm:text-lg">{{ country.flag_emoji || '🌐' }}</span>
                     <span class="flex-1">{{ country.name }}</span>
                     <svg
                       v-if="promptForm.targetRegions.includes(country.code)"
@@ -298,7 +299,7 @@
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                   </div>
-                  <div v-if="availableCountries.length === 0" class="px-3.5 py-4 text-sm text-gray-400 text-center">
+                  <div v-if="availableCountries.length === 0" class="px-3.5 py-4 text-xs sm:text-sm text-gray-400 text-center">
                     No additional regions available
                   </div>
                 </div>
@@ -309,22 +310,22 @@
                 v-if="promptForm.targetRegions.length > 0"
                 type="button"
                 @click="promptForm.targetRegions = []"
-                class="mt-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                class="mt-1.5 text-[10px] sm:text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Clear all regions
               </button>
             </div>
           </div>
-          <div class="flex gap-3 mt-5 pt-4 border-t border-gray-100/80">
+          <div class="flex gap-2 sm:gap-3 mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-gray-100/80">
             <button
               @click="closeModal"
-              class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100/80 rounded-xl hover:bg-gray-200/80 transition-all duration-200"
+              class="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-gray-700 bg-gray-100/80 rounded-xl hover:bg-gray-200/80 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               @click="savePrompt"
-              class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-brand rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+              class="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white bg-brand rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
             >
               {{ editingPrompt ? 'Save' : 'Add' }}
             </button>
@@ -337,19 +338,19 @@
     <Teleport to="body">
       <div
         v-if="selectedPrompt"
-        class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
         @click.self="closePerformanceModal"
       >
-        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-white/50">
+        <div class="bg-white/95 backdrop-blur-md rounded-t-2xl sm:rounded-2xl shadow-xl max-w-5xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-white/50">
           <!-- Header -->
-          <div class="px-6 py-4 border-b border-gray-100/80 flex items-start justify-between">
-            <div class="flex-1 min-w-0 pr-4">
-              <h3 class="text-lg font-semibold text-gray-900 mb-1">Prompt Performance</h3>
-              <p class="text-sm text-gray-600 line-clamp-2">{{ selectedPrompt.prompt_text }}</p>
+          <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100/80 flex items-start justify-between">
+            <div class="flex-1 min-w-0 pr-3 sm:pr-4">
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1">Prompt Performance</h3>
+              <p class="text-xs sm:text-sm text-gray-600 line-clamp-2">{{ selectedPrompt.prompt_text }}</p>
             </div>
             <button
               @click="closePerformanceModal"
-              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-xl transition-all duration-200"
+              class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-xl transition-all duration-200"
             >
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -358,43 +359,43 @@
           </div>
 
           <!-- Content -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
             <!-- Loading State -->
-            <div v-if="loadingPerformance" class="flex items-center justify-center py-20">
-              <div class="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+            <div v-if="loadingPerformance" class="flex items-center justify-center py-12 sm:py-20">
+              <div class="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-2 border-brand border-t-transparent"></div>
             </div>
 
             <template v-else>
               <!-- Stats Summary -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div class="bg-gradient-to-br from-brand/10 to-brand/5 rounded-xl p-4">
-                  <div class="text-xs font-medium text-brand/70 uppercase mb-1">Total Tests</div>
-                  <div class="text-2xl font-bold text-brand">{{ performanceStats.totalTests }}</div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div class="bg-gradient-to-br from-brand/10 to-brand/5 rounded-xl p-3 sm:p-4">
+                  <div class="text-[10px] sm:text-xs font-medium text-brand/70 uppercase mb-0.5 sm:mb-1">Tests</div>
+                  <div class="text-xl sm:text-2xl font-bold text-brand">{{ performanceStats.totalTests }}</div>
                 </div>
-                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4">
-                  <div class="text-xs font-medium text-emerald-600/70 uppercase mb-1">Mention Rate</div>
-                  <div class="text-2xl font-bold text-emerald-600">{{ performanceStats.mentionRate }}%</div>
+                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 sm:p-4">
+                  <div class="text-[10px] sm:text-xs font-medium text-emerald-600/70 uppercase mb-0.5 sm:mb-1">Mentions</div>
+                  <div class="text-xl sm:text-2xl font-bold text-emerald-600">{{ performanceStats.mentionRate }}%</div>
                 </div>
-                <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4">
-                  <div class="text-xs font-medium text-blue-600/70 uppercase mb-1">Avg Position</div>
-                  <div class="text-2xl font-bold text-blue-600">{{ performanceStats.avgPosition || '—' }}</div>
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 sm:p-4">
+                  <div class="text-[10px] sm:text-xs font-medium text-blue-600/70 uppercase mb-0.5 sm:mb-1">Position</div>
+                  <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ performanceStats.avgPosition || '—' }}</div>
                 </div>
-                <div class="bg-gradient-to-br from-violet-50 to-violet-100/50 rounded-xl p-4">
-                  <div class="text-xs font-medium text-violet-600/70 uppercase mb-1">Brand Cited</div>
-                  <div class="text-2xl font-bold text-violet-600">{{ performanceStats.citationRate }}%</div>
+                <div class="bg-gradient-to-br from-violet-50 to-violet-100/50 rounded-xl p-3 sm:p-4">
+                  <div class="text-[10px] sm:text-xs font-medium text-violet-600/70 uppercase mb-0.5 sm:mb-1">Cited</div>
+                  <div class="text-xl sm:text-2xl font-bold text-violet-600">{{ performanceStats.citationRate }}%</div>
                 </div>
               </div>
 
               <!-- Charts Row -->
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <!-- Performance Over Time by Platform -->
                 <div class="bg-white/90 backdrop-blur-sm border border-white/50 rounded-xl shadow-sm overflow-hidden">
-                  <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+                  <div class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
                     <div class="w-1 h-4 rounded-full bg-brand"></div>
-                    <h4 class="text-sm font-semibold text-gray-900">Mention Rate Over Time</h4>
+                    <h4 class="text-xs sm:text-sm font-semibold text-gray-900">Mention Rate Over Time</h4>
                   </div>
-                  <div class="p-4">
-                    <div class="h-64">
+                  <div class="p-3 sm:p-4">
+                    <div class="h-48 sm:h-64">
                       <canvas ref="timeChartCanvas"></canvas>
                     </div>
                   </div>
@@ -402,12 +403,12 @@
 
                 <!-- Brand vs Competitors -->
                 <div class="bg-white/90 backdrop-blur-sm border border-white/50 rounded-xl shadow-sm overflow-hidden">
-                  <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+                  <div class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
                     <div class="w-1 h-4 rounded-full bg-violet-500"></div>
-                    <h4 class="text-sm font-semibold text-gray-900">Brand vs Competitors Visibility</h4>
+                    <h4 class="text-xs sm:text-sm font-semibold text-gray-900">Brand vs Competitors</h4>
                   </div>
-                  <div class="p-4">
-                    <div class="h-64">
+                  <div class="p-3 sm:p-4">
+                    <div class="h-48 sm:h-64">
                       <canvas ref="comparisonChartCanvas"></canvas>
                     </div>
                   </div>
@@ -416,22 +417,22 @@
 
               <!-- Platform Breakdown -->
               <div class="bg-white/90 backdrop-blur-sm border border-white/50 rounded-xl shadow-sm overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+                <div class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
                   <div class="w-1 h-4 rounded-full bg-emerald-500"></div>
-                  <h4 class="text-sm font-semibold text-gray-900">Performance by Platform</h4>
+                  <h4 class="text-xs sm:text-sm font-semibold text-gray-900">Performance by Platform</h4>
                 </div>
-                <div class="p-4">
-                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="p-3 sm:p-4">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                     <div
                       v-for="platform in platformStats"
                       :key="platform.name"
-                      class="text-center p-4 rounded-xl bg-gray-50/80"
+                      class="text-center p-2.5 sm:p-4 rounded-xl bg-gray-50/80"
                     >
-                      <div class="text-xs font-medium text-gray-500 mb-2">{{ formatPlatformName(platform.name) }}</div>
-                      <div class="text-xl font-bold" :class="platform.mentionRate >= 50 ? 'text-emerald-600' : 'text-gray-600'">
+                      <div class="text-[10px] sm:text-xs font-medium text-gray-500 mb-1 sm:mb-2 truncate">{{ formatPlatformName(platform.name) }}</div>
+                      <div class="text-lg sm:text-xl font-bold" :class="platform.mentionRate >= 50 ? 'text-emerald-600' : 'text-gray-600'">
                         {{ platform.mentionRate }}%
                       </div>
-                      <div class="text-xs text-gray-400 mt-1">{{ platform.tests }} tests</div>
+                      <div class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{{ platform.tests }} tests</div>
                     </div>
                   </div>
                 </div>
@@ -439,26 +440,26 @@
 
               <!-- Competitor Details -->
               <div v-if="competitorStats.length > 0" class="bg-white/90 backdrop-blur-sm border border-white/50 rounded-xl shadow-sm overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+                <div class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
                   <div class="w-1 h-4 rounded-full bg-rose-500"></div>
-                  <h4 class="text-sm font-semibold text-gray-900">Competitor Mention Rates</h4>
+                  <h4 class="text-xs sm:text-sm font-semibold text-gray-900">Competitor Mention Rates</h4>
                 </div>
-                <div class="p-4">
-                  <div class="space-y-3">
+                <div class="p-3 sm:p-4">
+                  <div class="space-y-2 sm:space-y-3">
                     <div
                       v-for="comp in competitorStats"
                       :key="comp.name"
-                      class="flex items-center gap-4"
+                      class="flex items-center gap-2 sm:gap-4"
                     >
-                      <div class="w-32 text-sm font-medium text-gray-700 truncate">{{ comp.name }}</div>
-                      <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div class="w-20 sm:w-32 text-xs sm:text-sm font-medium text-gray-700 truncate">{{ comp.name }}</div>
+                      <div class="flex-1 h-2 sm:h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           class="h-full rounded-full transition-all duration-500"
                           :class="comp.isYou ? 'bg-brand' : 'bg-gray-400'"
                           :style="{ width: `${comp.mentionRate}%` }"
                         ></div>
                       </div>
-                      <div class="w-16 text-right text-sm font-semibold" :class="comp.isYou ? 'text-brand' : 'text-gray-600'">
+                      <div class="w-12 sm:w-16 text-right text-xs sm:text-sm font-semibold" :class="comp.isYou ? 'text-brand' : 'text-gray-600'">
                         {{ comp.mentionRate }}%
                       </div>
                     </div>
@@ -467,17 +468,17 @@
               </div>
 
               <!-- Empty State -->
-              <div v-if="performanceStats.totalTests === 0" class="text-center py-12">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-xl bg-gray-100 flex items-center justify-center">
-                  <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <div v-if="performanceStats.totalTests === 0" class="text-center py-8 sm:py-12">
+                <div class="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">No scan data yet</h3>
-                <p class="text-sm text-gray-500 mb-4">Run a visibility scan to see performance data for this prompt.</p>
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">No scan data yet</h3>
+                <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">Run a visibility scan to see performance data.</p>
                 <NuxtLink
                   to="/dashboard/scans"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 transition-all duration-200"
+                  class="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 transition-all duration-200"
                 >
                   Go to Scans
                 </NuxtLink>

@@ -1,33 +1,34 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
-    <div class="p-4 lg:p-6 space-y-5">
+    <div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5">
       <!-- Page Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Products</h1>
-          <p class="text-sm text-gray-500">Manage your products and track their AI visibility</p>
+          <h1 class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">Products</h1>
+          <p class="text-xs sm:text-sm text-gray-500">Manage your products and track their AI visibility</p>
         </div>
         <button
           @click="showAddModal = true"
           :disabled="!canAddProduct"
-          class="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+          class="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-brand text-white rounded-lg text-sm sm:text-base font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
         >
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Add Product
+          <span class="hidden xs:inline">Add Product</span>
+          <span class="xs:hidden">Add</span>
         </button>
       </div>
 
       <!-- Product Slots Info -->
-      <div v-if="productSlots" class="p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
-            <div class="text-sm text-gray-600">
+      <div v-if="productSlots" class="p-3 sm:p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div class="flex items-center gap-3 sm:gap-4">
+            <div class="text-xs sm:text-sm text-gray-600">
               <span class="font-semibold text-gray-900">{{ productSlots.used }}</span> of
-              <span class="font-semibold text-gray-900">{{ productSlots.total }}</span> product slots used
+              <span class="font-semibold text-gray-900">{{ productSlots.total }}</span> slots
             </div>
-            <div class="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
+            <div class="flex-1 sm:flex-none h-2 w-full sm:w-32 bg-gray-100 rounded-full overflow-hidden">
               <div
                 class="h-full bg-gradient-to-r from-brand to-brand/80 rounded-full transition-all duration-500"
                 :style="{ width: `${(productSlots.used / productSlots.total) * 100}%` }"
@@ -37,9 +38,9 @@
           <NuxtLink
             v-if="productSlots.remaining === 0"
             to="/pricing"
-            class="text-sm text-brand hover:text-brand/80 font-medium transition-colors"
+            class="text-xs sm:text-sm text-brand hover:text-brand/80 font-medium transition-colors"
           >
-            Upgrade for more products →
+            Upgrade →
           </NuxtLink>
         </div>
       </div>
@@ -50,40 +51,45 @@
       </div>
 
       <!-- Products Grid -->
-      <div v-else-if="products.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-else-if="products.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div
           v-for="product in products"
           :key="product.id"
-          class="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+          class="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm p-4 sm:p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
           :class="{ 'ring-2 ring-brand ring-offset-2': activeProductId === product.id }"
           @click="selectProduct(product.id)"
         >
-            <div class="flex items-start justify-between mb-4">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center text-brand font-semibold shadow-sm overflow-hidden">
+            <div class="flex items-start justify-between mb-3 sm:mb-4">
+              <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center text-brand font-semibold shadow-sm overflow-hidden">
                   <img
                     v-if="product.icon_url || product.domain"
                     :src="product.icon_url || getFaviconUrl(product.domain, 64)"
                     :alt="product.name"
-                    class="w-6 h-6"
+                    class="w-5 h-5 sm:w-6 sm:h-6"
                     @error="($event.target as HTMLImageElement).style.display = 'none'; ($event.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden')"
                   />
-                  <span class="hidden">{{ product.name.charAt(0).toUpperCase() }}</span>
+                  <span class="hidden text-sm">{{ product.name.charAt(0).toUpperCase() }}</span>
                 </div>
-                <div>
-                  <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
-                  <a :href="`https://${product.domain}`" target="_blank" class="text-sm text-gray-500 hover:text-brand transition-colors" @click.stop>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-semibold text-gray-900 text-sm sm:text-base truncate">{{ product.name }}</h3>
+                  <a :href="`https://${product.domain}`" target="_blank" class="text-xs sm:text-sm text-gray-500 hover:text-brand transition-colors truncate block" @click.stop>
                     {{ product.domain }}
                   </a>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-2">
                 <span
                   v-if="activeProductId === product.id"
-                  class="px-2.5 py-1 bg-brand/10 text-brand text-xs font-medium rounded-full"
+                  class="hidden sm:inline px-2.5 py-1 bg-brand/10 text-brand text-xs font-medium rounded-full"
                 >
                   Active
                 </span>
+                <div
+                  v-if="activeProductId === product.id"
+                  class="sm:hidden w-2 h-2 bg-brand rounded-full"
+                  title="Active"
+                ></div>
                 <button
                   @click.stop="editProduct(product)"
                   class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-lg transition-colors"
@@ -96,14 +102,14 @@
             </div>
 
             <!-- AEO Score -->
-            <div class="mb-4">
+            <div class="mb-3 sm:mb-4">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-sm text-gray-600">AEO Score</span>
-                <span class="text-sm font-semibold" :class="getScoreColor(product.calculated_aeo_score)">
+                <span class="text-xs sm:text-sm text-gray-600">AEO Score</span>
+                <span class="text-xs sm:text-sm font-semibold" :class="getScoreColor(product.calculated_aeo_score)">
                   {{ product.calculated_aeo_score ?? '--' }}
                 </span>
               </div>
-              <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-1.5 sm:h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all duration-500"
                   :class="getScoreBarColor(product.calculated_aeo_score)"
@@ -113,7 +119,7 @@
             </div>
 
             <!-- Last Analyzed -->
-            <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center justify-between text-xs sm:text-sm">
               <span class="text-gray-500">Last analyzed</span>
               <span class="text-gray-700 font-medium">
                 {{ product.last_analyzed_at ? formatDate(product.last_analyzed_at) : 'Never' }}
@@ -121,24 +127,25 @@
             </div>
 
             <!-- Actions -->
-            <div class="mt-4 pt-4 border-t border-gray-100/80 flex gap-2">
+            <div class="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100/80 flex gap-2">
               <button
                 @click.stop="runAnalysis(product)"
                 :disabled="analyzingProductId === product.id"
-                class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-brand/10 text-brand rounded-lg text-sm font-medium hover:bg-brand/20 transition-all duration-200 disabled:opacity-50"
+                class="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-brand/10 text-brand rounded-lg text-xs sm:text-sm font-medium hover:bg-brand/20 transition-all duration-200 disabled:opacity-50"
               >
-                <svg v-if="analyzingProductId === product.id" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg v-if="analyzingProductId === product.id" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg v-else class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
-                {{ analyzingProductId === product.id ? 'Analyzing...' : 'Run Analysis' }}
+                <span class="hidden xs:inline">{{ analyzingProductId === product.id ? 'Analyzing...' : 'Run Analysis' }}</span>
+                <span class="xs:hidden">{{ analyzingProductId === product.id ? '...' : 'Analyze' }}</span>
               </button>
               <button
                 @click.stop="confirmDelete(product)"
-                class="p-2 text-red-500 hover:text-red-600 hover:bg-red-50/80 rounded-lg transition-all duration-200"
+                class="p-1.5 sm:p-2 text-red-500 hover:text-red-600 hover:bg-red-50/80 rounded-lg transition-all duration-200"
                 title="Delete product"
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -150,21 +157,21 @@
         </div>
 
       <!-- Empty State -->
-      <div v-else class="text-center py-20 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <svg class="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <div v-else class="text-center py-12 sm:py-20 px-4 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
+          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-brand/20 to-brand/10 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-sm">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
-          <p class="text-gray-500 mb-6 max-w-sm mx-auto">
-            Add your first product to start tracking its AI visibility and get optimization recommendations.
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
+          <p class="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6 max-w-sm mx-auto">
+            Add your first product to start tracking its AI visibility.
           </p>
           <button
             @click="showAddModal = true"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-xl font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+            class="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-brand text-white rounded-xl text-sm sm:text-base font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             Add Your First Product
@@ -174,55 +181,55 @@
 
     <!-- Add/Edit Product Modal -->
     <Teleport to="body">
-      <div v-if="showAddModal || showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" @click.self="closeModals">
-        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 border border-white/50">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+      <div v-if="showAddModal || showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="closeModals">
+        <div class="bg-white/95 backdrop-blur-md rounded-t-2xl sm:rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md border border-white/50 max-h-[90vh] overflow-y-auto">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
             {{ showEditModal ? 'Edit Product' : 'Add New Product' }}
           </h3>
-          <form @submit.prevent="showEditModal ? handleUpdateProduct() : handleAddProduct()" class="space-y-4">
-            <div v-if="formError" class="p-3 bg-red-50/80 border border-red-200/50 rounded-xl text-sm text-red-700">
+          <form @submit.prevent="showEditModal ? handleUpdateProduct() : handleAddProduct()" class="space-y-3 sm:space-y-4">
+            <div v-if="formError" class="p-2.5 sm:p-3 bg-red-50/80 border border-red-200/50 rounded-xl text-xs sm:text-sm text-red-700">
               {{ formError }}
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Product Name <span class="text-red-500">*</span></label>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Product Name <span class="text-red-500">*</span></label>
               <input
                 v-model="productForm.name"
                 type="text"
-                class="w-full px-3.5 py-2.5 border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
+                class="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200/80 rounded-xl bg-white/80 text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-200"
                 placeholder="My Product"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Website Domain <span class="text-red-500">*</span></label>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Website Domain <span class="text-red-500">*</span></label>
               <input
                 v-model="productForm.domain"
                 type="text"
                 :disabled="showEditModal"
-                class="w-full px-3.5 py-2.5 border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-gray-100/80 disabled:cursor-not-allowed transition-all duration-200"
+                class="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200/80 rounded-xl bg-white/80 text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-gray-100/80 disabled:cursor-not-allowed transition-all duration-200"
                 placeholder="example.com"
                 required
               />
-              <p v-if="showEditModal" class="text-xs text-gray-500 mt-1.5">Domain cannot be changed after creation</p>
+              <p v-if="showEditModal" class="text-[10px] sm:text-xs text-gray-500 mt-1 sm:mt-1.5">Domain cannot be changed after creation</p>
             </div>
 
             <!-- Domain Aliases (only show in edit mode) -->
             <div v-if="showEditModal">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">
                 Domain Aliases
                 <span class="font-normal text-gray-400">(optional)</span>
               </label>
-              <p class="text-xs text-gray-500 mb-2">
-                Add related domains that should also count as brand citations (e.g., product websites, subdomains, or affiliated sites).
+              <p class="text-[10px] sm:text-xs text-gray-500 mb-2">
+                Add related domains that should also count as brand citations.
               </p>
 
               <!-- Existing aliases -->
-              <div v-if="productForm.domain_aliases.length > 0" class="flex flex-wrap gap-2 mb-2">
+              <div v-if="productForm.domain_aliases.length > 0" class="flex flex-wrap gap-1.5 sm:gap-2 mb-2">
                 <span
                   v-for="(alias, idx) in productForm.domain_aliases"
                   :key="alias"
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand/10 text-brand rounded-lg text-sm"
+                  class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-brand/10 text-brand rounded-lg text-xs sm:text-sm"
                 >
                   {{ alias }}
                   <button
@@ -230,7 +237,7 @@
                     @click="removeDomainAlias(idx)"
                     class="hover:bg-brand/20 rounded p-0.5 transition-colors"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -242,14 +249,14 @@
                 <input
                   v-model="productForm.newAlias"
                   type="text"
-                  class="flex-1 px-3 py-2 border border-gray-200/80 rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm transition-all duration-200"
-                  placeholder="Add domain alias (e.g., myproduct.com)"
+                  class="flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-200/80 rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-xs sm:text-sm transition-all duration-200"
+                  placeholder="e.g., myproduct.com"
                   @keyup.enter="addDomainAlias"
                 />
                 <button
                   type="button"
                   @click="addDomainAlias"
-                  class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                  class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs sm:text-sm font-medium transition-colors"
                 >
                   Add
                 </button>
@@ -257,37 +264,37 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Description</label>
               <textarea
                 v-model="productForm.description"
-                rows="3"
-                class="w-full px-3.5 py-2.5 border border-gray-200/80 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none transition-all duration-200"
+                rows="2"
+                class="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200/80 rounded-xl bg-white/80 text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none transition-all duration-200"
                 placeholder="Brief description of your product..."
               ></textarea>
             </div>
-            <div v-if="!showEditModal" class="flex items-center gap-2.5">
+            <div v-if="!showEditModal" class="flex items-center gap-2">
               <input
                 id="runAnalysis"
                 v-model="productForm.runInitialAnalysis"
                 type="checkbox"
                 class="w-4 h-4 rounded border-gray-300 text-brand focus:ring-brand"
               />
-              <label for="runAnalysis" class="text-sm text-gray-700">Analyze website & generate recommendations</label>
+              <label for="runAnalysis" class="text-xs sm:text-sm text-gray-700">Analyze website & generate recommendations</label>
             </div>
-            <div class="flex gap-3 justify-end pt-3 border-t border-gray-100/80">
+            <div class="flex gap-2 sm:gap-3 justify-end pt-3 border-t border-gray-100/80">
               <button
                 type="button"
                 @click="closeModals"
-                class="px-4 py-2.5 text-gray-700 hover:bg-gray-100/80 rounded-xl font-medium transition-all duration-200"
+                class="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-700 hover:bg-gray-100/80 rounded-xl text-sm font-medium transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                class="px-5 py-2.5 bg-brand text-white rounded-xl font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
+                class="px-4 sm:px-5 py-2 sm:py-2.5 bg-brand text-white rounded-xl text-sm font-medium shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
                 :disabled="formLoading"
               >
-                {{ formLoading ? 'Saving...' : (showEditModal ? 'Save Changes' : 'Add Product') }}
+                {{ formLoading ? 'Saving...' : (showEditModal ? 'Save' : 'Add Product') }}
               </button>
             </div>
           </form>
@@ -297,31 +304,31 @@
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
-      <div v-if="showDeleteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showDeleteModal = false">
-        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 border border-white/50">
-          <div class="w-12 h-12 rounded-xl bg-red-50/80 flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div v-if="showDeleteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="showDeleteModal = false">
+        <div class="bg-white/95 backdrop-blur-md rounded-t-2xl sm:rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md border border-white/50">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-50/80 flex items-center justify-center mb-3 sm:mb-4">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Product</h3>
-          <p class="text-gray-600 mb-5">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">Delete Product</h3>
+          <p class="text-sm sm:text-base text-gray-600 mb-4 sm:mb-5">
             Are you sure you want to delete <strong class="text-gray-900">{{ productToDelete?.name }}</strong>?
-            This will also delete all associated data including visibility scores and recommendations.
+            This will also delete all associated data.
           </p>
-          <div class="flex gap-3 justify-end pt-3 border-t border-gray-100/80">
+          <div class="flex gap-2 sm:gap-3 justify-end pt-3 border-t border-gray-100/80">
             <button
               @click="showDeleteModal = false"
-              class="px-4 py-2.5 text-gray-700 hover:bg-gray-100/80 rounded-xl font-medium transition-all duration-200"
+              class="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-700 hover:bg-gray-100/80 rounded-xl text-sm font-medium transition-all duration-200"
             >
               Cancel
             </button>
             <button
               @click="handleDeleteProduct"
-              class="px-5 py-2.5 bg-red-500 text-white rounded-xl font-medium shadow-sm shadow-red-500/25 hover:shadow-md hover:shadow-red-500/30 hover:bg-red-600 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
+              class="px-4 sm:px-5 py-2 sm:py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium shadow-sm shadow-red-500/25 hover:shadow-md hover:shadow-red-500/30 hover:bg-red-600 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
               :disabled="deleteLoading"
             >
-              {{ deleteLoading ? 'Deleting...' : 'Delete Product' }}
+              {{ deleteLoading ? 'Deleting...' : 'Delete' }}
             </button>
           </div>
         </div>

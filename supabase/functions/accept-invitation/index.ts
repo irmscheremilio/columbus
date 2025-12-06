@@ -163,6 +163,43 @@ serve(async (req) => {
 
     if (updateError) throw updateError
 
+    // Dismiss any notification the user had for this invite
+    await supabaseAdmin
+      .from('notifications')
+      .update({
+        read_at: new Date().toISOString(),
+        dismissed_at: new Date().toISOString()
+      })
+      .eq('user_id', user.id)
+      .eq('type', 'team_invite')
+      .contains('metadata', { invitation_id: invitation.id })
+
+    // Notify existing org members that someone joined
+    const { data: orgMembers } = await supabaseAdmin
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', invitation.organization_id)
+      .neq('user_id', user.id)
+
+    if (orgMembers && orgMembers.length > 0) {
+      const memberNotifications = orgMembers.map(m => ({
+        user_id: m.user_id,
+        type: 'member_joined',
+        title: 'New team member',
+        message: `${user.email} joined ${invitation.organizations?.name || 'the team'}`,
+        metadata: {
+          organization_id: invitation.organization_id,
+          organization_name: invitation.organizations?.name,
+          new_member_email: user.email,
+          new_member_id: user.id
+        }
+      }))
+
+      await supabaseAdmin
+        .from('notifications')
+        .insert(memberNotifications)
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

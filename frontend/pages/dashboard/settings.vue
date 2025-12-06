@@ -177,8 +177,8 @@
             </div>
           </div>
 
-          <!-- Danger Zone -->
-          <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <!-- Danger Zone - Owner Only -->
+          <div v-if="isOwner" class="bg-white rounded-lg border border-gray-200 p-4">
             <h2 class="text-sm font-semibold text-gray-900 mb-3">Danger Zone</h2>
             <div class="flex items-center justify-between p-3 bg-red-50 rounded-md border border-red-100">
               <div>
@@ -195,7 +195,7 @@
           </div>
         </div>
 
-        <!-- Subscription Sidebar -->
+        <!-- Subscription Sidebar - Owner/Admin Only for Management -->
         <div class="lg:col-span-1 space-y-4">
           <div class="bg-white rounded-lg border border-gray-200 p-4 sticky top-20">
             <h2 class="text-sm font-semibold text-gray-900 mb-3">Subscription</h2>
@@ -252,7 +252,7 @@
                 </div>
               </div>
 
-              <div v-if="subscription.current_period_end" class="pt-2 border-t border-gray-100">
+              <div v-if="subscription.current_period_end && isAdminOrOwner" class="pt-2 border-t border-gray-100">
                 <div class="flex items-center gap-1.5 text-xs text-gray-500">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -261,30 +261,45 @@
                 </div>
               </div>
 
-              <button
-                v-if="currentPlanId === 'free'"
-                class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 transition-colors"
-                @click="upgradePlan"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Upgrade to Pro
-              </button>
-              <button
-                v-else
-                class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
-                @click="manageBilling"
-              >
-                Manage Billing
-              </button>
+              <!-- Billing actions - Owner/Admin only (wait for role to load) -->
+              <template v-if="!roleLoaded">
+                <div class="h-10 bg-gray-100 rounded-md animate-pulse"></div>
+              </template>
+              <template v-else-if="isAdminOrOwner">
+                <button
+                  v-if="currentPlanId === 'free'"
+                  class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-brand text-white text-sm font-medium rounded-md hover:bg-brand/90 transition-colors"
+                  @click="upgradePlan"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Upgrade to Pro
+                </button>
+                <button
+                  v-else
+                  class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+                  @click="manageBilling"
+                >
+                  Manage Billing
+                </button>
 
-              <NuxtLink
-                to="/pricing"
-                class="block text-center text-xs text-brand hover:text-brand/80 transition-colors"
-              >
-                View all plans
-              </NuxtLink>
+                <NuxtLink
+                  to="/pricing"
+                  class="block text-center text-xs text-brand hover:text-brand/80 transition-colors"
+                >
+                  View all plans
+                </NuxtLink>
+              </template>
+
+              <!-- Member notice -->
+              <template v-else>
+                <div class="pt-2 border-t border-gray-100">
+                  <p class="text-xs text-gray-500 text-center">
+                    Contact your organization owner to manage billing
+                  </p>
+                </div>
+              </template>
             </div>
 
             <div v-else class="text-center py-6">
@@ -364,7 +379,7 @@ const organization = ref<any>(null)
 const subscription = ref<any>(null)
 const members = ref<any[]>([])
 const invitations = ref<any[]>([])
-const currentUserRole = ref<string>('member')
+const currentUserRole = ref<string | null>(null) // null until loaded
 
 const orgForm = ref({
   name: '',
@@ -376,7 +391,9 @@ const inviteForm = ref({
   role: 'member' as 'admin' | 'member'
 })
 
-const isAdminOrOwner = computed(() => ['owner', 'admin'].includes(currentUserRole.value))
+const isAdminOrOwner = computed(() => currentUserRole.value !== null && ['owner', 'admin'].includes(currentUserRole.value))
+const isOwner = computed(() => currentUserRole.value === 'owner')
+const roleLoaded = computed(() => currentUserRole.value !== null)
 const currentPlanId = computed(() => subscription.value?.plan_type || organization.value?.plan || 'free')
 
 onMounted(async () => {
@@ -395,7 +412,7 @@ const loadSettings = async () => {
     if (!userData?.organization_id && !userData?.active_organization_id) return
 
     const organizationId = userData.active_organization_id || userData.organization_id
-    currentUserRole.value = userData.role || 'member'
+    // Role will be set from organization_members in loadTeamData
 
     const { data: org } = await supabase
       .from('organizations')
@@ -436,9 +453,18 @@ const loadTeamData = async () => {
       const currentMember = members.value.find(m => m.isCurrentUser)
       if (currentMember) {
         currentUserRole.value = currentMember.role
+      } else {
+        // Fallback: check if user is org creator (owner)
+        if (organization.value?.created_by === user.value?.id) {
+          currentUserRole.value = 'owner'
+        } else {
+          currentUserRole.value = 'member'
+        }
       }
     } else {
       console.error('Error loading members:', membersResult.reason)
+      // On error, default to member for safety
+      currentUserRole.value = 'member'
     }
 
     if (invitationsResult.status === 'fulfilled') {

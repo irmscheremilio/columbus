@@ -5,17 +5,20 @@
       <NuxtLink to="/dashboard" class="flex items-center">
         <img src="/brand/logo_text.png" alt="Columbus" class="h-8" />
       </NuxtLink>
-      <button
-        @click="mobileMenuOpen = !mobileMenuOpen"
-        class="p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 transition-all duration-200"
-      >
+      <div class="flex items-center gap-2">
+        <NotificationBell />
+        <button
+          @click="mobileMenuOpen = !mobileMenuOpen"
+          class="p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 transition-all duration-200"
+        >
         <svg v-if="!mobileMenuOpen" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
         <svg v-else class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
-      </button>
+        </button>
+      </div>
     </div>
 
     <!-- Mobile menu backdrop -->
@@ -55,15 +58,15 @@
           <div class="relative">
             <button
               @click.stop="showOrgSwitcher = !showOrgSwitcher"
-              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center flex-shrink-0">
                   <span class="text-sm font-semibold text-brand">
-                    {{ currentOrg?.name?.charAt(0).toUpperCase() }}
+                    {{ currentOrg?.organization_name?.charAt(0).toUpperCase() }}
                   </span>
                 </div>
-                <span class="text-sm font-medium text-gray-900 truncate">{{ currentOrg?.name }}</span>
+                <span class="text-sm font-medium text-gray-900 truncate">{{ currentOrg?.organization_name }}</span>
               </div>
               <svg
                 class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform"
@@ -127,7 +130,7 @@
           <div class="relative">
             <button
               @click.stop="showProductSwitcher = !showProductSwitcher"
-              class="w-full flex items-center justify-between px-3 py-2 bg-gray-50/80 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-7 h-7 rounded bg-brand/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -229,7 +232,7 @@
           <div class="relative">
             <button
               @click.stop="showRegionSwitcher = !showRegionSwitcher"
-              class="w-full flex items-center justify-between px-2.5 py-1.5 bg-gray-50/80 rounded-lg hover:bg-gray-100/80 transition-all duration-200"
+              class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-gray-100/80 transition-all duration-200"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <span class="text-sm">{{ selectedRegion ? (availableRegions.find(r => r.code === selectedRegion)?.flag || '🌍') : '🌐' }}</span>
@@ -489,6 +492,8 @@
                 <span class="text-xs text-gray-500">Online</span>
               </div>
             </div>
+            <!-- Notification Bell -->
+            <NotificationBell />
           </div>
           <button
             @click="handleLogout"

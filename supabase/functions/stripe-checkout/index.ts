@@ -116,6 +116,30 @@ serve(async (req) => {
 
     const organizationId = profile.active_organization_id || profile.organization_id
 
+    // Check user has owner/admin permission for billing
+    const { data: membership } = await supabaseAdmin
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', organizationId)
+      .eq('user_id', user.id)
+      .single()
+
+    const { data: org } = await supabaseAdmin
+      .from('organizations')
+      .select('created_by')
+      .eq('id', organizationId)
+      .single()
+
+    const isOrgCreator = org?.created_by === user.id
+    const userRole = membership?.role || (isOrgCreator ? 'owner' : 'member')
+
+    if (!['owner', 'admin'].includes(userRole)) {
+      return new Response(
+        JSON.stringify({ error: 'Only owners and admins can manage billing' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Initialize Stripe
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
     if (!stripeSecretKey) {

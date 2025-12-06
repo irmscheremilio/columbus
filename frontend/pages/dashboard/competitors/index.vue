@@ -7,16 +7,17 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Competitors</h1>
           <p class="text-sm text-gray-500">Track visibility vs competitors</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <DateRangeSelector />
           <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors shadow-sm"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors shadow-sm whitespace-nowrap"
             @click="showAddModal = true"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Add Competitor
+            <span class="hidden sm:inline">Add Competitor</span>
+            <span class="sm:hidden">Add</span>
           </button>
         </div>
       </div>
@@ -45,13 +46,13 @@
 
       <!-- Visibility Bar Chart - Brand vs Competitors -->
       <div v-if="trackingCompetitors.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="w-1 h-4 bg-brand rounded-full"></div>
-              <h2 class="text-sm font-semibold text-gray-900">Visibility Comparison</h2>
+              <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Visibility Comparison</h2>
             </div>
-            <div class="flex items-center gap-3 text-[10px]">
+            <div class="hidden sm:flex items-center gap-3 text-[10px]">
               <div class="flex items-center gap-1.5">
                 <div class="w-2 h-2 rounded-sm bg-brand"></div>
                 <span class="text-gray-500 font-medium">Your Brand</span>
@@ -62,10 +63,10 @@
               </div>
             </div>
           </div>
-          <p class="text-[11px] text-gray-400 mt-1 ml-3">AI mention rate comparison · {{ displayLabel }}</p>
+          <p class="text-[10px] sm:text-[11px] text-gray-400 mt-1 ml-3">AI mention rate comparison · {{ displayLabel }}</p>
         </div>
-        <div class="p-4">
-          <div class="h-72">
+        <div class="p-3 sm:p-4">
+          <div class="h-56 sm:h-72">
             <canvas ref="visibilityBarChartCanvas"></canvas>
           </div>
         </div>
@@ -73,16 +74,16 @@
 
       <!-- Trend Chart -->
       <div v-if="trackingCompetitors.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="w-1 h-4 bg-emerald-500 rounded-full"></div>
-              <h2 class="text-sm font-semibold text-gray-900">Performance Over Time</h2>
+              <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Performance Over Time</h2>
             </div>
             <div class="flex items-center gap-2">
               <select
                 v-model="chartMetric"
-                class="text-[11px] bg-gray-100/80 border-0 rounded-md pl-2.5 pr-6 py-1.5 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:14px_14px] bg-[right_6px_center] bg-no-repeat"
+                class="text-[10px] sm:text-[11px] bg-gray-100/80 border-0 rounded-md pl-2 sm:pl-2.5 pr-5 sm:pr-6 py-1 sm:py-1.5 text-gray-600 font-medium cursor-pointer focus:ring-1 focus:ring-brand/30 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20fill%3d%22none%22%20viewBox%3d%220%200%2024%2024%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%3e%3cpath%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%20d%3d%22M19%209l-7%207-7-7%22%2f%3e%3c%2fsvg%3e')] bg-[length:14px_14px] bg-[right_6px_center] bg-no-repeat"
               >
                 <option value="mention_rate">Mention Rate</option>
                 <option value="position">Avg Position</option>
@@ -90,10 +91,10 @@
               </select>
             </div>
           </div>
-          <p class="text-[11px] text-gray-400 mt-1 ml-3">Track visibility trends · {{ chartMetricLabel }}</p>
+          <p class="text-[10px] sm:text-[11px] text-gray-400 mt-1 ml-3">Track visibility trends · {{ chartMetricLabel }}</p>
         </div>
-        <div class="p-4">
-          <div class="relative h-72">
+        <div class="p-3 sm:p-4">
+          <div class="relative h-56 sm:h-72">
             <div v-if="chartLoading" class="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-lg">
               <div class="flex flex-col items-center gap-2">
                 <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
@@ -103,14 +104,14 @@
             <canvas ref="comparisonChartCanvas"></canvas>
           </div>
           <!-- Legend -->
-          <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-gray-100/80">
+          <div class="flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-2 mt-3 sm:mt-4 pt-3 border-t border-gray-100/80">
             <div class="flex items-center gap-1.5">
               <div class="w-3 h-[3px] rounded-full bg-brand"></div>
-              <span class="text-[11px] text-gray-700 font-medium">Your Brand</span>
+              <span class="text-[10px] sm:text-[11px] text-gray-700 font-medium">Your Brand</span>
             </div>
             <div v-for="(competitor, idx) in chartCompetitors" :key="competitor.id" class="flex items-center gap-1.5">
               <div class="w-3 h-[2px] rounded-full opacity-70" :style="{ backgroundColor: competitorColors[idx % competitorColors.length] }"></div>
-              <span class="text-[11px] text-gray-500">{{ competitor.name }}</span>
+              <span class="text-[10px] sm:text-[11px] text-gray-500">{{ competitor.name }}</span>
             </div>
           </div>
         </div>
@@ -118,28 +119,28 @@
 
       <!-- Tracking Competitors Table -->
       <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900">Tracked Competitors</h2>
-            <span class="text-xs text-gray-500 bg-gray-100/80 px-2 py-0.5 rounded-full">
-              {{ trackingCompetitors.length }} competitors
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Tracked Competitors</h2>
+            <span class="text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-1.5 sm:px-2 py-0.5 rounded-full">
+              {{ trackingCompetitors.length }} <span class="hidden sm:inline">competitors</span>
             </span>
           </div>
         </div>
 
-        <div v-if="loading" class="flex items-center justify-center py-12">
+        <div v-if="loading" class="flex items-center justify-center py-8 sm:py-12">
           <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
         </div>
-        <div v-else-if="!trackingCompetitors.length" class="text-center py-12">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div v-else-if="!trackingCompetitors.length" class="text-center py-8 sm:py-12 px-4">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           </div>
-          <p class="text-sm text-gray-500 mb-2">No competitors tracked yet</p>
-          <p class="text-xs text-gray-400 mb-4">Add competitors manually or approve detected ones</p>
+          <p class="text-xs sm:text-sm text-gray-500 mb-2">No competitors tracked yet</p>
+          <p class="text-[10px] sm:text-xs text-gray-400 mb-4">Add competitors manually or approve detected ones</p>
           <button
-            class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors"
+            class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors"
             @click="showAddModal = true"
           >
             Add Competitor
@@ -148,110 +149,112 @@
         <div v-else class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="text-[11px] text-gray-500 uppercase tracking-wide border-b border-gray-100/80 bg-gray-50/30">
+              <tr class="text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-wide border-b border-gray-100/80 bg-gray-50/30">
                 <th
-                  class="text-left px-4 py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  class="text-left px-2.5 sm:px-4 py-2 sm:py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('name')"
                 >
                   Brand {{ getSortIcon('name') }}
                 </th>
                 <th
-                  class="text-center px-4 py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('mention_rate')"
                 >
-                  Mention Rate {{ getSortIcon('mention_rate') }}
+                  <span class="hidden sm:inline">Mention Rate</span>
+                  <span class="sm:hidden">Rate</span>
+                  {{ getSortIcon('mention_rate') }}
                 </th>
                 <th
-                  class="text-center px-4 py-2.5 font-medium hidden sm:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden sm:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('avg_position')"
                 >
                   Avg Position {{ getSortIcon('avg_position') }}
                 </th>
                 <th
-                  class="text-center px-4 py-2.5 font-medium hidden md:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden md:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('citation_rate')"
                   title="Brand website was cited"
                 >
                   Brand Cited {{ getSortIcon('citation_rate') }}
                 </th>
                 <th
-                  class="text-center px-4 py-2.5 font-medium hidden lg:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
+                  class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden lg:table-cell cursor-pointer hover:text-gray-700 transition-colors select-none"
                   @click="toggleSort('detection_count')"
                 >
                   Detections {{ getSortIcon('detection_count') }}
                 </th>
-                <th class="text-right px-4 py-2.5 font-medium">Actions</th>
+                <th class="text-right px-2.5 sm:px-4 py-2 sm:py-2.5 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100/80">
               <tr
                 v-for="competitor in trackingCompetitors"
                 :key="competitor.id"
-                class="text-sm transition-colors"
+                class="text-xs sm:text-sm transition-colors"
                 :class="competitor.is_own_brand ? 'bg-brand/5 hover:bg-brand/10' : 'hover:bg-gray-50/50 cursor-pointer'"
                 @click="!competitor.is_own_brand && $router.push(`/dashboard/competitors/${competitor.id}`)"
               >
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
+                <td class="px-2.5 sm:px-4 py-2.5 sm:py-3">
+                  <div class="flex items-center gap-2 sm:gap-3">
                     <div
-                      class="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+                      class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
                       :class="competitor.is_own_brand ? 'bg-brand/20' : 'bg-gray-100'"
                     >
                       <img
                         v-if="competitor.icon_url || competitor.domain"
                         :src="competitor.icon_url || getFaviconUrl(competitor.domain, 32)"
                         :alt="competitor.name"
-                        class="w-5 h-5"
+                        class="w-4 h-4 sm:w-5 sm:h-5"
                         @error="($event.target as HTMLImageElement).style.display = 'none'"
                       />
-                      <span v-else class="text-xs font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-400'">{{ competitor.name.charAt(0).toUpperCase() }}</span>
+                      <span v-else class="text-[10px] sm:text-xs font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-400'">{{ competitor.name.charAt(0).toUpperCase() }}</span>
                     </div>
-                    <div>
-                      <div class="flex items-center gap-2">
-                        <div class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-900'">{{ competitor.name }}</div>
-                        <span v-if="competitor.is_own_brand" class="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded font-medium">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <div class="font-medium truncate" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-900'">{{ competitor.name }}</div>
+                        <span v-if="competitor.is_own_brand" class="text-[9px] sm:text-[10px] text-brand bg-brand/10 px-1 sm:px-1.5 py-0.5 rounded font-medium">
                           You
                         </span>
-                        <span v-else-if="competitor.is_auto_detected" class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                        <span v-else-if="competitor.is_auto_detected" class="text-[9px] sm:text-[10px] text-amber-600 bg-amber-50 px-1 sm:px-1.5 py-0.5 rounded">
                           auto
                         </span>
                       </div>
-                      <div v-if="competitor.domain" class="text-xs text-gray-400">{{ competitor.domain }}</div>
+                      <div v-if="competitor.domain" class="text-[10px] sm:text-xs text-gray-400 truncate">{{ competitor.domain }}</div>
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center">
                   <div class="flex items-center justify-center gap-1">
-                    <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : getMentionColor(competitor.mention_rate)">
+                    <span class="font-medium text-xs sm:text-sm" :class="competitor.is_own_brand ? 'text-brand' : getMentionColor(competitor.mention_rate)">
                       {{ competitor.mention_rate !== null ? `${competitor.mention_rate}%` : '-' }}
                     </span>
-                    <span v-if="!competitor.is_own_brand && competitor.mention_rate !== null && brandMentionRate !== null" class="text-[10px]" :class="competitor.mention_rate < brandMentionRate ? 'text-emerald-500' : competitor.mention_rate > brandMentionRate ? 'text-red-500' : 'text-gray-400'">
+                    <span v-if="!competitor.is_own_brand && competitor.mention_rate !== null && brandMentionRate !== null" class="text-[9px] sm:text-[10px]" :class="competitor.mention_rate < brandMentionRate ? 'text-emerald-500' : competitor.mention_rate > brandMentionRate ? 'text-red-500' : 'text-gray-400'">
                       {{ competitor.mention_rate < brandMentionRate ? '↓' : competitor.mention_rate > brandMentionRate ? '↑' : '=' }}
                     </span>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-center hidden sm:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden sm:table-cell">
                   <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-700'">
                     {{ competitor.avg_position ? `#${competitor.avg_position.toFixed(1)}` : '-' }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-center hidden md:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden md:table-cell">
                   <span class="font-medium" :class="competitor.is_own_brand ? 'text-brand' : 'text-gray-700'">
                     {{ competitor.citation_rate !== null ? `${competitor.citation_rate}%` : '-' }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-center hidden lg:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden lg:table-cell">
                   <span v-if="!competitor.is_own_brand" class="text-gray-500 text-xs">{{ competitor.detection_count || 0 }}</span>
                   <span v-else class="text-gray-400 text-xs">-</span>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <div v-if="!competitor.is_own_brand" class="flex items-center justify-end gap-1">
+                <td class="px-2.5 sm:px-4 py-2.5 sm:py-3 text-right">
+                  <div v-if="!competitor.is_own_brand" class="flex items-center justify-end gap-0.5 sm:gap-1">
                     <button
                       @click.stop="openEditModal(competitor)"
                       class="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                       title="Edit competitor"
                     >
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
@@ -260,7 +263,7 @@
                       class="p-1 text-gray-400 hover:text-red-500 transition-colors"
                       title="Stop tracking"
                     >
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
@@ -274,60 +277,60 @@
 
       <!-- Proposed Competitors Section (Moved to Bottom) -->
       <div v-if="proposedCompetitors.length > 0" class="bg-amber-50/80 backdrop-blur-sm rounded-xl shadow-sm border border-amber-100/50 overflow-hidden">
-        <div class="px-4 py-3 border-b border-amber-100/80 bg-gradient-to-r from-amber-100/50 to-transparent">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-amber-100/80 bg-gradient-to-r from-amber-100/50 to-transparent">
           <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <h2 class="text-sm font-semibold text-amber-800">Detected Competitors</h2>
-            <span class="text-xs text-amber-600 bg-amber-100/80 px-2 py-0.5 rounded-full">{{ proposedCompetitors.length }} new</span>
+            <h2 class="text-xs sm:text-sm font-semibold text-amber-800">Detected Competitors</h2>
+            <span class="text-[10px] sm:text-xs text-amber-600 bg-amber-100/80 px-1.5 sm:px-2 py-0.5 rounded-full">{{ proposedCompetitors.length }} new</span>
           </div>
-          <p class="text-xs text-amber-700 mt-1">AI detected these competitors in responses. Review and start tracking.</p>
+          <p class="text-[10px] sm:text-xs text-amber-700 mt-1">AI detected these competitors in responses. Review and start tracking.</p>
         </div>
         <div class="divide-y divide-amber-100/80">
           <div
             v-for="competitor in proposedCompetitors"
             :key="competitor.id"
-            class="px-4 py-3 flex items-center justify-between gap-4"
+            class="px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
           >
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-              <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 <img
                   v-if="competitor.icon_url || competitor.domain"
                   :src="competitor.icon_url || getFaviconUrl(competitor.domain, 32)"
                   :alt="competitor.name"
-                  class="w-5 h-5"
+                  class="w-4 h-4 sm:w-5 sm:h-5"
                   @error="($event.target as HTMLImageElement).style.display = 'none'"
                 />
-                <span v-else class="text-xs font-medium text-amber-600">{{ competitor.name.charAt(0).toUpperCase() }}</span>
+                <span v-else class="text-[10px] sm:text-xs font-medium text-amber-600">{{ competitor.name.charAt(0).toUpperCase() }}</span>
               </div>
               <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">{{ competitor.name }}</span>
-                  <span v-if="competitor.detection_count > 1" class="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
-                    {{ competitor.detection_count }}x detected
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span class="font-medium text-xs sm:text-sm text-gray-900">{{ competitor.name }}</span>
+                  <span v-if="competitor.detection_count > 1" class="text-[10px] sm:text-xs text-amber-600 bg-amber-100 px-1 sm:px-1.5 py-0.5 rounded">
+                    {{ competitor.detection_count }}x
                   </span>
                 </div>
-                <p v-if="competitor.detection_context" class="text-xs text-gray-500 truncate mt-0.5" :title="competitor.detection_context">
+                <p v-if="competitor.detection_context" class="text-[10px] sm:text-xs text-gray-500 truncate mt-0.5" :title="competitor.detection_context">
                   "{{ competitor.detection_context }}"
                 </p>
               </div>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-9 sm:ml-0">
               <button
                 @click="approveCompetitor(competitor)"
-                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-100 rounded-lg hover:bg-emerald-200 transition-colors"
+                class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium text-emerald-700 bg-emerald-100 rounded-lg hover:bg-emerald-200 transition-colors"
               >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 Track
               </button>
               <button
                 @click="denyCompetitor(competitor)"
-                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 Dismiss
@@ -339,100 +342,104 @@
     </div>
 
     <!-- Add Competitor Modal -->
-    <div
-      v-if="showAddModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      @click.self="showAddModal = false"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-sm w-full">
-        <h3 class="text-lg font-semibold mb-4">Add Competitor</h3>
-        <form @submit.prevent="addCompetitor" class="space-y-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
-            <input
-              v-model="newCompetitor.name"
-              type="text"
-              required
-              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
-              placeholder="Competitor Inc."
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Website (Optional)</label>
-            <input
-              v-model="newCompetitor.domain"
-              type="url"
-              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
-              placeholder="https://competitor.com"
-            />
-          </div>
-          <div class="flex gap-2 pt-2">
-            <button
-              type="button"
-              @click="showAddModal = false"
-              class="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
-              :disabled="isSubmitting"
-            >
-              {{ isSubmitting ? 'Adding...' : 'Add' }}
-            </button>
-          </div>
-        </form>
+    <Transition name="modal">
+      <div
+        v-if="showAddModal"
+        class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50"
+        @click.self="showAddModal = false"
+      >
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+          <h3 class="text-base sm:text-lg font-semibold mb-4">Add Competitor</h3>
+          <form @submit.prevent="addCompetitor" class="space-y-3">
+            <div>
+              <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Name</label>
+              <input
+                v-model="newCompetitor.name"
+                type="text"
+                required
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="Competitor Inc."
+              />
+            </div>
+            <div>
+              <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Website (Optional)</label>
+              <input
+                v-model="newCompetitor.domain"
+                type="url"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="https://competitor.com"
+              />
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button
+                type="button"
+                @click="showAddModal = false"
+                class="flex-1 px-3 py-2.5 sm:py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="flex-1 px-3 py-2.5 sm:py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
+                :disabled="isSubmitting"
+              >
+                {{ isSubmitting ? 'Adding...' : 'Add' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- Edit Competitor Modal -->
-    <div
-      v-if="showEditModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      @click.self="showEditModal = false"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-sm w-full">
-        <h3 class="text-lg font-semibold mb-4">Edit Competitor</h3>
-        <form @submit.prevent="updateCompetitor" class="space-y-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
-            <input
-              v-model="editForm.name"
-              type="text"
-              required
-              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
-              placeholder="Competitor Inc."
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Website (Optional)</label>
-            <input
-              v-model="editForm.domain"
-              type="text"
-              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
-              placeholder="competitor.com"
-            />
-          </div>
-          <div class="flex gap-2 pt-2">
-            <button
-              type="button"
-              @click="showEditModal = false; editingCompetitor = null"
-              class="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
-              :disabled="isSubmitting"
-            >
-              {{ isSubmitting ? 'Saving...' : 'Save' }}
-            </button>
-          </div>
-        </form>
+    <Transition name="modal">
+      <div
+        v-if="showEditModal"
+        class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50"
+        @click.self="showEditModal = false"
+      >
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+          <h3 class="text-base sm:text-lg font-semibold mb-4">Edit Competitor</h3>
+          <form @submit.prevent="updateCompetitor" class="space-y-3">
+            <div>
+              <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Name</label>
+              <input
+                v-model="editForm.name"
+                type="text"
+                required
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="Competitor Inc."
+              />
+            </div>
+            <div>
+              <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Website (Optional)</label>
+              <input
+                v-model="editForm.domain"
+                type="text"
+                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="competitor.com"
+              />
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button
+                type="button"
+                @click="showEditModal = false; editingCompetitor = null"
+                class="flex-1 px-3 py-2.5 sm:py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="flex-1 px-3 py-2.5 sm:py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50"
+                :disabled="isSubmitting"
+              >
+                {{ isSubmitting ? 'Saving...' : 'Save' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -449,7 +456,7 @@ const { getFaviconUrl } = useFavicon()
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { selectedRegion } = useRegionFilter()
-const { dateRange, displayLabel } = useDateRange()
+const { dateRange, displayLabel, version: dateRangeVersion } = useDateRange()
 
 const loading = ref(true)
 const chartLoading = ref(false)
@@ -627,11 +634,11 @@ watch(activeProductId, async (newProductId) => {
 })
 
 // Watch for global date range changes
-watch(dateRange, () => {
+watch(dateRangeVersion, () => {
   if (activeProductId.value) {
     loadCompetitors()
   }
-}, { deep: true })
+})
 
 watch(chartMetric, () => {
   loadChartData()
@@ -710,6 +717,7 @@ const loadCompetitors = async () => {
 
 const loadBrandMetrics = async (productId: string) => {
   const startDate = dateRange.value.startDate
+  const endDate = dateRange.value.endDate
 
   let query = supabase
     .from('prompt_results')
@@ -718,6 +726,9 @@ const loadBrandMetrics = async (productId: string) => {
 
   if (startDate) {
     query = query.gte('tested_at', startDate.toISOString())
+  }
+  if (endDate) {
+    query = query.lte('tested_at', endDate.toISOString())
   }
 
   if (selectedRegion.value) {
@@ -755,6 +766,7 @@ const loadCompetitorMetrics = async (productId: string) => {
   }
 
   const startDate = dateRange.value.startDate
+  const endDate = dateRange.value.endDate
 
   // Get count of prompt results for the period (for calculating rates)
   let countQuery = supabase
@@ -764,6 +776,9 @@ const loadCompetitorMetrics = async (productId: string) => {
 
   if (startDate) {
     countQuery = countQuery.gte('tested_at', startDate.toISOString())
+  }
+  if (endDate) {
+    countQuery = countQuery.lte('tested_at', endDate.toISOString())
   }
 
   if (selectedRegion.value) {
@@ -795,6 +810,9 @@ const loadCompetitorMetrics = async (productId: string) => {
   if (startDate) {
     mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
   }
+  if (endDate) {
+    mentionsQuery = mentionsQuery.lte('detected_at', endDate.toISOString())
+  }
 
   // Filter by region through the joined prompt_results
   if (selectedRegion.value) {
@@ -822,6 +840,9 @@ const loadCompetitorMetrics = async (productId: string) => {
 
     if (startDate) {
       citationsQuery = citationsQuery.gte('created_at', startDate.toISOString())
+    }
+    if (endDate) {
+      citationsQuery = citationsQuery.lte('created_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {
@@ -915,6 +936,11 @@ const loadChartData = async () => {
       brandQuery = brandQuery.gte('tested_at', startDate.toISOString())
     }
 
+    const endDate = dateRange.value.endDate
+    if (endDate) {
+      brandQuery = brandQuery.lte('tested_at', endDate.toISOString())
+    }
+
     if (selectedRegion.value) {
       brandQuery = brandQuery.ilike('request_country', selectedRegion.value)
     }
@@ -935,6 +961,10 @@ const loadChartData = async () => {
 
       if (startDate) {
         mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+      }
+
+      if (endDate) {
+        mentionsQuery = mentionsQuery.lte('detected_at', endDate.toISOString())
       }
 
       if (selectedRegion.value) {
@@ -1510,3 +1540,30 @@ const updateCompetitor = async () => {
   }
 }
 </script>
+
+<style scoped>
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-active > div,
+.modal-leave-active > div {
+  transition: transform 0.2s ease;
+}
+@media (max-width: 639px) {
+  .modal-enter-from > div,
+  .modal-leave-to > div {
+    transform: translateY(100%);
+  }
+}
+@media (min-width: 640px) {
+  .modal-enter-from > div,
+  .modal-leave-to > div {
+    transform: scale(0.95);
+  }
+}
+</style>

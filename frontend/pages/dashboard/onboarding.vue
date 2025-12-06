@@ -1253,6 +1253,9 @@ const startAnalysis = async () => {
       .filter(a => a.length > 0)
 
     // Create product via edge function with language for prompt generation
+    console.log('[Onboarding] Selected language:', selectedLanguage.value)
+    console.log('[Onboarding] Sending primaryLanguage:', selectedLanguage.value.code)
+
     const { data: result, error } = await supabase.functions.invoke('create-product', {
       body: {
         name: productForm.value.name,
@@ -1262,6 +1265,8 @@ const startAnalysis = async () => {
         runInitialAnalysis: true
       }
     })
+
+    console.log('[Onboarding] create-product response:', result)
 
     if (error) throw error
     if (!result.success) throw new Error(result.error || 'Failed to create product')

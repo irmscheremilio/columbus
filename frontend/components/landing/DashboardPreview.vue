@@ -1,29 +1,29 @@
 <template>
-  <section class="py-24 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
+  <section class="py-16 sm:py-24 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
     <div class="container mx-auto px-4">
       <!-- Section Header -->
-      <div class="text-center mb-12">
-        <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">Live Dashboard</span>
-        <h2 class="text-4xl md:text-5xl font-bold mb-4">
+      <div class="text-center mb-8 sm:mb-12">
+        <span class="inline-block px-3 sm:px-4 py-1 bg-brand/10 text-brand rounded-full text-xs sm:text-sm font-medium mb-3 sm:mb-4">Live Dashboard</span>
+        <h2 class="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4">
           See Your <span class="brand-text">Visibility</span> in Action
         </h2>
-        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+        <p class="text-base sm:text-xl text-gray-600 max-w-2xl mx-auto px-2">
           Real-time insights into how AI platforms see your brand
         </p>
       </div>
 
       <!-- Product Selector (Fake) -->
-      <div class="max-w-6xl mx-auto mb-8">
+      <div class="max-w-6xl mx-auto mb-6 sm:mb-8">
         <div class="flex items-center justify-center">
-          <div class="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-              <img src="https://www.google.com/s2/favicons?domain=monday.com&sz=32" alt="monday.com" class="w-5 h-5" />
+          <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+              <img src="https://www.google.com/s2/favicons?domain=monday.com&sz=32" alt="monday.com" class="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div class="text-sm font-semibold text-gray-900">monday.com</div>
-              <div class="text-[10px] text-gray-500">monday.com</div>
+              <div class="text-xs sm:text-sm font-semibold text-gray-900">monday.com</div>
+              <div class="text-[9px] sm:text-[10px] text-gray-500">monday.com</div>
             </div>
-            <svg class="w-4 h-4 text-gray-400 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 ml-1 sm:ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -282,16 +282,16 @@
         </div>
 
         <!-- CTA -->
-        <div class="text-center mt-12">
-          <a
-            href="#pricing"
-            class="inline-flex items-center gap-2 px-8 py-4 text-lg rounded-xl font-semibold bg-gradient-to-r from-brand to-yellow-500 text-white shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:scale-105 transition-all duration-300"
+        <div class="text-center mt-8 sm:mt-12">
+          <NuxtLink
+            to="/pricing"
+            class="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg rounded-xl font-semibold bg-gradient-to-r from-brand to-yellow-500 text-white shadow-lg shadow-brand/30 hover:shadow-xl hover:shadow-brand/40 hover:scale-105 transition-all duration-300"
           >
             Start Tracking Your Visibility
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
-          </a>
+          </NuxtLink>
         </div>
       </div>
     </div>

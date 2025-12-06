@@ -189,6 +189,34 @@ serve(async (req) => {
 
       if (insertError) throw insertError
 
+      // Check if invited user already exists in the system - if so, create a notification
+      const { data: invitedUser } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email.toLowerCase())
+        .single()
+
+      if (invitedUser) {
+        // Create notification for the invited user
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: invitedUser.id,
+            type: 'team_invite',
+            title: `Invitation to join ${org?.name || 'a team'}`,
+            message: `${user.email} invited you to join as ${role}`,
+            metadata: {
+              invitation_id: invitation.id,
+              organization_id: organizationId,
+              organization_name: org?.name,
+              role: role,
+              invited_by: user.id,
+              invited_by_email: user.email
+            },
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          })
+      }
+
       // Send invitation email
       const resendApiKey = Deno.env.get('RESEND_API_KEY')
       const appUrl = Deno.env.get('APP_URL') || 'https://columbus-aeo.com'

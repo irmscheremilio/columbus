@@ -1,0 +1,57 @@
+# Columbus Platform robots.txt
+
+# Allow all crawlers by default
+User-agent: *
+Allow: /
+
+# AI Search Bots (allow for AEO visibility)
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+Allow: /favicon.ico
+Allow: /assets/
+Allow: /*.css
+Allow: /*.js
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# Disallow private/authenticated pages
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /auth/callback
+Disallow: /onboarding
+Disallow: /settings
+Disallow: /settings/*
+
+# Sitemap
+Sitemap: https://columbus-aeo.com/sitemap.xml

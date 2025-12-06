@@ -23,60 +23,76 @@
         <span v-if="selectedPreset === 'custom'">{{ customLabel }}</span>
         <span v-else>Custom</span>
       </button>
+    </div>
+  </div>
 
-      <!-- Custom Date Picker Dropdown -->
-      <Transition name="dropdown">
+  <!-- Teleport modal to body -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showCustomPicker"
+        class="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        @click.self="cancelCustom"
+      >
         <div
-          v-if="showCustomPicker"
-          class="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50 min-w-[280px]"
+          class="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:w-auto sm:min-w-[320px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden"
         >
-          <div class="space-y-3">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h3 class="text-sm font-semibold text-gray-900">Custom Date Range</h3>
+            <button
+              @click="cancelCustom"
+              class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="p-4 space-y-4">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Start Date</label>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Start Date</label>
               <input
                 type="date"
                 v-model="tempStartDate"
                 :max="tempEndDate || today"
-                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">End Date</label>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">End Date</label>
               <input
                 type="date"
                 v-model="tempEndDate"
                 :min="tempStartDate"
                 :max="today"
-                class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               />
             </div>
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-              <button
-                @click="cancelCustom"
-                class="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="applyCustom"
-                :disabled="!tempStartDate || !tempEndDate"
-                class="px-3 py-1.5 text-xs font-medium bg-brand text-white rounded-lg hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Apply
-              </button>
-            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+            <button
+              @click="cancelCustom"
+              class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              @click="applyCustom"
+              :disabled="!tempStartDate || !tempEndDate"
+              class="px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Apply
+            </button>
           </div>
         </div>
-      </Transition>
-    </div>
-  </div>
-
-  <!-- Backdrop to close picker -->
-  <div
-    v-if="showCustomPicker"
-    class="fixed inset-0 z-40"
-    @click="cancelCustom"
-  ></div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -108,21 +124,27 @@ const selectPreset = (preset: string) => {
   showCustomPicker.value = false
 }
 
+// Helper to format Date as YYYY-MM-DD using local timezone
+const formatDateLocal = (d: Date): string => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const toggleCustomPicker = () => {
   if (showCustomPicker.value) {
     cancelCustom()
   } else {
     // Initialize with current custom values or last 7 days
     if (customStartDate.value) {
-      tempStartDate.value = customStartDate.value.toISOString().split('T')[0]
+      // Format as local date string to avoid timezone issues
+      tempStartDate.value = formatDateLocal(customStartDate.value)
     } else {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      tempStartDate.value = d.toISOString().split('T')[0]
+      tempStartDate.value = formatDateLocal(d)
     }
 
     if (customEndDate.value) {
-      tempEndDate.value = customEndDate.value.toISOString().split('T')[0]
+      tempEndDate.value = formatDateLocal(customEndDate.value)
     } else {
       tempEndDate.value = today.value
     }
@@ -133,11 +155,13 @@ const toggleCustomPicker = () => {
 
 const applyCustom = () => {
   if (tempStartDate.value && tempEndDate.value) {
-    const start = new Date(tempStartDate.value)
-    start.setHours(0, 0, 0, 0)
+    // Parse as LOCAL dates (not UTC) to avoid timezone issues
+    // new Date("YYYY-MM-DD") parses as UTC, causing off-by-one day errors
+    const [startYear, startMonth, startDay] = tempStartDate.value.split('-').map(Number)
+    const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0)
 
-    const end = new Date(tempEndDate.value)
-    end.setHours(23, 59, 59, 999)
+    const [endYear, endMonth, endDay] = tempEndDate.value.split('-').map(Number)
+    const end = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999)
 
     setCustomRange(start, end)
     showCustomPicker.value = false
@@ -152,14 +176,30 @@ const cancelCustom = () => {
 </script>
 
 <style scoped>
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
 }
 
-.dropdown-enter-from,
-.dropdown-leave-to {
+.modal-enter-active > div,
+.modal-leave-active > div {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+}
+
+.modal-enter-from > div,
+.modal-leave-to > div {
+  transform: translateY(100%);
+}
+
+@media (min-width: 640px) {
+  .modal-enter-from > div,
+  .modal-leave-to > div {
+    transform: scale(0.95);
+  }
 }
 </style>

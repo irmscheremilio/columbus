@@ -2,24 +2,24 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Recommendations</h1>
-          <p class="text-sm text-gray-500">AEO improvements to boost visibility</p>
+          <h1 class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">Recommendations</h1>
+          <p class="text-xs sm:text-sm text-gray-500">AEO improvements to boost visibility</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
           <button
-            class="inline-flex items-center gap-2 px-3 py-2 bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 text-sm font-medium rounded-xl shadow-sm hover:bg-white hover:shadow-md transition-all duration-200"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 text-xs sm:text-sm font-medium rounded-xl shadow-sm hover:bg-white hover:shadow-md transition-all duration-200"
             @click="refreshRecommendations"
             :disabled="loading"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            <span class="hidden sm:inline">Refresh</span>
           </button>
           <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-xl shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 disabled:opacity-50"
             @click="runWebsiteAnalysis"
             :disabled="analyzing"
           >
@@ -27,28 +27,49 @@
             <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
-            {{ analyzing ? 'Analyzing...' : 'New Analysis' }}
+            <span class="hidden sm:inline">{{ analyzing ? 'Analyzing...' : 'New Analysis' }}</span>
+            <span class="sm:hidden">{{ analyzing ? '...' : 'Analyze' }}</span>
           </button>
         </div>
       </div>
 
       <!-- Hero Card -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
-        <div class="px-5 py-4 flex items-center justify-between border-l-4 border-l-brand">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <svg class="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="px-3 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-4 border-l-brand">
+          <div class="flex items-center gap-3 sm:gap-4">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
             <div>
-              <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">High Impact Actions</div>
+              <div class="text-[10px] sm:text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">High Impact Actions</div>
               <div class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold text-gray-900">{{ highImpactCount }}</span>
-                <span class="text-base font-medium text-gray-400">pending</span>
+                <span class="text-2xl sm:text-3xl font-bold text-gray-900">{{ highImpactCount }}</span>
+                <span class="text-sm sm:text-base font-medium text-gray-400">pending</span>
               </div>
             </div>
           </div>
+          <!-- Mobile stats row with horizontal scroll -->
+          <div class="flex sm:hidden items-center gap-2 overflow-x-auto -mx-3 px-3 pb-1">
+            <div class="text-center px-2.5 py-1.5 bg-amber-50 rounded-lg flex-shrink-0">
+              <div class="text-sm font-bold text-amber-600">{{ pendingCount }}</div>
+              <div class="text-[9px] text-gray-500">Pending</div>
+            </div>
+            <div class="text-center px-2.5 py-1.5 bg-blue-50 rounded-lg flex-shrink-0">
+              <div class="text-sm font-bold text-blue-600">{{ inProgressCount }}</div>
+              <div class="text-[9px] text-gray-500">In Progress</div>
+            </div>
+            <div class="text-center px-2.5 py-1.5 bg-emerald-50 rounded-lg flex-shrink-0">
+              <div class="text-sm font-bold text-emerald-600">{{ completedCount }}</div>
+              <div class="text-[9px] text-emerald-600">Completed</div>
+            </div>
+            <div class="text-center px-2.5 py-1.5 bg-gray-50 rounded-lg flex-shrink-0">
+              <div class="text-sm font-bold text-gray-900">{{ uniquePages.length }}</div>
+              <div class="text-[9px] text-gray-500">Pages</div>
+            </div>
+          </div>
+          <!-- Desktop stats -->
           <div class="hidden sm:flex items-center gap-3">
             <div class="text-center px-3 py-1.5 bg-amber-50 rounded-lg">
               <div class="text-base font-bold text-amber-600">{{ pendingCount }}</div>
@@ -72,49 +93,49 @@
 
       <!-- Filters Card -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center gap-2">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center gap-2">
           <div class="w-1 h-4 rounded-full bg-violet-500"></div>
           <div>
-            <h2 class="text-sm font-semibold text-gray-900">Filters</h2>
-            <p class="text-[10px] text-gray-500 mt-0.5">Narrow down recommendations</p>
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Filters</h2>
+            <p class="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">Narrow down recommendations</p>
           </div>
         </div>
-        <div class="p-4">
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5">
+        <div class="p-3 sm:p-4">
+          <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
+            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5 overflow-x-auto">
               <button
                 v-for="status in statusOptions"
                 :key="status.value"
                 @click="filterStatus = status.value"
-                class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+                class="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap"
                 :class="filterStatus === status.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ status.label }}
               </button>
             </div>
-            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5">
+            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5 overflow-x-auto">
               <button
                 v-for="impact in impactOptions"
                 :key="impact.value"
                 @click="filterImpact = impact.value"
-                class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+                class="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap"
                 :class="filterImpact === impact.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ impact.label }}
               </button>
             </div>
-            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5">
+            <div class="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5 overflow-x-auto">
               <button
                 v-for="cat in categoryOptions"
                 :key="cat.value"
                 @click="filterCategory = cat.value"
-                class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+                class="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap"
                 :class="filterCategory === cat.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ cat.label }}
               </button>
             </div>
-            <div class="ml-auto text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md">
+            <div class="sm:ml-auto text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md self-start">
               {{ filteredRecommendations.length }} of {{ recommendations.length }}
             </div>
           </div>
@@ -123,78 +144,78 @@
 
       <!-- Recommendations Table -->
       <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200">
-        <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <div class="w-1 h-4 rounded-full bg-brand"></div>
             <div>
-              <h2 class="text-sm font-semibold text-gray-900">All Recommendations</h2>
-              <p class="text-[10px] text-gray-500 mt-0.5">Click to view details and implementation steps</p>
+              <h2 class="text-xs sm:text-sm font-semibold text-gray-900">All Recommendations</h2>
+              <p class="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">Click to view details and implementation steps</p>
             </div>
           </div>
         </div>
-        <div v-if="loading" class="flex items-center justify-center py-12">
+        <div v-if="loading" class="flex items-center justify-center py-8 sm:py-12">
           <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
         </div>
-        <div v-else-if="!filteredRecommendations.length" class="text-center py-12">
-          <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <div v-else-if="!filteredRecommendations.length" class="text-center py-8 sm:py-12 px-4">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </div>
-          <p class="text-sm text-gray-500">
+          <p class="text-xs sm:text-sm text-gray-500">
             {{ filterStatus === 'all' && filterCategory === 'all' ? 'No recommendations yet. Run an analysis to get started.' : 'No recommendations match your filters.' }}
           </p>
         </div>
         <div v-else class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
-                <th class="text-left px-4 py-3 font-medium">Recommendation</th>
-                <th class="text-left px-4 py-3 font-medium hidden sm:table-cell">Category</th>
-                <th class="text-center px-4 py-3 font-medium">Impact</th>
-                <th class="text-center px-4 py-3 font-medium hidden md:table-cell">Effort</th>
-                <th class="text-center px-4 py-3 font-medium">Status</th>
-                <th class="text-right px-4 py-3 font-medium w-10"></th>
+              <tr class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
+                <th class="text-left px-2.5 sm:px-4 py-2 sm:py-3 font-medium">Recommendation</th>
+                <th class="text-left px-2 sm:px-4 py-2 sm:py-3 font-medium hidden sm:table-cell">Category</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium">Impact</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium hidden md:table-cell">Effort</th>
+                <th class="text-center px-2 sm:px-4 py-2 sm:py-3 font-medium hidden sm:table-cell">Status</th>
+                <th class="text-right px-2 sm:px-4 py-2 sm:py-3 font-medium w-8 sm:w-10"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100/80">
               <tr
                 v-for="rec in filteredRecommendations"
                 :key="rec.id"
-                class="text-sm hover:bg-gray-50/80 cursor-pointer transition-colors"
+                class="text-xs sm:text-sm hover:bg-gray-50/80 cursor-pointer transition-colors"
                 @click="$router.push(`/dashboard/recommendations/${rec.id}`)"
               >
-                <td class="px-4 py-3">
-                  <div class="flex items-start gap-3">
+                <td class="px-2.5 sm:px-4 py-2.5 sm:py-3">
+                  <div class="flex items-start gap-2 sm:gap-3">
                     <span
-                      class="flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold text-white flex items-center justify-center shadow-sm"
+                      class="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-[10px] sm:text-xs font-bold text-white flex items-center justify-center shadow-sm"
                       :class="getPriorityClass(rec.priority)"
                     >
                       {{ rec.priority }}
                     </span>
                     <div class="min-w-0">
-                      <div class="text-gray-900 font-medium truncate">{{ rec.title }}</div>
-                      <div class="text-xs text-gray-500 truncate mt-0.5">{{ rec.description }}</div>
+                      <div class="text-gray-900 font-medium truncate text-xs sm:text-sm">{{ rec.title }}</div>
+                      <div class="text-[10px] sm:text-xs text-gray-500 truncate mt-0.5">{{ rec.description }}</div>
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 hidden sm:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 hidden sm:table-cell">
                   <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium" :class="getCategoryClass(rec.category)">
                     {{ formatCategory(rec.category) }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center">
                   <span
-                    class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium"
+                    class="inline-flex px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-medium"
                     :class="rec.estimated_impact === 'high' ? 'bg-brand/10 text-brand' : rec.estimated_impact === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'"
                   >
                     {{ rec.estimated_impact }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-center hidden md:table-cell">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden md:table-cell">
                   <span class="text-xs text-gray-500">{{ rec.difficulty }}</span>
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden sm:table-cell">
                   <span
                     class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium"
                     :class="getStatusClass(rec.status)"
@@ -202,8 +223,8 @@
                     {{ formatStatus(rec.status) }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <td class="px-2 sm:px-4 py-2.5 sm:py-3 text-right">
+                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </td>
@@ -214,37 +235,37 @@
       </div>
 
       <!-- Category Breakdown -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         <div
           v-for="cat in categoryStats"
           :key="cat.name"
           class="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow duration-200"
         >
-          <div class="px-4 py-3 border-b border-gray-100/80 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="cat.bgClass">
-                <svg class="w-4 h-4" :class="cat.iconClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 flex items-center justify-between">
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center" :class="cat.bgClass">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" :class="cat.iconClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" :d="cat.icon" />
                 </svg>
               </div>
-              <span class="font-semibold text-sm text-gray-900">{{ cat.label }}</span>
+              <span class="font-semibold text-xs sm:text-sm text-gray-900">{{ cat.label }}</span>
             </div>
-            <span class="text-lg font-bold text-gray-900">{{ cat.count }}</span>
+            <span class="text-base sm:text-lg font-bold text-gray-900">{{ cat.count }}</span>
           </div>
-          <div class="p-4">
-            <div class="flex items-center justify-between text-xs mb-2">
+          <div class="p-3 sm:p-4">
+            <div class="flex items-center justify-between text-[10px] sm:text-xs mb-2">
               <span class="text-gray-500">Completion</span>
               <span class="font-semibold text-gray-700">{{ cat.completedPercent }}%</span>
             </div>
-            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-1 sm:h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
                 class="h-full rounded-full transition-all duration-500"
                 :class="cat.barClass"
                 :style="{ width: `${cat.completedPercent}%` }"
               ></div>
             </div>
-            <div class="flex items-center justify-between mt-2 text-[10px] text-gray-400">
-              <span>{{ cat.completed }} completed</span>
+            <div class="flex items-center justify-between mt-2 text-[9px] sm:text-[10px] text-gray-400">
+              <span>{{ cat.completed }} done</span>
               <span>{{ cat.pending }} pending</span>
             </div>
           </div>

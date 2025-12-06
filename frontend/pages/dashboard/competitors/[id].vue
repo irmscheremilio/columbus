@@ -573,7 +573,7 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { selectedRegion } = useRegionFilter()
-const { dateRange, displayLabel } = useDateRange()
+const { dateRange, displayLabel, version: dateRangeVersion } = useDateRange()
 
 const competitorId = route.params.id as string
 
@@ -641,7 +641,7 @@ watch(chartMetric, () => {
 })
 
 // Watch for global date range changes
-watch(dateRange, async () => {
+watch(dateRangeVersion, async () => {
   if (activeProductId.value && competitor.value) {
     await Promise.all([
       loadBrandMetrics(activeProductId.value),
@@ -651,7 +651,7 @@ watch(dateRange, async () => {
       loadChartData()
     ])
   }
-}, { deep: true })
+})
 
 onMounted(async () => {
   if (productInitialized.value && activeProductId.value) {
@@ -734,6 +734,11 @@ const loadBrandMetrics = async (productId: string) => {
     query = query.gte('tested_at', startDate.toISOString())
   }
 
+  const endDate = dateRange.value.endDate
+  if (endDate) {
+    query = query.lte('tested_at', endDate.toISOString())
+  }
+
   if (selectedRegion.value) {
     query = query.ilike('request_country', selectedRegion.value)
   }
@@ -768,6 +773,11 @@ const loadCompetitorMetrics = async () => {
     countQuery = countQuery.gte('tested_at', startDate.toISOString())
   }
 
+  const endDate = dateRange.value.endDate
+  if (endDate) {
+    countQuery = countQuery.lte('tested_at', endDate.toISOString())
+  }
+
   if (selectedRegion.value) {
     countQuery = countQuery.ilike('request_country', selectedRegion.value)
   }
@@ -790,6 +800,9 @@ const loadCompetitorMetrics = async () => {
 
   if (startDate) {
     mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+  }
+  if (endDate) {
+    mentionsQuery = mentionsQuery.lte('detected_at', endDate.toISOString())
   }
 
   if (selectedRegion.value) {
@@ -825,6 +838,9 @@ const loadCompetitorMetrics = async () => {
 
     if (startDate) {
       citationsQuery = citationsQuery.gte('created_at', startDate.toISOString())
+    }
+    if (endDate) {
+      citationsQuery = citationsQuery.lte('created_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {
@@ -920,6 +936,11 @@ const loadCompetitorCitations = async () => {
         regionQuery = regionQuery.gte('tested_at', startDate.toISOString())
       }
 
+      const endDate = dateRange.value.endDate
+      if (endDate) {
+        regionQuery = regionQuery.lte('tested_at', endDate.toISOString())
+      }
+
       const { data: regionResults } = await regionQuery
 
       filteredResultIds = (regionResults || []).map(r => r.id)
@@ -944,6 +965,10 @@ const loadCompetitorCitations = async () => {
 
       if (startDate) {
         query = query.gte('created_at', startDate.toISOString())
+      }
+
+      if (endDate) {
+        query = query.lte('created_at', endDate.toISOString())
       }
 
       if (filteredResultIds) {
@@ -1003,6 +1028,11 @@ const loadChartData = async () => {
       brandQuery = brandQuery.gte('tested_at', startDate.toISOString())
     }
 
+    const endDate = dateRange.value.endDate
+    if (endDate) {
+      brandQuery = brandQuery.lte('tested_at', endDate.toISOString())
+    }
+
     if (selectedRegion.value) {
       brandQuery = brandQuery.ilike('request_country', selectedRegion.value)
     }
@@ -1020,6 +1050,9 @@ const loadChartData = async () => {
 
     if (startDate) {
       mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+    }
+    if (endDate) {
+      mentionsQuery = mentionsQuery.lte('detected_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {

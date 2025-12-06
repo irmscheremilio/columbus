@@ -7,10 +7,10 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Platforms</h1>
           <p class="text-sm text-gray-500">Performance across AI platforms</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <DateRangeSelector />
           <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 whitespace-nowrap"
             @click="loadPlatformData"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -28,35 +28,35 @@
 
       <template v-else>
         <!-- Empty State -->
-        <div v-if="platformsWithStats.length === 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-12 text-center">
-          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div v-if="platformsWithStats.length === 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 p-8 sm:p-12 text-center">
+          <div class="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">No platform data yet</h3>
-          <p class="text-sm text-gray-500 mb-4">Run a visibility scan to see performance across AI platforms</p>
-          <NuxtLink to="/dashboard/visibility" class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">No platform data yet</h3>
+          <p class="text-xs sm:text-sm text-gray-500 mb-4">Run a visibility scan to see performance across AI platforms</p>
+          <NuxtLink to="/dashboard/visibility" class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-lg">
             Go to Visibility
           </NuxtLink>
         </div>
 
         <!-- Platform Comparison Table -->
         <div v-if="platformsWithStats.length > 0" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/50 overflow-hidden">
-          <div class="px-4 py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
-            <h2 class="text-sm font-semibold text-gray-900">Platform Comparison</h2>
+          <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/50 to-transparent">
+            <h2 class="text-xs sm:text-sm font-semibold text-gray-900">Platform Comparison</h2>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full">
               <thead>
-                <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
-                  <th class="text-left px-4 py-2 font-medium">Platform</th>
-                  <th class="text-center px-4 py-2 font-medium">Tests</th>
-                  <th class="text-center px-4 py-2 font-medium">Mentions</th>
-                  <th class="text-center px-4 py-2 font-medium" title="Brand website was cited">Brand Cited</th>
-                  <th class="text-center px-4 py-2 font-medium">Mention Rate</th>
-                  <th class="text-center px-4 py-2 font-medium">Avg Position</th>
-                  <th class="w-10"></th>
+                <tr class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100/80">
+                  <th class="text-left px-3 sm:px-4 py-2 font-medium">Platform</th>
+                  <th class="text-center px-2 sm:px-4 py-2 font-medium hidden sm:table-cell">Tests</th>
+                  <th class="text-center px-2 sm:px-4 py-2 font-medium hidden md:table-cell">Mentions</th>
+                  <th class="text-center px-2 sm:px-4 py-2 font-medium hidden md:table-cell" title="Brand website was cited">Cited</th>
+                  <th class="text-center px-2 sm:px-4 py-2 font-medium">Rate</th>
+                  <th class="text-center px-2 sm:px-4 py-2 font-medium hidden sm:table-cell">Pos</th>
+                  <th class="w-8 sm:w-10"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100/50">
@@ -68,34 +68,34 @@
                   v-slot="{ navigate }"
                 >
                   <tr
-                    class="text-sm hover:bg-gray-50/50 cursor-pointer transition-colors"
+                    class="text-xs sm:text-sm hover:bg-gray-50/50 cursor-pointer transition-colors"
                     @click="navigate"
                   >
-                    <td class="px-4 py-3">
+                    <td class="px-3 sm:px-4 py-2.5 sm:py-3">
                       <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
+                        <div class="w-5 h-5 sm:w-6 sm:h-6 rounded bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                           <img
                             v-if="platform.logo_url"
                             :src="platform.logo_url"
                             :alt="platform.name"
-                            class="w-4 h-4 object-contain"
+                            class="w-3 h-3 sm:w-4 sm:h-4 object-contain"
                           />
-                          <span v-else class="text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
+                          <span v-else class="text-[8px] sm:text-[10px] font-bold text-gray-600">{{ platform.name.charAt(0) }}</span>
                         </div>
-                        <span class="font-medium text-gray-900">{{ platform.name }}</span>
+                        <span class="font-medium text-gray-900 truncate">{{ platform.name }}</span>
                       </div>
                     </td>
-                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.tests }}</td>
-                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.mentions }}</td>
-                    <td class="text-center px-4 py-3 text-gray-600">{{ platform.citations }}</td>
-                    <td class="text-center px-4 py-3">
-                      <span class="font-semibold" :class="getScoreColor(platform.mentionRate)">{{ platform.mentionRate }}%</span>
+                    <td class="text-center px-2 sm:px-4 py-2.5 sm:py-3 text-gray-600 hidden sm:table-cell">{{ platform.tests }}</td>
+                    <td class="text-center px-2 sm:px-4 py-2.5 sm:py-3 text-gray-600 hidden md:table-cell">{{ platform.mentions }}</td>
+                    <td class="text-center px-2 sm:px-4 py-2.5 sm:py-3 text-gray-600 hidden md:table-cell">{{ platform.citations }}</td>
+                    <td class="text-center px-2 sm:px-4 py-2.5 sm:py-3">
+                      <span class="font-semibold text-xs sm:text-sm" :class="getScoreColor(platform.mentionRate)">{{ platform.mentionRate }}%</span>
                     </td>
-                    <td class="text-center px-4 py-3 text-gray-600">
+                    <td class="text-center px-2 sm:px-4 py-2.5 sm:py-3 text-gray-600 hidden sm:table-cell">
                       {{ platform.avgPosition ? `#${platform.avgPosition}` : '-' }}
                     </td>
-                    <td class="px-2 py-3">
-                      <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <td class="px-1.5 sm:px-2 py-2.5 sm:py-3">
+                      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                     </td>
@@ -120,7 +120,7 @@ const supabase = useSupabaseClient()
 const { activeProductId, initialized: productInitialized } = useActiveProduct()
 const { platforms: aiPlatforms, loadPlatforms } = useAIPlatforms()
 const { selectedRegion } = useRegionFilter()
-const { dateRange } = useDateRange()
+const { dateRange, version: dateRangeVersion } = useDateRange()
 
 const loading = ref(true)
 
@@ -146,11 +146,11 @@ watch(selectedRegion, () => {
 })
 
 // Watch for global date range changes
-watch(dateRange, () => {
+watch(dateRangeVersion, () => {
   if (activeProductId.value) {
     loadPlatformData()
   }
-}, { deep: true })
+})
 
 watch(activeProductId, async (newProductId) => {
   if (newProductId) await loadPlatformData()
@@ -182,6 +182,7 @@ const loadPlatformData = async () => {
   try {
     // Use global date range
     const startDate = dateRange.value.startDate
+    const endDate = dateRange.value.endDate
 
     // Get prompt results for this product
     let query = supabase
@@ -191,6 +192,9 @@ const loadPlatformData = async () => {
 
     if (startDate) {
       query = query.gte('tested_at', startDate.toISOString())
+    }
+    if (endDate) {
+      query = query.lte('tested_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {

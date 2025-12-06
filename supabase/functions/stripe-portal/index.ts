@@ -42,6 +42,12 @@ serve(async (req) => {
     // Get request body
     const { returnUrl } = await req.json()
 
+    // Create admin client for permission checks
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
     // Get user's organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -58,12 +64,30 @@ serve(async (req) => {
 
     const organizationId = profile.active_organization_id || profile.organization_id
 
-    // Get organization's Stripe customer ID
-    const { data: org, error: orgError } = await supabase
+    // Check user has owner/admin permission for billing
+    const { data: membership } = await supabaseAdmin
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', organizationId)
+      .eq('user_id', user.id)
+      .single()
+
+    // Get organization's Stripe customer ID and check ownership
+    const { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, created_by')
       .eq('id', organizationId)
       .single()
+
+    const isOrgCreator = org?.created_by === user.id
+    const userRole = membership?.role || (isOrgCreator ? 'owner' : 'member')
+
+    if (!['owner', 'admin'].includes(userRole)) {
+      return new Response(
+        JSON.stringify({ error: 'Only owners and admins can manage billing' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (orgError || !org) {
       return new Response(

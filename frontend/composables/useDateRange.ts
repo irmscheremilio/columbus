@@ -8,10 +8,42 @@ export interface DateRange {
   preset: string // '7', '30', '90', 'all', 'custom'
 }
 
+const STORAGE_KEY = 'columbus_date_range'
+
 // Global state shared across all components
 const selectedPreset = ref<string>('7')
 const customStartDate = ref<Date | null>(null)
 const customEndDate = ref<Date | null>(null)
+// Version counter to help trigger watchers reliably
+const version = ref(0)
+
+// Load persisted state from localStorage on initialization
+if (import.meta.client) {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      selectedPreset.value = parsed.preset || '7'
+      if (parsed.preset === 'custom' && parsed.customStartDate && parsed.customEndDate) {
+        customStartDate.value = new Date(parsed.customStartDate)
+        customEndDate.value = new Date(parsed.customEndDate)
+      }
+    } catch (e) {
+      console.error('Error restoring date range:', e)
+    }
+  }
+}
+
+// Helper to save state to localStorage
+const saveToStorage = () => {
+  if (import.meta.client) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      preset: selectedPreset.value,
+      customStartDate: customStartDate.value?.toISOString() || null,
+      customEndDate: customEndDate.value?.toISOString() || null
+    }))
+  }
+}
 
 export const useDateRange = () => {
   const presets = [
@@ -53,12 +85,16 @@ export const useDateRange = () => {
 
   const setPreset = (preset: string) => {
     selectedPreset.value = preset
+    version.value++
+    saveToStorage()
   }
 
   const setCustomRange = (start: Date, end: Date) => {
     customStartDate.value = start
     customEndDate.value = end
     selectedPreset.value = 'custom'
+    version.value++
+    saveToStorage()
   }
 
   // Get ISO string for database queries (null for 'all')
@@ -96,6 +132,7 @@ export const useDateRange = () => {
     customEndDate,
     dateRange,
     displayLabel,
+    version,
     setPreset,
     setCustomRange,
     getStartDateISO,

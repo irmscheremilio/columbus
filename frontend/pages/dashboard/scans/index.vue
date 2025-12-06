@@ -2,21 +2,21 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
     <div class="p-4 lg:p-6 space-y-5">
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Scan History</h1>
-          <p class="text-sm text-gray-500">View all scan sessions and their results</p>
+          <h1 class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">Scan History</h1>
+          <p class="text-xs sm:text-sm text-gray-500">View all scan sessions and their results</p>
         </div>
-        <div class="flex items-center gap-3">
-          <RegionFilter v-model="selectedRegion" @change="onRegionChange" />
+        <div class="flex items-center gap-2 sm:gap-3">
           <NuxtLink
             to="/dashboard/visibility"
-            class="inline-flex items-center gap-2 px-4 py-2 text-gray-600 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-gray-600 text-xs sm:text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Visibility
+            <span class="hidden sm:inline">Back to Visibility</span>
+            <span class="sm:hidden">Back</span>
           </NuxtLink>
         </div>
       </div>
@@ -36,9 +36,9 @@
           <div class="animate-spin rounded-full h-6 w-6 border-2 border-brand border-t-transparent"></div>
         </div>
 
-        <div v-else-if="!scanSessions.length" class="text-center py-12 text-sm text-gray-500">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div v-else-if="!scanSessions.length" class="text-center py-8 sm:py-12 text-xs sm:text-sm text-gray-500">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
@@ -51,36 +51,37 @@
             <div
               v-for="session in scanSessions"
               :key="session.scan_session_id"
-              class="p-4 hover:bg-gray-50/50 transition-colors cursor-pointer"
+              class="p-3 sm:p-4 hover:bg-gray-50/50 transition-colors cursor-pointer"
               @click="toggleSession(session.scan_session_id)"
             >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-brand/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                     </svg>
                   </div>
-                  <div>
-                    <div class="text-sm font-medium text-gray-900">
+                  <div class="min-w-0">
+                    <div class="text-xs sm:text-sm font-medium text-gray-900 truncate">
                       Scan {{ formatDate(session.started_at) }}
                     </div>
-                    <div class="text-xs text-gray-500 flex items-center gap-2">
-                      <span>{{ session.total_prompts }} prompts across {{ session.platforms?.length || 1 }} platform(s)</span>
+                    <div class="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <span class="hidden sm:inline">{{ session.total_prompts }} prompts across {{ session.platforms?.length || 1 }} platform(s)</span>
+                      <span class="sm:hidden">{{ session.total_prompts }} prompts</span>
                       <!-- Region indicators -->
-                      <span v-if="session.regions?.length > 0" class="flex items-center gap-1">
-                        <span class="text-gray-300">•</span>
+                      <span v-if="session.regions?.length > 0" class="flex items-center gap-0.5 sm:gap-1">
+                        <span class="text-gray-300 hidden sm:inline">•</span>
                         <span
                           v-for="region in session.regions"
                           :key="region"
                           :title="getCountryName(region)"
-                          class="text-sm"
+                          class="text-xs sm:text-sm"
                         >{{ getCountryFlag(region) }}</span>
                       </span>
                     </div>
                   </div>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   <div class="hidden sm:flex items-center gap-3">
                     <div class="text-center" title="Brand mentioned in response">
                       <div class="text-xs font-medium text-emerald-600">{{ session.mention_rate }}%</div>
@@ -91,8 +92,12 @@
                       <div class="text-[10px] text-gray-400">Brand Cited</div>
                     </div>
                   </div>
+                  <!-- Mobile stats -->
+                  <div class="sm:hidden text-right">
+                    <div class="text-xs font-medium text-emerald-600">{{ session.mention_rate }}%</div>
+                  </div>
                   <svg
-                    class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                    class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200"
                     :class="{ 'rotate-180': expandedSession === session.scan_session_id }"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -192,67 +197,78 @@
                   </div>
 
                   <!-- Results Table -->
-                  <div class="overflow-x-auto -mx-4">
+                  <div class="overflow-x-auto -mx-3 sm:-mx-4">
                   <table class="w-full">
                     <thead>
-                      <tr class="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-100/80 bg-gray-50/30">
-                        <th class="text-left px-4 py-2.5 font-medium w-[130px]">Platform</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[70px]">Region</th>
-                        <th class="text-left px-4 py-2.5 font-medium">Prompt</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[75px]">Mentioned</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[70px]" title="AI used sources in response">Sources</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[80px]" title="Brand website was cited">Cited</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[55px]">Limit</th>
-                        <th class="text-center px-4 py-2.5 font-medium w-[55px]">Chat</th>
+                      <tr class="text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-100/80 bg-gray-50/30">
+                        <th class="text-left px-3 sm:px-4 py-2 sm:py-2.5 font-medium">Platform</th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden md:table-cell">Region</th>
+                        <th class="text-left px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden sm:table-cell">Prompt</th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium">
+                          <span class="hidden sm:inline">Mentioned</span>
+                          <span class="sm:hidden" title="Mentioned">✓</span>
+                        </th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden lg:table-cell" title="AI used sources in response">Sources</th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium" title="Brand website was cited">
+                          <span class="hidden sm:inline">Cited</span>
+                          <span class="sm:hidden" title="Cited">🔗</span>
+                        </th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium hidden lg:table-cell">Limit</th>
+                        <th class="text-center px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-10 sm:w-14">
+                          <span class="hidden sm:inline">Chat</span>
+                          <svg class="w-3.5 h-3.5 sm:hidden mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100/50">
                       <tr
                         v-for="result in sessionResults"
                         :key="result.id"
-                        class="group text-sm hover:bg-gray-50/80 transition-colors cursor-pointer"
+                        class="group text-xs sm:text-sm hover:bg-gray-50/80 transition-colors cursor-pointer"
                         @click="openResultDetail(result)"
                       >
-                        <td class="px-4 py-2.5">
-                          <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                        <td class="px-3 sm:px-4 py-2 sm:py-2.5">
+                          <div class="flex items-center gap-1.5 sm:gap-2">
+                            <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center flex-shrink-0 transition-colors">
                               <img
                                 v-if="getPlatformLogo(result.ai_model)"
                                 :src="getPlatformLogo(result.ai_model)"
                                 :alt="formatModelName(result.ai_model)"
-                                class="w-3.5 h-3.5 object-contain"
+                                class="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain"
                                 @error="($event.target as HTMLImageElement).style.display = 'none'"
                               />
-                              <span v-else class="text-[9px] font-bold text-gray-500">{{ formatModelName(result.ai_model).charAt(0) }}</span>
+                              <span v-else class="text-[8px] sm:text-[9px] font-bold text-gray-500">{{ formatModelName(result.ai_model).charAt(0) }}</span>
                             </div>
-                            <span class="text-xs font-medium text-gray-700 truncate">{{ formatModelName(result.ai_model) }}</span>
+                            <span class="text-[10px] sm:text-xs font-medium text-gray-700 truncate max-w-[60px] sm:max-w-none">{{ formatModelName(result.ai_model) }}</span>
                           </div>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center hidden md:table-cell">
                           <span
                             :title="getCountryName(result.request_country || 'local')"
-                            class="text-base"
+                            class="text-sm sm:text-base"
                           >{{ getCountryFlag(result.request_country || 'local') }}</span>
                         </td>
-                        <td class="px-4 py-2.5">
-                          <div class="text-gray-900 truncate max-w-xs text-sm" :title="result.prompt">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 hidden sm:table-cell">
+                          <div class="text-gray-900 truncate max-w-[150px] lg:max-w-xs text-xs sm:text-sm" :title="result.prompt">
                             {{ result.prompt }}
                           </div>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center">
                           <div class="flex items-center justify-center">
                             <span
-                              class="inline-flex w-5 h-5 rounded-full items-center justify-center"
+                              class="inline-flex w-4 h-4 sm:w-5 sm:h-5 rounded-full items-center justify-center"
                               :class="result.brand_mentioned ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'"
                             >
-                              <svg v-if="result.brand_mentioned" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                              <svg v-if="result.brand_mentioned" class="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
-                              <span v-else class="text-[10px]">−</span>
+                              <span v-else class="text-[9px] sm:text-[10px]">−</span>
                             </span>
                           </div>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center hidden lg:table-cell">
                           <div class="flex items-center justify-center">
                             <span
                               class="inline-flex w-5 h-5 rounded-full items-center justify-center"
@@ -266,21 +282,21 @@
                             </span>
                           </div>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center">
                           <div class="flex items-center justify-center">
                             <span
-                              class="inline-flex w-5 h-5 rounded-full items-center justify-center"
+                              class="inline-flex w-4 h-4 sm:w-5 sm:h-5 rounded-full items-center justify-center"
                               :class="result.citation_present ? 'bg-brand/15 text-brand' : 'bg-gray-100 text-gray-400'"
                               :title="result.citation_present ? 'Brand website was cited' : 'Brand not cited'"
                             >
-                              <svg v-if="result.citation_present" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                              <svg v-if="result.citation_present" class="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
-                              <span v-else class="text-[10px]">−</span>
+                              <span v-else class="text-[9px] sm:text-[10px]">−</span>
                             </span>
                           </div>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center hidden lg:table-cell">
                           <span
                             v-if="result.credits_exhausted"
                             class="inline-flex w-5 h-5 rounded-full items-center justify-center bg-amber-100 text-amber-600"
@@ -292,17 +308,17 @@
                           </span>
                           <span v-else class="text-gray-300">−</span>
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td class="px-2 sm:px-4 py-2 sm:py-2.5 text-center">
                           <a
                             v-if="result.chat_url"
                             :href="result.chat_url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="inline-flex w-5 h-5 rounded items-center justify-center bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
+                            class="inline-flex w-4 h-4 sm:w-5 sm:h-5 rounded items-center justify-center bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
                             title="Open chat"
                             @click.stop
                           >
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
                           </a>
@@ -318,22 +334,23 @@
           </div>
 
           <!-- Pagination -->
-          <div v-if="totalPages > 1" class="px-4 py-3 border-t border-gray-100/80 flex items-center justify-between">
-            <div class="text-xs text-gray-500">
-              Page {{ currentPage }} of {{ totalPages }}
+          <div v-if="totalPages > 1" class="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-gray-100/80 flex items-center justify-between">
+            <div class="text-[10px] sm:text-xs text-gray-500">
+              <span class="hidden sm:inline">Page </span>{{ currentPage }}<span class="sm:hidden">/</span><span class="hidden sm:inline"> of </span>{{ totalPages }}
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 sm:gap-2">
               <button
                 :disabled="currentPage <= 1"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border transition-colors"
                 :class="currentPage <= 1 ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'"
                 @click="goToPage(currentPage - 1)"
               >
-                Previous
+                <span class="hidden sm:inline">Previous</span>
+                <span class="sm:hidden">Prev</span>
               </button>
               <button
                 :disabled="currentPage >= totalPages"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border transition-colors"
                 :class="currentPage >= totalPages ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'"
                 @click="goToPage(currentPage + 1)"
               >
@@ -347,158 +364,159 @@
 
     <!-- Scan Result Detail Modal -->
     <Teleport to="body">
-      <div
-        v-if="showDetailModal && selectedResult"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        @click.self="closeDetailModal"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-            <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                <img
-                  v-if="getPlatformLogo(selectedResult.ai_model)"
-                  :src="getPlatformLogo(selectedResult.ai_model)"
-                  :alt="formatModelName(selectedResult.ai_model)"
-                  class="w-5 h-5 object-contain"
-                />
-                <span v-else class="text-sm font-bold text-gray-500">{{ formatModelName(selectedResult.ai_model).charAt(0) }}</span>
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-semibold text-gray-900">{{ formatModelName(selectedResult.ai_model) }}</h3>
-                  <span
-                    v-if="selectedResult.request_country"
-                    class="text-base"
-                    :title="getCountryName(selectedResult.request_country)"
-                  >{{ getCountryFlag(selectedResult.request_country) }}</span>
+      <Transition name="modal">
+        <div
+          v-if="showDetailModal && selectedResult"
+          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          @click.self="closeDetailModal"
+        >
+          <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[90vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex-shrink-0">
+              <div class="flex items-center gap-2 sm:gap-4">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <img
+                    v-if="getPlatformLogo(selectedResult.ai_model)"
+                    :src="getPlatformLogo(selectedResult.ai_model)"
+                    :alt="formatModelName(selectedResult.ai_model)"
+                    class="w-4 h-4 sm:w-5 sm:h-5 object-contain"
+                  />
+                  <span v-else class="text-xs sm:text-sm font-bold text-gray-500">{{ formatModelName(selectedResult.ai_model).charAt(0) }}</span>
                 </div>
-                <p class="text-xs text-gray-500">{{ formatDateTime(selectedResult.tested_at) }}</p>
+                <div>
+                  <div class="flex items-center gap-1.5 sm:gap-2">
+                    <h3 class="text-xs sm:text-sm font-semibold text-gray-900">{{ formatModelName(selectedResult.ai_model) }}</h3>
+                    <span
+                      v-if="selectedResult.request_country"
+                      class="text-sm sm:text-base"
+                      :title="getCountryName(selectedResult.request_country)"
+                    >{{ getCountryFlag(selectedResult.request_country) }}</span>
+                  </div>
+                  <p class="text-[10px] sm:text-xs text-gray-500">{{ formatDateTime(selectedResult.tested_at) }}</p>
+                </div>
               </div>
+              <button
+                @click="closeDetailModal"
+                class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+              >
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button
-              @click="closeDetailModal"
-              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
 
           <!-- Modal Body -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <!-- Status Indicators Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.brand_mentioned ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.brand_mentioned ? 'bg-emerald-100' : 'bg-gray-200'">
-                  <svg class="w-4 h-4" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border" :class="selectedResult.brand_mentioned ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="selectedResult.brand_mentioned ? 'bg-emerald-100' : 'bg-gray-200'">
+                  <svg class="w-3 h-3 sm:w-4 sm:h-4" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path v-if="selectedResult.brand_mentioned" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'">Brand</div>
-                  <div class="text-xs font-semibold" :class="selectedResult.brand_mentioned ? 'text-emerald-700' : 'text-gray-500'">{{ selectedResult.brand_mentioned ? 'Mentioned' : 'Not Mentioned' }}</div>
+                <div class="min-w-0">
+                  <div class="text-[9px] sm:text-[10px] uppercase tracking-wider" :class="selectedResult.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'">Brand</div>
+                  <div class="text-[10px] sm:text-xs font-semibold truncate" :class="selectedResult.brand_mentioned ? 'text-emerald-700' : 'text-gray-500'">{{ selectedResult.brand_mentioned ? 'Mentioned' : 'Not Mentioned' }}</div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.has_sources ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.has_sources ? 'bg-blue-100' : 'bg-gray-200'">
-                  <svg class="w-4 h-4" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <div class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border" :class="selectedResult.has_sources ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="selectedResult.has_sources ? 'bg-blue-100' : 'bg-gray-200'">
+                  <svg class="w-3 h-3 sm:w-4 sm:h-4" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
                 </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'">Sources</div>
-                  <div class="text-xs font-semibold" :class="selectedResult.has_sources ? 'text-blue-700' : 'text-gray-500'">{{ selectedResult.has_sources ? selectedResult.source_count : 'None' }}</div>
+                <div class="min-w-0">
+                  <div class="text-[9px] sm:text-[10px] uppercase tracking-wider" :class="selectedResult.has_sources ? 'text-blue-600' : 'text-gray-400'">Sources</div>
+                  <div class="text-[10px] sm:text-xs font-semibold" :class="selectedResult.has_sources ? 'text-blue-700' : 'text-gray-500'">{{ selectedResult.has_sources ? selectedResult.source_count : 'None' }}</div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.citation_present ? 'bg-brand/5 border-brand/30' : 'bg-gray-50 border-gray-200'">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.citation_present ? 'bg-brand/15' : 'bg-gray-200'">
-                  <svg class="w-4 h-4" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <div class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border" :class="selectedResult.citation_present ? 'bg-brand/5 border-brand/30' : 'bg-gray-50 border-gray-200'">
+                <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="selectedResult.citation_present ? 'bg-brand/15' : 'bg-gray-200'">
+                  <svg class="w-3 h-3 sm:w-4 sm:h-4" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
                 </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'">Brand Cited</div>
-                  <div class="text-xs font-semibold" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-500'">{{ selectedResult.citation_present ? 'Yes' : 'No' }}</div>
+                <div class="min-w-0">
+                  <div class="text-[9px] sm:text-[10px] uppercase tracking-wider" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-400'">Cited</div>
+                  <div class="text-[10px] sm:text-xs font-semibold" :class="selectedResult.citation_present ? 'text-brand' : 'text-gray-500'">{{ selectedResult.citation_present ? 'Yes' : 'No' }}</div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border" :class="selectedResult.position ? 'bg-violet-50 border-violet-200' : 'bg-gray-50 border-gray-200'">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="selectedResult.position ? 'bg-violet-100' : 'bg-gray-200'">
-                  <span class="text-xs font-bold" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">#</span>
+              <div class="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border" :class="selectedResult.position ? 'bg-violet-50 border-violet-200' : 'bg-gray-50 border-gray-200'">
+                <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="selectedResult.position ? 'bg-violet-100' : 'bg-gray-200'">
+                  <span class="text-[10px] sm:text-xs font-bold" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">#</span>
                 </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-wider" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">Position</div>
-                  <div class="text-xs font-semibold" :class="selectedResult.position ? 'text-violet-700' : 'text-gray-500'">{{ selectedResult.position || 'N/A' }}</div>
+                <div class="min-w-0">
+                  <div class="text-[9px] sm:text-[10px] uppercase tracking-wider" :class="selectedResult.position ? 'text-violet-600' : 'text-gray-400'">Position</div>
+                  <div class="text-[10px] sm:text-xs font-semibold" :class="selectedResult.position ? 'text-violet-700' : 'text-gray-500'">{{ selectedResult.position || 'N/A' }}</div>
                 </div>
               </div>
             </div>
 
             <!-- Additional Status Row -->
-            <div class="flex flex-wrap gap-2">
-              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border" :class="getSentimentClass(selectedResult.sentiment)">
-                <span class="w-2 h-2 rounded-full" :class="selectedResult.sentiment === 'positive' ? 'bg-emerald-500' : selectedResult.sentiment === 'negative' ? 'bg-red-500' : 'bg-gray-400'"></span>
-                <span class="text-xs font-medium capitalize">{{ selectedResult.sentiment || 'neutral' }} sentiment</span>
+            <div class="flex flex-wrap gap-1.5 sm:gap-2">
+              <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border" :class="getSentimentClass(selectedResult.sentiment)">
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" :class="selectedResult.sentiment === 'positive' ? 'bg-emerald-500' : selectedResult.sentiment === 'negative' ? 'bg-red-500' : 'bg-gray-400'"></span>
+                <span class="text-[10px] sm:text-xs font-medium capitalize">{{ selectedResult.sentiment || 'neutral' }}</span>
               </div>
-              <div v-if="selectedResult.credits_exhausted" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <div v-if="selectedResult.credits_exhausted" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <span class="text-xs font-medium">Credit Limit Exceeded</span>
+                <span class="text-[10px] sm:text-xs font-medium">Limit Exceeded</span>
               </div>
               <a
                 v-if="selectedResult.chat_url"
                 :href="selectedResult.chat_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-colors"
+                class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-colors"
               >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-                <span class="text-xs font-medium">View Original Chat</span>
+                <span class="text-[10px] sm:text-xs font-medium">View Chat</span>
               </a>
             </div>
 
             <!-- Prompt Section -->
             <div>
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-4 rounded-full bg-gray-300"></div>
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Prompt</h3>
+              <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div class="w-1 h-3 sm:h-4 rounded-full bg-gray-300"></div>
+                <h3 class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">Prompt</h3>
               </div>
-              <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <p class="text-sm text-gray-800 leading-relaxed">{{ selectedResult.prompt }}</p>
+              <div class="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100">
+                <p class="text-xs sm:text-sm text-gray-800 leading-relaxed">{{ selectedResult.prompt }}</p>
               </div>
             </div>
 
             <!-- Response Section -->
             <div>
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-4 rounded-full bg-brand"></div>
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Response</h3>
+              <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div class="w-1 h-3 sm:h-4 rounded-full bg-brand"></div>
+                <h3 class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Response</h3>
               </div>
-              <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 max-h-[350px] overflow-y-auto">
-                <p v-if="selectedResult.response_text" class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ selectedResult.response_text }}</p>
-                <p v-else class="text-sm text-gray-400 italic">Response not available</p>
+              <div class="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100 max-h-[250px] sm:max-h-[350px] overflow-y-auto">
+                <p v-if="selectedResult.response_text" class="text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ selectedResult.response_text }}</p>
+                <p v-else class="text-xs sm:text-sm text-gray-400 italic">Response not available</p>
               </div>
             </div>
 
             <!-- Competitor Mentions -->
             <div v-if="selectedResult.competitor_mentions?.length">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-4 rounded-full bg-orange-400"></div>
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Competitor Mentions</h3>
+              <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div class="w-1 h-3 sm:h-4 rounded-full bg-orange-400"></div>
+                <h3 class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">Competitor Mentions</h3>
               </div>
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap gap-1.5 sm:gap-2">
                 <span
                   v-for="competitor in selectedResult.competitor_mentions"
                   :key="competitor"
-                  class="px-3 py-1.5 bg-orange-50 text-orange-700 text-xs font-medium rounded-lg border border-orange-200"
+                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-50 text-orange-700 text-[10px] sm:text-xs font-medium rounded-lg border border-orange-200"
                 >
                   {{ competitor }}
                 </span>
@@ -507,31 +525,31 @@
 
             <!-- Citations Section -->
             <div v-if="selectedResultCitations.length > 0">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-4 rounded-full bg-blue-400"></div>
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Citations</h3>
-                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ selectedResultCitations.length }}</span>
+              <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div class="w-1 h-3 sm:h-4 rounded-full bg-blue-400"></div>
+                <h3 class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">Citations</h3>
+                <span class="text-[10px] sm:text-xs text-gray-400 bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded-full">{{ selectedResultCitations.length }}</span>
               </div>
-              <div class="space-y-2">
+              <div class="space-y-1.5 sm:space-y-2">
                 <a
                   v-for="citation in selectedResultCitations"
                   :key="citation.id"
                   :href="citation.url"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors group"
+                  class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl border transition-colors group"
                   :class="citation.is_brand_source ? 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50' : 'bg-gray-50/50 border-gray-100 hover:bg-gray-100'"
                 >
-                  <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" :class="citation.is_brand_source ? 'bg-emerald-100' : 'bg-gray-200'">
-                    <span class="text-xs font-bold" :class="citation.is_brand_source ? 'text-emerald-600' : 'text-gray-500'">#{{ citation.citation_position }}</span>
+                  <div class="w-5 h-5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center flex-shrink-0" :class="citation.is_brand_source ? 'bg-emerald-100' : 'bg-gray-200'">
+                    <span class="text-[9px] sm:text-xs font-bold" :class="citation.is_brand_source ? 'text-emerald-600' : 'text-gray-500'">#{{ citation.citation_position }}</span>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium truncate" :class="citation.is_brand_source ? 'text-emerald-700' : 'text-gray-700'">
+                    <div class="text-xs sm:text-sm font-medium truncate" :class="citation.is_brand_source ? 'text-emerald-700' : 'text-gray-700'">
                       {{ citation.source_title || citation.source_domain }}
                     </div>
-                    <div class="text-xs text-gray-400 truncate">{{ citation.source_domain }}</div>
+                    <div class="text-[10px] sm:text-xs text-gray-400 truncate">{{ citation.source_domain }}</div>
                   </div>
-                  <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </a>
@@ -540,16 +558,17 @@
           </div>
 
           <!-- Modal Footer -->
-          <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/80">
+          <div class="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 bg-gray-50/80 flex-shrink-0">
             <button
               @click="closeDetailModal"
-              class="w-full px-4 py-2.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-all duration-200"
+              class="w-full px-4 py-2 sm:py-2.5 bg-gray-900 text-white text-sm sm:text-base rounded-xl font-medium hover:bg-gray-800 transition-all duration-200"
             >
               Close
             </button>
           </div>
         </div>
       </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -585,17 +604,6 @@ const showDetailModal = ref(false)
 const selectedResult = ref<any>(null)
 const selectedResultCitations = ref<any[]>([])
 
-// Region filter
-const selectedRegion = ref<string | null>(null)
-
-const onRegionChange = (region: string | null) => {
-  selectedRegion.value = region
-  currentPage.value = 1
-  expandedSession.value = null
-  if (activeProductId.value) {
-    loadScanSessions()
-  }
-}
 
 const sourceColors = [
   '#10b981', // emerald (brand)
@@ -652,31 +660,19 @@ const loadScanSessions = async () => {
   loading.value = true
   try {
     // Get count for pagination
-    let countQuery = supabase
+    const { count } = await supabase
       .from('prompt_results')
       .select('scan_session_id', { count: 'exact', head: true })
       .eq('product_id', productId)
       .not('scan_session_id', 'is', null)
 
-    if (selectedRegion.value) {
-      countQuery = countQuery.ilike('request_country', selectedRegion.value)
-    }
-
-    const { count } = await countQuery
-
     // Get distinct scan sessions with stats
-    let dataQuery = supabase
+    const { data } = await supabase
       .from('prompt_results')
       .select('scan_session_id, ai_model, brand_mentioned, citation_present, tested_at, request_country')
       .eq('product_id', productId)
       .not('scan_session_id', 'is', null)
       .order('tested_at', { ascending: false })
-
-    if (selectedRegion.value) {
-      dataQuery = dataQuery.ilike('request_country', selectedRegion.value)
-    }
-
-    const { data } = await dataQuery
 
     if (data) {
       // Group by scan_session_id and calculate stats
@@ -950,7 +946,7 @@ const openResultDetail = async (result: any) => {
       .from('prompt_citations')
       .select('*')
       .eq('prompt_result_id', result.id)
-      .order('position', { ascending: true })
+      .order('citation_position', { ascending: true })
 
     selectedResultCitations.value = citations || []
   } catch (error) {
@@ -979,3 +975,37 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+/* Modal transition animations */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active > div,
+.modal-leave-active > div {
+  transition: transform 0.2s ease;
+}
+
+/* Mobile: slide up from bottom */
+@media (max-width: 639px) {
+  .modal-enter-from > div,
+  .modal-leave-to > div {
+    transform: translateY(100%);
+  }
+}
+
+/* Desktop: scale and fade */
+@media (min-width: 640px) {
+  .modal-enter-from > div,
+  .modal-leave-to > div {
+    transform: scale(0.95);
+  }
+}
+</style>

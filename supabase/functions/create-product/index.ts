@@ -30,6 +30,8 @@ serve(async (req) => {
     }
 
     const body = await req.json()
+    console.log('[create-product] Received body:', JSON.stringify(body, null, 2))
+
     const name = body.name
     // Accept both 'website' and 'domain' for backwards compatibility
     const website = body.website || body.domain
@@ -41,6 +43,8 @@ serve(async (req) => {
     const primaryLocation = body.primaryLocation
     const primaryCountry = body.primaryCountry
     const primaryLanguage = body.primaryLanguage || 'en'
+
+    console.log('[create-product] Extracted primaryLanguage:', primaryLanguage)
     // Domain aliases - additional domains to count as brand citations
     const domainAliases: string[] = Array.isArray(body.domainAliases) ? body.domainAliases : []
 
@@ -206,6 +210,9 @@ serve(async (req) => {
     let jobId: string | null = null
     if (triggerAnalysis) {
       // Create a job record for website analysis only (no visibility scan - that's done via extension now)
+      const jobMetadata = { domain, productId: product.id, language: primaryLanguage }
+      console.log('[create-product] Creating job with metadata:', JSON.stringify(jobMetadata))
+
       const { data: job, error: jobError } = await supabaseAdmin
         .from('jobs')
         .insert({
@@ -213,7 +220,7 @@ serve(async (req) => {
           product_id: product.id,
           job_type: 'website_analysis',
           status: 'queued',
-          metadata: { domain, productId: product.id, language: primaryLanguage }
+          metadata: jobMetadata
         })
         .select()
         .single()

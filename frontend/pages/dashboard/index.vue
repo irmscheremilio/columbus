@@ -7,16 +7,17 @@
           <h1 class="text-xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
           <p class="text-sm text-gray-500">AI visibility overview</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <DateRangeSelector />
           <NuxtLink
             to="/dashboard/extension"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-brand text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm shadow-brand/25 hover:shadow-md hover:shadow-brand/30 hover:bg-brand/95 transition-all duration-200 whitespace-nowrap"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
-            Get Desktop App
+            <span class="hidden sm:inline">Get Desktop App</span>
+            <span class="sm:hidden">Desktop</span>
           </NuxtLink>
         </div>
       </div>
@@ -283,10 +284,10 @@ const recommendations = ref<any[]>([])
 const topPrompts = ref<any[]>([])
 const topCompetitors = ref<any[]>([])
 const visibilityGaps = ref<any[]>([])
-const { dateRange, displayLabel } = useDateRange()
+const { dateRange, displayLabel, version: dateRangeVersion } = useDateRange()
 
 // Watch for global date range changes - reload data
-watch(dateRange, async () => {
+watch(dateRangeVersion, async () => {
   if (activeProductId.value) {
     await loadVisibilityScore(activeProductId.value)
     await Promise.all([
@@ -295,7 +296,7 @@ watch(dateRange, async () => {
       loadTopCompetitors(activeProductId.value)
     ])
   }
-}, { deep: true })
+})
 
 
 const modelStats = ref({
@@ -377,6 +378,8 @@ const loadVisibilityScore = async (productId: string) => {
       google_ai_mode: { tested: 0, mentioned: 0 }
     }
 
+    const endDate = dateRange.value.endDate
+
     if (selectedRegion.value) {
       // Query prompt_results directly for region-filtered data
       let resultsQuery = supabase
@@ -387,6 +390,9 @@ const loadVisibilityScore = async (productId: string) => {
 
       if (startDate) {
         resultsQuery = resultsQuery.gte('tested_at', startDate.toISOString())
+      }
+      if (endDate) {
+        resultsQuery = resultsQuery.lte('tested_at', endDate.toISOString())
       }
 
       const { data: results } = await resultsQuery
@@ -415,6 +421,9 @@ const loadVisibilityScore = async (productId: string) => {
 
       if (startDate) {
         historyQuery = historyQuery.gte('recorded_at', startDate.toISOString())
+      }
+      if (endDate) {
+        historyQuery = historyQuery.lte('recorded_at', endDate.toISOString())
       }
 
       const { data: historyData } = await historyQuery
@@ -518,6 +527,7 @@ const loadModelStats = async (productId: string) => {
   try {
     // Use global date range
     const startDate = dateRange.value.startDate
+    const endDate = dateRange.value.endDate
 
     // Filter by date range and region
     let query = supabase
@@ -527,6 +537,9 @@ const loadModelStats = async (productId: string) => {
 
     if (startDate) {
       query = query.gte('tested_at', startDate.toISOString())
+    }
+    if (endDate) {
+      query = query.lte('tested_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {
@@ -564,6 +577,7 @@ const loadTopPrompts = async (productId: string) => {
   try {
     // Use global date range
     const startDate = dateRange.value.startDate
+    const endDate = dateRange.value.endDate
 
     // Get prompts for this product
     const { data: prompts } = await supabase
@@ -586,6 +600,9 @@ const loadTopPrompts = async (productId: string) => {
 
     if (startDate) {
       query = query.gte('tested_at', startDate.toISOString())
+    }
+    if (endDate) {
+      query = query.lte('tested_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {
@@ -634,6 +651,7 @@ const loadTopCompetitors = async (productId: string) => {
   try {
     // Use global date range
     const startDate = dateRange.value.startDate
+    const endDate = dateRange.value.endDate
 
     // Get tracking competitors
     const { data: competitors } = await supabase
@@ -657,6 +675,9 @@ const loadTopCompetitors = async (productId: string) => {
     if (startDate) {
       totalResultsQuery = totalResultsQuery.gte('tested_at', startDate.toISOString())
     }
+    if (endDate) {
+      totalResultsQuery = totalResultsQuery.lte('tested_at', endDate.toISOString())
+    }
 
     if (selectedRegion.value) {
       totalResultsQuery = totalResultsQuery.ilike('request_country', selectedRegion.value)
@@ -679,6 +700,9 @@ const loadTopCompetitors = async (productId: string) => {
 
     if (startDate) {
       mentionsQuery = mentionsQuery.gte('detected_at', startDate.toISOString())
+    }
+    if (endDate) {
+      mentionsQuery = mentionsQuery.lte('detected_at', endDate.toISOString())
     }
 
     if (selectedRegion.value) {
