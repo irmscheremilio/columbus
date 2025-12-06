@@ -15,6 +15,112 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
 )
 
+/**
+ * Progress tracker for realtime updates during website analysis
+ */
+class AnalysisProgressTracker {
+  private progressId: string | null = null
+  private jobId: string
+  private organizationId: string
+  private productId: string | null
+
+  constructor(jobId: string, organizationId: string, productId: string | null) {
+    this.jobId = jobId
+    this.organizationId = organizationId
+    this.productId = productId
+  }
+
+  async initialize(): Promise<void> {
+    const { data, error } = await supabase
+      .from('website_analysis_progress')
+      .insert({
+        job_id: this.jobId,
+        organization_id: this.organizationId,
+        product_id: this.productId,
+        current_step: 'initializing',
+        step_number: 0,
+        total_steps: 6,
+        progress_percent: 0,
+        message: 'Preparing to analyze your website...'
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('[Progress] Failed to initialize progress tracker:', error)
+      return
+    }
+
+    this.progressId = data.id
+    console.log(`[Progress] Initialized progress tracker: ${this.progressId}`)
+  }
+
+  async update(update: {
+    step?: string
+    stepNumber?: number
+    progressPercent?: number
+    message?: string
+    details?: Record<string, any>
+    pagesDiscovered?: number
+    pagesAnalyzed?: number
+    currentPageUrl?: string
+    currentPageTitle?: string
+    promptsGenerated?: number
+  }): Promise<void> {
+    if (!this.progressId) return
+
+    const updateData: Record<string, any> = {}
+
+    if (update.step !== undefined) updateData.current_step = update.step
+    if (update.stepNumber !== undefined) updateData.step_number = update.stepNumber
+    if (update.progressPercent !== undefined) updateData.progress_percent = update.progressPercent
+    if (update.message !== undefined) updateData.message = update.message
+    if (update.details !== undefined) updateData.details = update.details
+    if (update.pagesDiscovered !== undefined) updateData.pages_discovered = update.pagesDiscovered
+    if (update.pagesAnalyzed !== undefined) updateData.pages_analyzed = update.pagesAnalyzed
+    if (update.currentPageUrl !== undefined) updateData.current_page_url = update.currentPageUrl
+    if (update.currentPageTitle !== undefined) updateData.current_page_title = update.currentPageTitle
+    if (update.promptsGenerated !== undefined) updateData.prompts_generated = update.promptsGenerated
+
+    const { error } = await supabase
+      .from('website_analysis_progress')
+      .update(updateData)
+      .eq('id', this.progressId)
+
+    if (error) {
+      console.error('[Progress] Failed to update progress:', error)
+    }
+  }
+
+  async complete(): Promise<void> {
+    if (!this.progressId) return
+
+    await supabase
+      .from('website_analysis_progress')
+      .update({
+        current_step: 'completed',
+        step_number: 6,
+        progress_percent: 100,
+        message: 'Analysis complete!',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', this.progressId)
+  }
+
+  async fail(errorMessage: string): Promise<void> {
+    if (!this.progressId) return
+
+    await supabase
+      .from('website_analysis_progress')
+      .update({
+        current_step: 'failed',
+        message: `Analysis failed: ${errorMessage}`,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', this.progressId)
+  }
+}
+
 export interface WebsiteAnalysisJobData {
   organizationId: string
   productId?: string
@@ -53,7 +159,17 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
     console.log(`[Website Analysis] Starting analysis for ${domain} (productId: ${productId || 'none'}, multiPage: ${multiPageAnalysis})`)
 
+    // Initialize progress tracker if we have a job ID
+    const progress = job.data.jobId
+      ? new AnalysisProgressTracker(job.data.jobId, organizationId, productId || null)
+      : null
+
     try {
+      // Initialize progress tracking
+      if (progress) {
+        await progress.initialize()
+      }
+
       // 0. Validate organization exists before doing any work
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -63,13 +179,36 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       if (orgError || !org) {
         console.error(`[Website Analysis] Organization ${organizationId} not found, skipping job`)
+        if (progress) await progress.fail('Organization not found')
         return { skipped: true, reason: 'Organization not found' }
       }
 
       // 1. Crawl and analyze main website page
       console.log(`[Website Analysis] Crawling main website...`)
+      if (progress) {
+        await progress.update({
+          step: 'crawling',
+          stepNumber: 1,
+          progressPercent: 5,
+          message: `Connecting to ${domain}...`,
+          details: { domain }
+        })
+      }
+
       const crawler = new WebsiteCrawler()
       const websiteAnalysis = await crawler.analyze(domain)
+
+      if (progress) {
+        await progress.update({
+          progressPercent: 15,
+          message: `Analyzed homepage structure and content`,
+          details: {
+            domain,
+            techStack: websiteAnalysis.techStack?.slice(0, 5),
+            hasSchema: websiteAnalysis.schemaMarkup?.length > 0
+          }
+        })
+      }
 
       // 2. Store website analysis results
       console.log(`[Website Analysis] Storing website analysis...`)
@@ -101,8 +240,25 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       if (multiPageAnalysis) {
         console.log(`[Website Analysis] Discovering pages...`)
+        if (progress) {
+          await progress.update({
+            step: 'discovering',
+            stepNumber: 2,
+            progressPercent: 20,
+            message: `Discovering pages on ${domain}...`
+          })
+        }
+
         const pageDiscovery = new PageDiscovery()
         discoveredPages = await pageDiscovery.discoverPages(domain)
+
+        if (progress) {
+          await progress.update({
+            progressPercent: 30,
+            message: `Found ${discoveredPages.length} pages to analyze`,
+            pagesDiscovered: discoveredPages.length
+          })
+        }
 
         // Store discovered pages
         const pagesToStore = discoveredPages.map(page => ({
@@ -131,6 +287,15 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         const relevantPages = discoveredPages.filter(p => p.isRelevant).slice(0, 20) // Limit to 20 pages
         console.log(`[Website Analysis] Fetching content from ${relevantPages.length} relevant pages...`)
 
+        if (progress) {
+          await progress.update({
+            step: 'analyzing_pages',
+            stepNumber: 3,
+            progressPercent: 35,
+            message: `Fetching content from ${relevantPages.length} relevant pages...`
+          })
+        }
+
         pageContents = await pageDiscovery.fetchPageContents(relevantPages)
 
         // Analyze each page first to get analysis data
@@ -143,7 +308,22 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           analysis: any
         }> = []
 
-        for (const pageContent of pageContents) {
+        for (let i = 0; i < pageContents.length; i++) {
+          const pageContent = pageContents[i]
+
+          // Update progress with current page being analyzed
+          if (progress) {
+            const pageProgress = 35 + Math.floor((i / pageContents.length) * 20) // 35-55%
+            const pagePath = new URL(pageContent.url).pathname || '/'
+            await progress.update({
+              progressPercent: pageProgress,
+              message: `Analyzing "${pageContent.title || pagePath}"`,
+              pagesAnalyzed: i + 1,
+              currentPageUrl: pageContent.url,
+              currentPageTitle: pageContent.title || pagePath
+            })
+          }
+
           const pageAnalysis = await crawler.analyzeHtml(pageContent.html, pageContent.url)
 
           pageAnalyses.push({
@@ -167,6 +347,14 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
             .eq('url', pageContent.url)
         }
 
+        if (progress) {
+          await progress.update({
+            progressPercent: 55,
+            message: `Completed analysis of ${pageContents.length} pages`,
+            pagesAnalyzed: pageContents.length
+          })
+        }
+
         // Page-specific recommendations will be generated by AI after product analysis
         // Store pageAnalyses for later use
         pageContents = pageContents.map((pc, i) => ({
@@ -177,6 +365,15 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       // 4. Generate prompts using AI
       console.log(`[Website Analysis] Generating prompts...`)
+      if (progress) {
+        await progress.update({
+          step: 'understanding_product',
+          stepNumber: 4,
+          progressPercent: 60,
+          message: 'Understanding your product and services...'
+        })
+      }
+
       const promptGenerator = new PromptGenerator()
 
       // First, analyze the product/service
@@ -186,6 +383,17 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       )
 
       console.log(`[Website Analysis] Product identified: ${productAnalysis.productName}`)
+
+      if (progress) {
+        await progress.update({
+          progressPercent: 65,
+          message: `Identified product: ${productAnalysis.productName}`,
+          details: {
+            productName: productAnalysis.productName,
+            keyFeatures: productAnalysis.keyFeatures?.slice(0, 3)
+          }
+        })
+      }
 
       // Store product analysis
       await supabase
@@ -206,12 +414,29 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         })
 
       // Generate prompts (5 topics × 3 granularity levels = 15 prompts)
+      if (progress) {
+        await progress.update({
+          step: 'generating_prompts',
+          stepNumber: 5,
+          progressPercent: 70,
+          message: 'Generating AI visibility prompts...'
+        })
+      }
+
       const generatedPrompts = await promptGenerator.generatePrompts(
         productAnalysis,
         websiteAnalysis
       )
 
       console.log(`[Website Analysis] Generated ${generatedPrompts.length} prompts`)
+
+      if (progress) {
+        await progress.update({
+          progressPercent: 75,
+          message: `Generated ${generatedPrompts.length} visibility prompts`,
+          promptsGenerated: generatedPrompts.length
+        })
+      }
 
       // Delete existing prompts for this product/organization (to avoid duplicates)
       let deleteQuery = supabase
@@ -271,6 +496,15 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       // 7. Generate AI-powered recommendations using research knowledge base
       console.log(`[Website Analysis] Generating AI-powered recommendations...`)
+      if (progress) {
+        await progress.update({
+          step: 'generating_recommendations',
+          stepNumber: 6,
+          progressPercent: 80,
+          message: 'Creating personalized optimization recommendations...'
+        })
+      }
+
       const aiRecommendationEngine = new AIRecommendationEngine()
 
       let aiRecommendations: AIRecommendation[] = []
@@ -286,6 +520,13 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           { maxRecommendations: 10 } // Reduced since we'll add page-specific ones
         )
         console.log(`[Website Analysis] Generated ${aiRecommendations.length} general AI recommendations`)
+
+        if (progress) {
+          await progress.update({
+            progressPercent: 85,
+            message: `Created ${aiRecommendations.length} optimization recommendations`
+          })
+        }
       } catch (error) {
         console.error('[Website Analysis] AI recommendation generation failed:', error)
       }
@@ -294,6 +535,14 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       let aiPageRecommendations = new Map<string, AIRecommendation[]>()
       if (pageContents.length > 0) {
         console.log(`[Website Analysis] Generating AI page-specific recommendations for ${pageContents.length} pages...`)
+
+        if (progress) {
+          await progress.update({
+            progressPercent: 90,
+            message: `Generating page-specific recommendations for ${pageContents.length} pages...`
+          })
+        }
+
         try {
           // Prepare page data for AI
           const pagesForAI = pageContents.map((pc: any) => ({
@@ -336,6 +585,12 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       // 9. Prepare all recommendations for storage
       console.log(`[Website Analysis] Storing recommendations...`)
+      if (progress) {
+        await progress.update({
+          progressPercent: 95,
+          message: 'Finalizing analysis results...'
+        })
+      }
 
       // Delete existing pending recommendations to avoid duplicates
       let deleteRecsQuery = supabase
@@ -439,6 +694,11 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       console.log(`[Website Analysis] - Pages analyzed: ${pagesAnalyzed}`)
       console.log(`[Website Analysis] - Recommendations generated: ${totalRecommendations}`)
 
+      // Mark progress as complete
+      if (progress) {
+        await progress.complete()
+      }
+
       // Mark job as completed if jobId provided
       if (job.data.jobId) {
         await supabase
@@ -475,6 +735,11 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
       }
     } catch (error) {
       console.error('[Website Analysis] Error:', error)
+
+      // Mark progress as failed
+      if (progress) {
+        await progress.fail(error instanceof Error ? error.message : 'Unknown error')
+      }
 
       // Mark job as failed if jobId provided
       if (job.data.jobId) {

@@ -13,12 +13,16 @@ serve(async (req) => {
   }
 
   try {
-    const { email, companyName, website } = await req.json()
+    const { email, companyName, website, intent } = await req.json()
+
+    // Validate intent - ensure it's one of the allowed values
+    const validIntents = ['free', 'pro', 'scaling']
+    const finalIntent = validIntents.includes(intent) ? intent : 'free'
 
     // Validate input
-    if (!email || !companyName) {
+    if (!email) {
       return new Response(
-        JSON.stringify({ error: 'Email and company name are required' }),
+        JSON.stringify({ error: 'Email is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -36,6 +40,7 @@ serve(async (req) => {
         email,
         company_name: companyName,
         website,
+        intent: finalIntent,
       }])
 
     if (insertError) {

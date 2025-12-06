@@ -7,52 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Plan definitions with monthly and yearly price IDs
-const PLANS = {
-  free: {
-    id: 'free',
-    name: 'Free',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    monthlyPriceId: null,
-    yearlyPriceId: null,
-    limits: {
-      promptsPerMonth: 5,
-      competitors: 1,
-      scansPerMonth: 2,
-      websiteAnalyses: 1
-    }
-  },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
-    monthlyPrice: 49,
-    yearlyPrice: 490, // 10 months (save ~17%)
-    monthlyPriceId: Deno.env.get('STRIPE_PRO_MONTHLY_PRICE_ID'),
-    yearlyPriceId: Deno.env.get('STRIPE_PRO_YEARLY_PRICE_ID'),
-    limits: {
-      promptsPerMonth: -1,
-      competitors: 10,
-      scansPerMonth: -1,
-      websiteAnalyses: -1
-    }
-  },
-  agency: {
-    id: 'agency',
-    name: 'Agency',
-    monthlyPrice: 149,
-    yearlyPrice: 1490, // 10 months (save ~17%)
-    monthlyPriceId: Deno.env.get('STRIPE_AGENCY_MONTHLY_PRICE_ID'),
-    yearlyPriceId: Deno.env.get('STRIPE_AGENCY_YEARLY_PRICE_ID'),
-    limits: {
-      promptsPerMonth: -1,
-      competitors: 50,
-      scansPerMonth: -1,
-      websiteAnalyses: -1
-    }
-  }
-} as const
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -102,15 +56,26 @@ serve(async (req) => {
       )
     }
 
-    const plan = PLANS[planId as keyof typeof PLANS]
-    if (!plan) {
+    // Fetch plan from database using service role client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('subscription_tiers')
+      .select('*')
+      .eq('id', planId)
+      .single()
+
+    if (planError || !plan) {
       return new Response(
         JSON.stringify({ error: 'Plan not found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const priceId = billingPeriod === 'yearly' ? plan.yearlyPriceId : plan.monthlyPriceId
+    const priceId = billingPeriod === 'yearly' ? plan.stripe_yearly_price_id : plan.stripe_monthly_price_id
     if (!priceId) {
       return new Response(
         JSON.stringify({ error: `Price ID not configured for ${plan.name} ${billingPeriod} plan` }),

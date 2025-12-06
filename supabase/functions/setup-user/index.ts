@@ -9,10 +9,8 @@ const corsHeaders = {
 /**
  * Setup User Edge Function
  *
- * Creates a default organization for new users without requiring company details.
- * This is called after signup/OAuth to create the user's workspace.
- *
- * The user can later add products (with their own domains) via the create-product endpoint.
+ * Checks if the user has completed onboarding and returns their status.
+ * Does NOT create organizations - that's handled in the onboarding flow.
  */
 serve(async (req) => {
   // Handle CORS preflight
@@ -51,109 +49,86 @@ serve(async (req) => {
       )
     }
 
-    // Use service role client for inserts (bypasses RLS)
+    // Use service role client for queries (bypasses RLS)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Check if user already has an organization
-    const { data: existingProfile } = await supabaseAdmin
+    // Get user's profile
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_organization_id, onboarding_complete')
       .eq('id', user.id)
       .single()
 
-    if (existingProfile?.organization_id) {
-      // User already has org reference, verify it exists
-      const { data: existingOrg } = await supabaseAdmin
-        .from('organizations')
-        .select('*')
-        .eq('id', existingProfile.organization_id)
-        .single()
+    if (profileError) {
+      // Profile might not exist yet for brand new users
+      console.log(`Profile not found for user ${user.id}, may be new user`)
+    }
 
-      // If organization exists, return it
-      if (existingOrg) {
-        const { data: products } = await supabaseAdmin
-          .from('products')
-          .select('*')
-          .eq('organization_id', existingProfile.organization_id)
-          .eq('is_active', true)
+    // Check if user has an organization
+    const organizationId = profile?.active_organization_id || profile?.organization_id
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            organization: existingOrg,
-            hasProducts: (products?.length || 0) > 0,
-            products: products || [],
-            isExisting: true
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    if (!organizationId) {
+      // No organization - user needs to complete onboarding
+      return new Response(
+        JSON.stringify({
+          success: true,
+          needsOnboarding: true,
+          hasOrganization: false,
+          hasProducts: false,
+          onboardingComplete: false
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-      // Organization was deleted - clear the stale reference and create new one
-      console.log(`User ${user.id} has stale organization_id ${existingProfile.organization_id}, creating new org`)
+    // Verify organization exists
+    const { data: org, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id, name, plan')
+      .eq('id', organizationId)
+      .single()
+
+    if (orgError || !org) {
+      // Stale organization reference - clear it
       await supabaseAdmin
         .from('profiles')
         .update({ organization_id: null, active_organization_id: null })
         .eq('id', user.id)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          needsOnboarding: true,
+          hasOrganization: false,
+          hasProducts: false,
+          onboardingComplete: false
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Extract name from email for organization name
-    const emailName = user.email?.split('@')[0] || 'My'
-    const organizationName = `${emailName}'s Workspace`
+    // Check if user has products
+    const { data: products } = await supabaseAdmin
+      .from('products')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+      .limit(1)
 
-    // 1. Create organization (no domain - products will have domains)
-    const { data: org, error: orgError } = await supabaseAdmin
-      .from('organizations')
-      .insert([{
-        name: organizationName,
-        plan: 'free',
-        product_limit: 1,
-        created_by: user.id,
-      }])
-      .select()
-      .single()
-
-    if (orgError) {
-      throw orgError
-    }
-
-    // 2. Update user profile with organization_id, active_organization_id, and owner role
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        organization_id: org.id,
-        active_organization_id: org.id,
-        role: 'owner'
-      })
-      .eq('id', user.id)
-
-    if (updateError) {
-      throw updateError
-    }
-
-    // 3. Add user to organization_members table as owner
-    const { error: memberError } = await supabaseAdmin
-      .from('organization_members')
-      .insert([{
-        organization_id: org.id,
-        user_id: user.id,
-        role: 'owner'
-      }])
-
-    if (memberError) {
-      throw memberError
-    }
+    const hasProducts = (products?.length || 0) > 0
+    const onboardingComplete = profile?.onboarding_complete ?? false
 
     return new Response(
       JSON.stringify({
         success: true,
-        organization: org,
-        hasProducts: false,
-        products: [],
-        isExisting: false
+        needsOnboarding: !onboardingComplete,
+        hasOrganization: true,
+        hasProducts,
+        onboardingComplete,
+        organization: org
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

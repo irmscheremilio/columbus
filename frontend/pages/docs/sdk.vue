@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen bg-gray-50">
+    <CookieBanner />
     <!-- Header -->
     <nav class="bg-white shadow-sm sticky top-0 z-10">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
@@ -496,6 +497,12 @@ https://yoursite.com/page?ai_ref=perplexity</code></pre>
 <script setup lang="ts">
 definePageMeta({
   layout: false
+})
+
+const { initConsent } = useCookieConsent()
+
+onMounted(() => {
+  initConsent()
 })
 
 useHead({

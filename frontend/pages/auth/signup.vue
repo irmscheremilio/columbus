@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <CookieBanner />
     <div class="max-w-md w-full space-y-8">
       <!-- Email confirmation sent state -->
       <div v-if="emailSent" class="bg-white rounded-lg shadow-md p-8 text-center">
@@ -132,6 +133,11 @@ definePageMeta({
 })
 
 const supabase = useSupabaseClient()
+const { initConsent } = useCookieConsent()
+
+onMounted(() => {
+  initConsent()
+})
 
 const email = ref('')
 const password = ref('')

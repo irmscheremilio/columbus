@@ -15,7 +15,15 @@
         <div class="flex items-center justify-between">
           <img src="/brand/logo_text_bright.png" alt="Columbus" class="h-10" />
           <div class="flex items-center gap-4">
-            <template v-if="user">
+            <template v-if="waitlistMode">
+              <button
+                @click="openWaitlist('free')"
+                class="btn-primary shadow-lg shadow-brand/30 hover:shadow-brand/50 hover:scale-105 transition-all"
+              >
+                Join Waitlist
+              </button>
+            </template>
+            <template v-else-if="user">
               <NuxtLink to="/dashboard" class="btn-primary shadow-lg shadow-brand/30 hover:shadow-brand/50 hover:scale-105 transition-all">
                 Dashboard
               </NuxtLink>
@@ -49,7 +57,7 @@
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in-up" style="animation-delay: 0.2s;">
           <button
-            @click="showWaitlistModal = true"
+            @click="openWaitlist('free')"
             class="group btn-primary px-8 py-4 text-lg shadow-xl shadow-brand/30 hover:shadow-brand/50 hover:scale-105 transition-all flex items-center justify-center gap-2"
           >
             Scan for Free
@@ -67,19 +75,19 @@
 
         <div class="flex flex-wrap items-center justify-center gap-6 text-gray-400 text-sm animate-fade-in-up" style="animation-delay: 0.3s;">
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
             </svg>
             <span>Free forever tier</span>
           </div>
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
             </svg>
             <span>100% ToS compliant</span>
           </div>
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
             </svg>
             <span>Real user data</span>
@@ -163,88 +171,110 @@
         <div class="max-w-5xl mx-auto">
           <!-- Section Header -->
           <div class="text-center mb-16">
-            <span class="inline-block px-4 py-1 bg-red-100 text-red-600 rounded-full text-sm font-medium mb-4">The Industry Problem</span>
+            <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">The Problem</span>
             <h2 class="text-4xl md:text-5xl font-bold mb-4">
-              Why Current AEO Tools <span class="brand-text">Fail</span>
+              The Flaw of Current <span class="brand-text">AEO Tools</span>
             </h2>
             <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-              Every AEO tool falls into one of two camps—and both have critical flaws.
+              Every AEO tool falls into one of two camps, and both have critical flaws.
             </p>
           </div>
 
           <div class="grid md:grid-cols-2 gap-8 mb-12">
             <!-- Camp 1: API-based -->
-            <div class="group relative bg-white rounded-2xl p-8 border border-gray-200 hover:border-red-300 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/10">
-              <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-red-500 rounded-t-2xl"></div>
-              <div class="flex items-center gap-3 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                  <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="group p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:border-gray-300 hover:shadow-xl transition-all duration-300">
+              <!-- Header -->
+              <div class="flex items-center gap-4 mb-6">
+                <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                   </svg>
                 </div>
-                <span class="text-sm font-medium text-red-500 bg-red-50 px-3 py-1 rounded-full">Camp 1</span>
+                <div>
+                  <h3 class="text-xl font-bold text-gray-900">API-Based Tools</h3>
+                  <p class="text-sm text-gray-500">Official APIs for data collection</p>
+                </div>
               </div>
-              <h3 class="text-xl font-bold mb-3 text-gray-900">API-Based Tools</h3>
-              <p class="text-gray-600 leading-relaxed mb-4">
-                Use official AI platform APIs for data collection. Sounds legit, but...
-              </p>
-              <ul class="space-y-2 text-sm text-gray-500">
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+
+              <!-- Issues list -->
+              <ul class="space-y-4 mb-6">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>API responses differ from real user interface results</span>
+                  <span class="text-gray-700">API responses differ from real user results</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>Different citation strategies than what users see</span>
+                  <span class="text-gray-700">Different citation strategies than UI</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>API is a black box—you don't know what you're measuring</span>
+                  <span class="text-gray-700">Black box with unknown processing</span>
                 </li>
               </ul>
+
+              <!-- Bottom indicator -->
+              <div class="pt-4 border-t border-gray-100">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-medium">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                  Unreliable data
+                </div>
+              </div>
             </div>
 
             <!-- Camp 2: Scraping -->
-            <div class="group relative bg-white rounded-2xl p-8 border border-gray-200 hover:border-red-300 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/10">
-              <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-red-500 rounded-t-2xl"></div>
-              <div class="flex items-center gap-3 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                  <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="group p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:border-gray-300 hover:shadow-xl transition-all duration-300">
+              <!-- Header -->
+              <div class="flex items-center gap-4 mb-6">
+                <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                <span class="text-sm font-medium text-red-500 bg-red-50 px-3 py-1 rounded-full">Camp 2</span>
+                <div>
+                  <h3 class="text-xl font-bold text-gray-900">Web Scraping Tools</h3>
+                  <p class="text-sm text-gray-500">Bots and proxy infrastructure</p>
+                </div>
               </div>
-              <h3 class="text-xl font-bold mb-3 text-gray-900">Web Scraping Tools</h3>
-              <p class="text-gray-600 leading-relaxed mb-4">
-                Emulate real users with bots and proxy infrastructure. Better data, but...
-              </p>
-              <ul class="space-y-2 text-sm text-gray-500">
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+
+              <!-- Issues list -->
+              <ul class="space-y-4 mb-6">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>Violates Terms of Service of all AI platforms</span>
+                  <span class="text-gray-700">Violates Terms of Service of all AI platforms</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>Expensive proxy infrastructure drives prices up ($500+/mo)</span>
+                  <span class="text-gray-700">Expensive proxy infrastructure</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                  <span>Risk of account bans and service disruption</span>
+                  <span class="text-gray-700">Risk of account bans and disruption</span>
                 </li>
               </ul>
+
+              <!-- Bottom indicator -->
+              <div class="pt-4 border-t border-gray-100">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-medium">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                  ToS violation risk
+                </div>
+              </div>
             </div>
           </div>
 
@@ -259,12 +289,12 @@
               <h3 class="text-2xl md:text-3xl font-bold mb-4">A Completely Different Approach</h3>
               <p class="text-gray-300 text-lg mb-6 max-w-2xl">
                 Columbus shifts the scanning to you. Use your own AI platform accounts and subscriptions.
-                Run scans via our desktop app—manually or on autopilot. The result?
+                Run scans via our desktop app, manually or on autopilot. The result?
               </p>
               <div class="grid sm:grid-cols-3 gap-6">
                 <div class="flex items-start gap-3">
-                  <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <div class="w-10 h-10 rounded-lg bg-brand/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                   </div>
@@ -274,8 +304,8 @@
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
-                  <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <div class="w-10 h-10 rounded-lg bg-brand/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                   </div>
@@ -285,14 +315,14 @@
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
-                  <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <div class="w-10 h-10 rounded-lg bg-brand/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                   </div>
                   <div>
                     <h4 class="font-semibold mb-1">Free Forever Tier</h4>
-                    <p class="text-sm text-gray-400">No infrastructure costs = truly free AEO</p>
+                    <p class="text-sm text-gray-400">No infrastructure costs means truly free AEO</p>
                   </div>
                 </div>
               </div>
@@ -302,89 +332,40 @@
       </div>
     </section>
 
-    <!-- How It Works -->
-    <section id="how-it-works" class="py-24 bg-gradient-to-b from-background to-white">
+    <!-- How It Works - Animated Flow -->
+    <section id="how-it-works" class="py-24 bg-gradient-to-b from-background to-white overflow-hidden">
       <div class="container mx-auto px-4">
         <!-- Section Header -->
-        <div class="text-center mb-20">
-          <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">Simple Process</span>
+        <div class="text-center mb-16">
+          <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">How It Works</span>
           <h2 class="text-4xl md:text-5xl font-bold mb-4">
-            How <span class="brand-text">Columbus</span> Works
+            From Scan to <span class="brand-text">Insights</span>
           </h2>
           <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-            Three simple steps to dominate AI search results
+            A seamless flow from your desktop to actionable insights
           </p>
         </div>
 
-        <div class="max-w-6xl mx-auto relative">
-          <!-- Connection Line (Desktop) -->
-          <div class="hidden md:block absolute top-24 left-[16.67%] right-[16.67%] h-0.5 bg-gradient-to-r from-brand via-brand to-brand"></div>
-
-          <div class="grid md:grid-cols-3 gap-12">
-            <!-- Step 1 -->
-            <div class="relative text-center">
-              <div class="relative z-10 w-20 h-20 bg-gradient-to-br from-brand to-yellow-500 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-brand/30 rotate-3 hover:rotate-0 transition-transform">
-                <span class="text-3xl font-bold text-white">1</span>
-              </div>
-              <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow">
-                <div class="w-14 h-14 bg-brand/10 rounded-xl flex items-center justify-center mx-auto mb-6">
-                  <svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <h3 class="text-xl font-bold mb-3 text-gray-900">Scan Your Visibility</h3>
-                <p class="text-gray-600 leading-relaxed">
-                  We test 50+ prompts across ChatGPT, Claude, Gemini, and Perplexity to see if your brand appears.
-                </p>
-              </div>
-            </div>
-
-            <!-- Step 2 -->
-            <div class="relative text-center md:mt-8">
-              <div class="relative z-10 w-20 h-20 bg-gradient-to-br from-brand to-yellow-500 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-brand/30 -rotate-3 hover:rotate-0 transition-transform">
-                <span class="text-3xl font-bold text-white">2</span>
-              </div>
-              <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow">
-                <div class="w-14 h-14 bg-brand/10 rounded-xl flex items-center justify-center mx-auto mb-6">
-                  <svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <h3 class="text-xl font-bold mb-3 text-gray-900">Find Your Gaps</h3>
-                <p class="text-gray-600 leading-relaxed">
-                  Discover where competitors appear but you don't. Understand why with automated gap analysis.
-                </p>
-              </div>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="relative text-center">
-              <div class="relative z-10 w-20 h-20 bg-gradient-to-br from-brand to-yellow-500 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-brand/30 rotate-3 hover:rotate-0 transition-transform">
-                <span class="text-3xl font-bold text-white">3</span>
-              </div>
-              <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow">
-                <div class="w-14 h-14 bg-brand/10 rounded-xl flex items-center justify-center mx-auto mb-6">
-                  <svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 class="text-xl font-bold mb-3 text-gray-900">Implement Fixes</h3>
-                <p class="text-gray-600 leading-relaxed">
-                  Get platform-specific guides with code snippets. No guessing, no technical knowledge required.
-                </p>
-              </div>
-            </div>
+        <!-- Animated Flow Cards -->
+        <div class="max-w-6xl mx-auto">
+          <div class="grid md:grid-cols-3 gap-4 mb-8">
+            <LandingFlowCardDesktopScanning />
+            <LandingFlowCardAIAnalysis />
+            <LandingFlowCardDashboardInsights />
           </div>
         </div>
       </div>
     </section>
+
+    <!-- Dashboard Preview -->
+    <LandingDashboardPreview />
 
     <!-- Features -->
     <section class="py-24 bg-white">
       <div class="container mx-auto px-4">
         <!-- Section Header -->
         <div class="text-center mb-16">
-          <span class="inline-block px-4 py-1 bg-green-100 text-green-600 rounded-full text-sm font-medium mb-4">Features</span>
+          <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">Features</span>
           <h2 class="text-4xl md:text-5xl font-bold mb-4">
             Everything You Need to <span class="brand-text">Win</span> in AI
           </h2>
@@ -396,8 +377,8 @@
         <div class="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <!-- Feature 1: Desktop App -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
@@ -409,8 +390,8 @@
 
           <!-- Feature 2: 6 Platforms -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-purple-500/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
@@ -422,8 +403,8 @@
 
           <!-- Feature 3: Competitor Tracking -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
@@ -435,8 +416,8 @@
 
           <!-- Feature 4: Citation Tracking -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-brand to-yellow-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-brand/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
             </div>
@@ -448,8 +429,8 @@
 
           <!-- Feature 5: AI Recommendations -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-pink-500/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
@@ -461,14 +442,14 @@
 
           <!-- Feature 6: Website SDK -->
           <div class="group p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-brand/30 hover:shadow-lg transition-all duration-300">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/20">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
             </div>
             <h3 class="text-lg font-bold mb-2 text-gray-900">Website SDK</h3>
             <p class="text-gray-600 text-sm leading-relaxed">
-              Integrate our SDK to analyze how AIs read and use your website content in real-time.
+              Integrate our SDK to track AI-driven traffic and measure ROI from your visibility efforts.
             </p>
           </div>
         </div>
@@ -482,196 +463,114 @@
 
       <div class="container mx-auto px-4">
         <!-- Section Header -->
-        <div class="text-center mb-16">
+        <div class="text-center mb-12">
           <span class="inline-block px-4 py-1 bg-brand/10 text-brand rounded-full text-sm font-medium mb-4">Pricing</span>
           <h2 class="text-4xl md:text-5xl font-bold mb-4">
             Simple <span class="brand-text">Pricing</span>
           </h2>
-          <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
             Start free, upgrade when you're ready. No hidden fees.
           </p>
+
+          <!-- Billing Toggle -->
+          <div class="flex items-center justify-center gap-4">
+            <span :class="billingPeriod === 'monthly' ? 'text-gray-900 font-medium' : 'text-gray-500'">Monthly</span>
+            <button
+              @click="billingPeriod = billingPeriod === 'monthly' ? 'yearly' : 'monthly'"
+              class="relative w-14 h-7 rounded-full transition-colors"
+              :class="billingPeriod === 'yearly' ? 'bg-brand' : 'bg-gray-300'"
+            >
+              <span
+                class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform"
+                :class="billingPeriod === 'yearly' ? 'translate-x-7' : 'translate-x-0'"
+              />
+            </button>
+            <span :class="billingPeriod === 'yearly' ? 'text-gray-900 font-medium' : 'text-gray-500'">
+              Yearly
+              <span class="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Save ~17%</span>
+            </span>
+          </div>
         </div>
 
         <div class="max-w-5xl mx-auto grid md:grid-cols-3 gap-8 items-start">
-          <!-- Free Plan -->
-          <div class="bg-white rounded-2xl p-8 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:shadow-lg">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 class="text-xl font-bold text-gray-900">Free</h3>
-            </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold text-gray-900">$0</span>
-              <span class="text-gray-500 ml-1">forever</span>
-            </div>
-            <p class="text-gray-600 text-sm mb-6">Full AEO platform, limited scale</p>
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">1 product</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">10 prompts per product</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">All 6 AI platforms</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Desktop app included</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Visibility tracking</span>
-              </li>
-            </ul>
-            <button
-              @click="showWaitlistModal = true"
-              class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+          <template v-for="tier in subscriptionTiers" :key="tier.id">
+            <!-- Popular/Featured tier (dark card) -->
+            <div
+              v-if="tier.is_popular"
+              class="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-8 text-white shadow-2xl md:scale-105 md:-my-4"
             >
-              Get Started Free
-            </button>
-          </div>
+              <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand to-yellow-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
+                MOST POPULAR
+              </div>
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-lg bg-brand/20 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="getIconSvg(tier.icon)"></svg>
+                </div>
+                <h3 class="text-xl font-bold">{{ tier.name }}</h3>
+              </div>
+              <div class="mb-6">
+                <span class="text-5xl font-bold">{{ formatPrice(billingPeriod === 'yearly' ? tier.yearly_price : tier.monthly_price) }}</span>
+                <span class="text-gray-400 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
+                <div v-if="billingPeriod === 'yearly' && tier.yearly_price > 0" class="text-sm text-gray-400 mt-1">
+                  {{ getMonthlyEquivalent(tier.yearly_price) }}/month billed annually
+                </div>
+              </div>
+              <p class="text-gray-400 text-sm mb-6">{{ tier.description }}</p>
+              <ul class="space-y-4 mb-8">
+                <li v-for="feature in tier.highlight_features" :key="feature" class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-gray-200">{{ feature }}</span>
+                </li>
+              </ul>
+              <button
+                @click="handlePricingClick(tier.id)"
+                :disabled="isProcessingCheckout"
+                class="w-full py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50"
+              >
+                <span v-if="isProcessingCheckout && selectedTier === tier.id">Processing...</span>
+                <span v-else>Get Started</span>
+              </button>
+            </div>
 
-          <!-- Pro Plan - Featured -->
-          <div class="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-8 text-white shadow-2xl md:scale-105 md:-my-4">
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand to-yellow-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
-              MOST POPULAR
-            </div>
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-10 h-10 rounded-lg bg-brand/20 flex items-center justify-center">
-                <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 class="text-xl font-bold">Pro</h3>
-            </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold">$49</span>
-              <span class="text-gray-400 ml-1">/month</span>
-            </div>
-            <p class="text-gray-400 text-sm mb-6">Full analytics and actionable insights</p>
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">5 products</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">100 prompts per product</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Competitor tracking</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Citation & source tracking</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">AI recommendations & gap analysis</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Multi-region support</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Website SDK included</span>
-              </li>
-            </ul>
-            <button
-              @click="showWaitlistModal = true"
-              class="w-full py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all"
+            <!-- Regular tier (light card) -->
+            <div
+              v-else
+              class="bg-white rounded-2xl p-8 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:shadow-lg"
             >
-              Get Started
-            </button>
-          </div>
-
-          <!-- Agency Plan -->
-          <div class="bg-white rounded-2xl p-8 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:shadow-lg">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="tier.id === 'free' ? 'bg-gray-100' : 'bg-brand/10'">
+                  <svg class="w-5 h-5" :class="tier.id === 'free' ? 'text-gray-600' : 'text-brand'" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="getIconSvg(tier.icon)"></svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">{{ tier.name }}</h3>
               </div>
-              <h3 class="text-xl font-bold text-gray-900">Agency</h3>
+              <div class="mb-6">
+                <span class="text-5xl font-bold text-gray-900">{{ formatPrice(billingPeriod === 'yearly' ? tier.yearly_price : tier.monthly_price) }}</span>
+                <span class="text-gray-500 ml-1">{{ tier.monthly_price === 0 ? 'forever' : (billingPeriod === 'yearly' ? '/year' : '/month') }}</span>
+                <div v-if="billingPeriod === 'yearly' && tier.yearly_price > 0" class="text-sm text-gray-500 mt-1">
+                  {{ getMonthlyEquivalent(tier.yearly_price) }}/month billed annually
+                </div>
+              </div>
+              <p class="text-gray-600 text-sm mb-6">{{ tier.description }}</p>
+              <ul class="space-y-4 mb-8">
+                <li v-for="feature in tier.highlight_features" :key="feature" class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-gray-700">{{ feature }}</span>
+                </li>
+              </ul>
+              <button
+                @click="handlePricingClick(tier.id)"
+                :disabled="isProcessingCheckout"
+                class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all disabled:opacity-50"
+              >
+                <span v-if="isProcessingCheckout && selectedTier === tier.id">Processing...</span>
+                <span v-else>{{ tier.id === 'free' ? 'Get Started Free' : 'Get Started' }}</span>
+              </button>
             </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold text-gray-900">$149</span>
-              <span class="text-gray-500 ml-1">/month</span>
-            </div>
-            <p class="text-gray-600 text-sm mb-6">Scale across multiple clients</p>
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Everything in Pro</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Up to 500 products</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Unlimited prompts</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">White-label reports</span>
-              </li>
-              <li class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Client website SDK integration</span>
-              </li>
-            </ul>
-            <button
-              @click="showWaitlistModal = true"
-              class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
-            >
-              Get Started
-            </button>
-          </div>
+          </template>
         </div>
       </div>
     </section>
@@ -693,7 +592,7 @@
           Start scanning for free today. See exactly where you rank across all major AI platforms.
         </p>
         <button
-          @click="showWaitlistModal = true"
+          @click="openWaitlist('free')"
           class="group inline-flex items-center gap-2 bg-gradient-to-r from-brand to-yellow-500 text-white px-8 py-4 text-lg rounded-xl font-medium shadow-xl shadow-brand/30 hover:shadow-brand/50 hover:scale-105 transition-all"
         >
           Start Scanning Free
@@ -726,9 +625,9 @@
           <div>
             <h4 class="text-white font-semibold mb-4">Legal</h4>
             <ul class="space-y-2">
-              <li><a href="#" class="hover:text-brand transition-colors">Privacy Policy</a></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Terms of Service</a></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Contact</a></li>
+              <li><NuxtLink to="/privacy" class="hover:text-brand transition-colors">Privacy Policy</NuxtLink></li>
+              <li><NuxtLink to="/terms" class="hover:text-brand transition-colors">Terms of Service</NuxtLink></li>
+              <li><NuxtLink to="/impressum" class="hover:text-brand transition-colors">Impressum</NuxtLink></li>
             </ul>
           </div>
         </div>
@@ -754,10 +653,20 @@
     >
       <div class="bg-background-highlight rounded-lg p-8 max-w-md w-full border border-border">
         <h3 class="text-2xl font-bold mb-4">
-          Start <span class="brand-text">Scanning Free</span>
+          <template v-if="waitlistMode">
+            Join the <span class="brand-text">Waitlist</span>
+          </template>
+          <template v-else>
+            Start <span class="brand-text">Scanning Free</span>
+          </template>
         </h3>
         <p class="text-gray-600 mb-6">
-          Enter your details to get started with Columbus and begin tracking your AI visibility.
+          <template v-if="waitlistMode">
+            Be among the first to access Columbus when we launch. We'll notify you as soon as it's ready.
+          </template>
+          <template v-else>
+            Enter your details to get started with Columbus and begin tracking your AI visibility.
+          </template>
         </p>
         <form @submit.prevent="submitWaitlist" class="space-y-4">
           <div>
@@ -801,7 +710,7 @@
               class="btn-primary flex-1"
               :disabled="isSubmitting"
             >
-              {{ isSubmitting ? 'Submitting...' : 'Get Started' }}
+              {{ isSubmitting ? 'Submitting...' : (waitlistMode ? 'Join Waitlist' : 'Get Started') }}
             </button>
           </div>
         </form>
@@ -812,18 +721,82 @@
 
 <script setup lang="ts">
 const user = useSupabaseUser()
+const config = useRuntimeConfig()
+const waitlistMode = config.public.waitlistMode
+const { createCheckout } = useEdgeFunctions()
+
+// Subscription tiers
+const { tiers: subscriptionTiers, fetchTiers, formatPrice, getMonthlyEquivalent, getIconSvg } = useSubscriptionTiers()
+
+// Billing period toggle
+const billingPeriod = ref<'monthly' | 'yearly'>('monthly')
+
+// Checkout state
+const isProcessingCheckout = ref(false)
+const selectedTier = ref<string | null>(null)
+
+onMounted(() => {
+  fetchTiers()
+})
 
 const showWaitlistModal = ref(false)
 const isSubmitting = ref(false)
+const waitlistIntent = ref<string>('free')
 const waitlistForm = ref({
   email: '',
   companyName: '',
   website: ''
 })
 
+const openWaitlist = (intent: string = 'free') => {
+  waitlistIntent.value = intent
+  showWaitlistModal.value = true
+}
+
+// Handle pricing button click
+const handlePricingClick = async (tierId: string) => {
+  // In waitlist mode, always open waitlist modal
+  if (waitlistMode) {
+    openWaitlist(tierId)
+    return
+  }
+
+  // Free tier - redirect to signup
+  if (tierId === 'free') {
+    navigateTo('/auth/signup')
+    return
+  }
+
+  // Not logged in - redirect to login with plan info
+  if (!user.value) {
+    navigateTo(`/auth/login?plan=${tierId}&billing=${billingPeriod.value}`)
+    return
+  }
+
+  // Logged in - start Stripe checkout
+  isProcessingCheckout.value = true
+  selectedTier.value = tierId
+
+  try {
+    const result = await createCheckout(tierId, billingPeriod.value)
+    if (result.url) {
+      window.location.href = result.url
+    }
+  } catch (e: any) {
+    console.error('Checkout error:', e)
+    alert(e.message || 'Failed to start checkout. Please try again.')
+  } finally {
+    isProcessingCheckout.value = false
+    selectedTier.value = null
+  }
+}
+
 const submitWaitlist = async () => {
   isSubmitting.value = true
   const supabase = useSupabaseClient()
+
+  // Capture intent value at submission time to ensure correct value is sent
+  const submittedIntent = waitlistIntent.value
 
   try {
     // Call edge function to handle waitlist + email
@@ -832,14 +805,19 @@ const submitWaitlist = async () => {
         email: waitlistForm.value.email,
         companyName: waitlistForm.value.companyName,
         website: waitlistForm.value.website,
+        intent: submittedIntent,
       }
     })
 
     if (error) throw error
 
-    alert('Thank you! Check your email to get started with Columbus.')
+    const successMessage = waitlistMode
+      ? "You're on the list! We'll email you when Columbus launches."
+      : 'Thank you! Check your email to get started with Columbus.'
+    alert(successMessage)
     showWaitlistModal.value = false
     waitlistForm.value = { email: '', companyName: '', website: '' }
+    waitlistIntent.value = 'free' // Reset intent for next submission
   } catch (error) {
     console.error('Waitlist error:', error)
     alert('Something went wrong. Please try again.')

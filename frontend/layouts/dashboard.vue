@@ -15,5 +15,16 @@
 
     <!-- Active jobs indicator -->
     <ActiveJobsBadge />
+
+    <!-- Cookie Banner -->
+    <CookieBanner />
   </div>
 </template>
+
+<script setup lang="ts">
+const { initConsent } = useCookieConsent()
+
+onMounted(() => {
+  initConsent()
+})
+</script>

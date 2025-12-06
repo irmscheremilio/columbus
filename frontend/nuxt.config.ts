@@ -35,6 +35,8 @@ export default defineNuxtConfig({
       stripePublishableKey: process.env.NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       workerApiUrl: process.env.WORKER_API_URL || 'http://localhost:3001',
       desktopAppDownloadUrl: process.env.NUXT_PUBLIC_DESKTOP_APP_DOWNLOAD_URL || '#',
+      // Waitlist mode - when true, disables auth/dashboard and shows waitlist only
+      waitlistMode: false,
     },
   },
 

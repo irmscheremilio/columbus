@@ -51,6 +51,26 @@ export default {
         none: 'none',
         card: 'none', // Cards should have no shadow
       },
+      animation: {
+        'flow-line': 'flowLine 3s ease-in-out infinite',
+        'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
+        'fade-in-down': 'fadeInDown 0.6s ease-out forwards',
+      },
+      keyframes: {
+        flowLine: {
+          '0%': { transform: 'translateX(-100%)' },
+          '50%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        fadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeInDown: {
+          '0%': { opacity: '0', transform: 'translateY(-20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
     },
   },
   plugins: [

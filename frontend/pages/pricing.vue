@@ -57,256 +57,143 @@
     <!-- Pricing Cards -->
     <section class="py-16 -mt-8">
       <div class="container mx-auto px-4">
-        <div class="max-w-6xl mx-auto grid md:grid-cols-3 gap-8 items-start">
-          <!-- Free Plan -->
-          <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 class="text-xl font-bold text-gray-900">Free</h3>
-                <p class="text-sm text-gray-500">Get started</p>
-              </div>
-            </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold text-gray-900">$0</span>
-              <span class="text-gray-500 ml-1">/month</span>
-            </div>
-            <p class="text-gray-600 text-sm mb-8">Perfect for exploring AI visibility optimization</p>
+        <div v-if="loading" class="text-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto"></div>
+          <p class="mt-4 text-gray-500">Loading plans...</p>
+        </div>
 
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>1</strong> product</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>5</strong> prompt checks/month</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>2</strong> visibility scans/month</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>1</strong> website analysis</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>1</strong> competitor tracking</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Basic recommendations</span>
-              </li>
-            </ul>
-
-            <NuxtLink
-              v-if="!user"
-              to="/auth/signup"
-              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+        <div v-else class="max-w-6xl mx-auto grid md:grid-cols-3 gap-8 items-start">
+          <template v-for="tier in tiers" :key="tier.id">
+            <!-- Popular/Featured tier (dark card) -->
+            <div
+              v-if="tier.is_popular"
+              class="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-8 text-white shadow-2xl md:scale-105 md:-my-4"
             >
-              Get Started Free
-            </NuxtLink>
-            <div v-else-if="currentPlan === 'free'" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
-              Current Plan
+              <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand to-yellow-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
+                MOST POPULAR
+              </div>
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="getIconSvg(tier.icon)"></svg>
+                </div>
+                <div>
+                  <h3 class="text-xl font-bold">{{ tier.name }}</h3>
+                  <p class="text-sm text-gray-400">{{ tier.tagline }}</p>
+                </div>
+              </div>
+              <div class="mb-6">
+                <span class="text-5xl font-bold">{{ formatPrice(billingPeriod === 'yearly' ? tier.yearly_price : tier.monthly_price) }}</span>
+                <span class="text-gray-400 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
+                <div v-if="billingPeriod === 'yearly' && tier.yearly_price > 0" class="text-sm text-gray-400 mt-1">
+                  {{ getMonthlyEquivalent(tier.yearly_price) }}/month billed annually
+                </div>
+              </div>
+              <p class="text-gray-400 text-sm mb-8">{{ tier.description }}</p>
+
+              <ul class="space-y-4 mb-8">
+                <li v-for="feature in tier.highlight_features" :key="feature" class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-gray-200">{{ feature }}</span>
+                </li>
+              </ul>
+
+              <NuxtLink
+                v-if="!user"
+                :to="`/auth/signup?plan=${tier.id}&billing=${billingPeriod}`"
+                class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all"
+              >
+                Get Started
+              </NuxtLink>
+              <div v-else-if="currentPlan === tier.id" class="w-full py-3 px-6 rounded-xl font-medium bg-brand/20 text-brand text-center">
+                Current Plan
+              </div>
+              <button
+                v-else
+                @click="handleUpgrade(tier.id)"
+                :disabled="upgrading"
+                class="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50"
+              >
+                <span v-if="upgrading">Processing...</span>
+                <span v-else>{{ currentPlan !== 'free' ? 'Manage Plan' : `Upgrade to ${tier.name}` }}</span>
+              </button>
             </div>
-            <button
+
+            <!-- Regular tier (light card) -->
+            <div
               v-else
-              disabled
-              class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-400 cursor-not-allowed"
+              class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300"
             >
-              Downgrade Not Available
-            </button>
-          </div>
-
-          <!-- Pro Plan - Featured -->
-          <div class="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-8 text-white shadow-2xl md:scale-105 md:-my-4">
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand to-yellow-400 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
-              MOST POPULAR
-            </div>
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
-                <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center" :class="tier.id === 'free' ? 'bg-gray-100' : 'bg-brand/10'">
+                  <svg class="w-6 h-6" :class="tier.id === 'free' ? 'text-gray-600' : 'text-brand'" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="getIconSvg(tier.icon)"></svg>
+                </div>
+                <div>
+                  <h3 class="text-xl font-bold text-gray-900">{{ tier.name }}</h3>
+                  <p class="text-sm text-gray-500">{{ tier.tagline }}</p>
+                </div>
               </div>
-              <div>
-                <h3 class="text-xl font-bold">Pro</h3>
-                <p class="text-sm text-gray-400">Most popular</p>
+              <div class="mb-6">
+                <span class="text-5xl font-bold text-gray-900">{{ formatPrice(billingPeriod === 'yearly' ? tier.yearly_price : tier.monthly_price) }}</span>
+                <span class="text-gray-500 ml-1">/{{ tier.monthly_price === 0 ? 'month' : (billingPeriod === 'yearly' ? 'year' : 'month') }}</span>
+                <div v-if="billingPeriod === 'yearly' && tier.yearly_price > 0" class="text-sm text-gray-500 mt-1">
+                  {{ getMonthlyEquivalent(tier.yearly_price) }}/month billed annually
+                </div>
               </div>
-            </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold">${{ billingPeriod === 'yearly' ? '490' : '49' }}</span>
-              <span class="text-gray-400 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
-              <div v-if="billingPeriod === 'yearly'" class="text-sm text-gray-400 mt-1">
-                $40.83/month billed annually
-              </div>
-            </div>
-            <p class="text-gray-400 text-sm mb-8">For businesses serious about AI visibility</p>
+              <p class="text-gray-600 text-sm mb-8">{{ tier.description }}</p>
 
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200"><strong>1</strong> product</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200"><strong>Unlimited</strong> prompt checks</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200"><strong>Unlimited</strong> visibility scans</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200"><strong>Unlimited</strong> website analyses</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200"><strong>10</strong> competitor tracking</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">AI-powered recommendations</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-200">Email support</span>
-              </li>
-            </ul>
+              <ul class="space-y-4 mb-8">
+                <li v-for="feature in tier.highlight_features" :key="feature" class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-gray-700">{{ feature }}</span>
+                </li>
+              </ul>
 
-            <NuxtLink
-              v-if="!user"
-              to="/auth/signup?plan=pro"
-              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all"
-            >
-              Get Started
-            </NuxtLink>
-            <div v-else-if="currentPlan === 'pro'" class="w-full py-3 px-6 rounded-xl font-medium bg-brand/20 text-brand text-center">
-              Current Plan
+              <template v-if="tier.id === 'free'">
+                <NuxtLink
+                  v-if="!user"
+                  to="/auth/signup"
+                  class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+                >
+                  Get Started Free
+                </NuxtLink>
+                <div v-else-if="currentPlan === 'free'" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
+                  Current Plan
+                </div>
+                <button
+                  v-else
+                  disabled
+                  class="w-full py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-400 cursor-not-allowed"
+                >
+                  Downgrade Not Available
+                </button>
+              </template>
+              <template v-else>
+                <NuxtLink
+                  v-if="!user"
+                  :to="`/auth/signup?plan=${tier.id}&billing=${billingPeriod}`"
+                  class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
+                >
+                  Get Started
+                </NuxtLink>
+                <div v-else-if="currentPlan === tier.id" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
+                  Current Plan
+                </div>
+                <button
+                  v-else
+                  @click="handleUpgrade(tier.id)"
+                  :disabled="upgrading"
+                  class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all disabled:opacity-50"
+                >
+                  <span v-if="upgrading">Processing...</span>
+                  <span v-else>{{ currentPlan !== 'free' ? 'Manage Plan' : `Upgrade to ${tier.name}` }}</span>
+                </button>
+              </template>
             </div>
-            <button
-              v-else
-              @click="handleUpgrade('pro')"
-              :disabled="upgrading"
-              class="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50"
-            >
-              <span v-if="upgrading">Processing...</span>
-              <span v-else>{{ currentPlan === 'agency' || currentPlan === 'enterprise' ? 'Manage Plan' : 'Upgrade to Pro' }}</span>
-            </button>
-          </div>
-
-          <!-- Agency Plan -->
-          <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <h3 class="text-xl font-bold text-gray-900">Agency</h3>
-                <p class="text-sm text-gray-500">For teams</p>
-              </div>
-            </div>
-            <div class="mb-6">
-              <span class="text-5xl font-bold text-gray-900">${{ billingPeriod === 'yearly' ? '1,490' : '149' }}</span>
-              <span class="text-gray-500 ml-1">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
-              <div v-if="billingPeriod === 'yearly'" class="text-sm text-gray-500 mt-1">
-                $124.17/month billed annually
-              </div>
-            </div>
-            <p class="text-gray-600 text-sm mb-8">For agencies managing multiple clients</p>
-
-            <ul class="space-y-4 mb-8">
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Everything in Pro</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>5</strong> products</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700"><strong>50</strong> competitor tracking</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Team collaboration</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">White-label reports</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-brand flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">Priority support</span>
-              </li>
-            </ul>
-
-            <NuxtLink
-              v-if="!user"
-              to="/auth/signup?plan=agency"
-              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all"
-            >
-              Get Started
-            </NuxtLink>
-            <div v-else-if="currentPlan === 'agency'" class="w-full py-3 px-6 rounded-xl font-medium bg-gray-100 text-gray-500 text-center">
-              Current Plan
-            </div>
-            <button
-              v-else
-              @click="handleUpgrade('agency')"
-              :disabled="upgrading"
-              class="w-full flex items-center justify-center py-3 px-6 rounded-xl font-medium border-2 border-gray-200 text-gray-700 hover:border-brand hover:text-brand transition-all disabled:opacity-50"
-            >
-              <span v-if="upgrading">Processing...</span>
-              <span v-else>{{ currentPlan === 'enterprise' ? 'Manage Plan' : 'Upgrade to Agency' }}</span>
-            </button>
-          </div>
+          </template>
         </div>
       </div>
     </section>
@@ -324,130 +211,40 @@
             <thead>
               <tr class="border-b border-gray-200">
                 <th class="py-4 px-4 text-left font-medium text-gray-500">Feature</th>
-                <th class="py-4 px-4 text-center font-medium text-gray-900">Free</th>
-                <th class="py-4 px-4 text-center font-medium text-brand">Pro</th>
-                <th class="py-4 px-4 text-center font-medium text-purple-600">Agency</th>
+                <th v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center font-medium" :class="tier.is_popular ? 'text-brand' : 'text-gray-900'">
+                  {{ tier.name }}
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr class="border-b border-gray-100">
                 <td class="py-4 px-4 text-gray-700">Products</td>
-                <td class="py-4 px-4 text-center text-gray-600">1</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">1</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">5</td>
+                <td v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center" :class="tier.is_popular ? 'font-medium text-gray-900' : 'text-gray-600'">
+                  {{ formatLimit(tier.product_limit) }}
+                </td>
               </tr>
               <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">Prompt checks/month</td>
-                <td class="py-4 px-4 text-center text-gray-600">5</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
-              </tr>
-              <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">Visibility scans/month</td>
-                <td class="py-4 px-4 text-center text-gray-600">2</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
-              </tr>
-              <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">Website analyses/month</td>
-                <td class="py-4 px-4 text-center text-gray-600">1</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">Unlimited</td>
+                <td class="py-4 px-4 text-gray-700">Prompts per product</td>
+                <td v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center" :class="tier.is_popular ? 'font-medium text-gray-900' : 'text-gray-600'">
+                  {{ formatLimit(tier.prompts_per_month) }}
+                </td>
               </tr>
               <tr class="border-b border-gray-100">
                 <td class="py-4 px-4 text-gray-700">Competitor tracking</td>
-                <td class="py-4 px-4 text-center text-gray-600">1</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">10</td>
-                <td class="py-4 px-4 text-center font-medium text-gray-900">50</td>
-              </tr>
-              <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">AI-powered recommendations</td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
+                <td v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center" :class="tier.is_popular ? 'font-medium text-gray-900' : 'text-gray-600'">
+                  {{ formatLimit(tier.competitors_limit) }}
                 </td>
               </tr>
               <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">Platform-specific guides</td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
+                <td class="py-4 px-4 text-gray-700">Visibility scans</td>
+                <td v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center" :class="tier.is_popular ? 'font-medium text-gray-900' : 'text-gray-600'">
+                  {{ formatLimit(tier.scans_per_month) }}
                 </td>
               </tr>
               <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">Team collaboration</td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </td>
-              </tr>
-              <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">White-label reports</td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </td>
-              </tr>
-              <tr class="border-b border-gray-100">
-                <td class="py-4 px-4 text-gray-700">API access</td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </td>
-                <td class="py-4 px-4 text-center">
-                  <svg class="w-5 h-5 text-brand mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
+                <td class="py-4 px-4 text-gray-700">Website analyses</td>
+                <td v-for="tier in tiers" :key="tier.id" class="py-4 px-4 text-center" :class="tier.is_popular ? 'font-medium text-gray-900' : 'text-gray-600'">
+                  {{ formatLimit(tier.website_analyses_limit) }}
                 </td>
               </tr>
               <tr>
@@ -535,6 +332,7 @@
           <div class="flex items-center gap-6 text-sm">
             <NuxtLink to="/privacy" class="hover:text-white transition-colors">Privacy</NuxtLink>
             <NuxtLink to="/terms" class="hover:text-white transition-colors">Terms</NuxtLink>
+            <NuxtLink to="/impressum" class="hover:text-white transition-colors">Impressum</NuxtLink>
             <span>&copy; {{ new Date().getFullYear() }} Columbus</span>
           </div>
         </div>
@@ -547,13 +345,16 @@
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const { createCheckout, createPortal } = useEdgeFunctions()
+const { tiers, loading, fetchTiers, formatPrice, getMonthlyEquivalent, formatLimit, getIconSvg } = useSubscriptionTiers()
 
 const upgrading = ref(false)
 const currentPlan = ref<string>('free')
 const billingPeriod = ref<'monthly' | 'yearly'>('monthly')
 
-// Load current plan if user is logged in
+// Load subscription tiers and current plan
 onMounted(async () => {
+  await fetchTiers()
+
   if (user.value) {
     const { data: profile } = await supabase
       .from('profiles')

@@ -7,29 +7,36 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return
   }
 
-  // Only check for dashboard routes
+  // Only check for dashboard routes (but not the onboarding page itself)
   if (!to.path.startsWith('/dashboard')) {
     return
   }
 
+  // Allow access to onboarding page without redirect loop
+  if (to.path === '/dashboard/onboarding') {
+    return
+  }
+
   try {
-    // Get user's organization
-    const { data: userData } = await supabase
+    // Get user's profile with organization and onboarding status
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, active_organization_id, onboarding_complete')
       .eq('id', user.value?.id)
       .single()
 
-    if (!userData?.organization_id) {
-      // User hasn't completed setup - redirect to callback which handles onboarding
-      return navigateTo('/auth/callback')
+    const organizationId = profile?.active_organization_id || profile?.organization_id
+    const onboardingComplete = profile?.onboarding_complete ?? false
+
+    // If no organization OR onboarding not complete, redirect to onboarding
+    if (!organizationId || !onboardingComplete) {
+      return navigateTo('/dashboard/onboarding')
     }
 
-    // Organization exists - user can access dashboard
-    // Note: We no longer require onboarding_completed since the worker runs async
-    // The dashboard will show a "generating prompts" state if prompts aren't ready yet
+    // Organization exists and onboarding is complete - allow access to dashboard
   } catch (error) {
-    console.error('Error checking organization status:', error)
-    return navigateTo('/auth/callback')
+    console.error('Error checking onboarding status:', error)
+    // On error, redirect to onboarding to be safe
+    return navigateTo('/dashboard/onboarding')
   }
 })
