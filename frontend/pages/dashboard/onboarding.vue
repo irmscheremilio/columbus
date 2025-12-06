@@ -42,6 +42,24 @@
               <p class="text-lg text-gray-600">Get more products, unlimited prompts, and advanced features</p>
             </div>
 
+            <!-- Billing Period Toggle -->
+            <div class="flex items-center justify-center gap-3">
+              <span :class="billingPeriod === 'monthly' ? 'text-gray-900 font-medium' : 'text-gray-500'">Monthly</span>
+              <button
+                @click="billingPeriod = billingPeriod === 'monthly' ? 'yearly' : 'monthly'"
+                class="relative w-14 h-8 rounded-full transition-colors"
+                :class="billingPeriod === 'yearly' ? 'bg-brand' : 'bg-gray-300'"
+              >
+                <span
+                  class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform"
+                  :class="billingPeriod === 'yearly' ? 'translate-x-6' : 'translate-x-0'"
+                />
+              </button>
+              <span :class="billingPeriod === 'yearly' ? 'text-gray-900 font-medium' : 'text-gray-500'">
+                Yearly <span class="text-brand text-sm font-medium">(Save 17%)</span>
+              </span>
+            </div>
+
             <!-- Pricing Cards -->
             <div class="grid md:grid-cols-2 gap-6">
               <div
@@ -55,10 +73,14 @@
               >
                 <div v-if="tier.is_popular" class="text-xs font-bold text-brand mb-2">MOST POPULAR</div>
                 <h3 class="text-xl font-bold mb-1" :class="tier.is_popular ? 'text-white' : 'text-gray-900'">{{ tier.name }}</h3>
-                <div class="flex items-baseline gap-1 mb-4">
-                  <span class="text-3xl font-bold">{{ formatPrice(tier.monthly_price) }}</span>
-                  <span :class="tier.is_popular ? 'text-gray-400' : 'text-gray-500'">/month</span>
+                <div class="flex items-baseline gap-1 mb-1">
+                  <span class="text-3xl font-bold">{{ formatPrice(billingPeriod === 'yearly' ? tier.yearly_price : tier.monthly_price) }}</span>
+                  <span :class="tier.is_popular ? 'text-gray-400' : 'text-gray-500'">/{{ billingPeriod === 'yearly' ? 'year' : 'month' }}</span>
                 </div>
+                <div v-if="billingPeriod === 'yearly' && tier.yearly_price > 0" class="text-sm mb-3" :class="tier.is_popular ? 'text-gray-400' : 'text-gray-500'">
+                  {{ getMonthlyEquivalent(tier.yearly_price) }}/month
+                </div>
+                <div v-else class="mb-3"></div>
                 <ul class="space-y-2 mb-6">
                   <li v-for="feature in tier.highlight_features?.slice(0, 4)" :key="feature" class="flex items-center gap-2 text-sm">
                     <svg class="w-4 h-4 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -237,7 +259,7 @@
               <div class="mb-8">
                 <div class="flex justify-between text-sm mb-2">
                   <span class="text-gray-600">Progress</span>
-                  <span class="font-medium text-brand">{{ analysisProgress.progress_percent }}%</span>
+                  <span class="font-medium text-brand">{{ Math.round(analysisProgress.progress_percent) }}%</span>
                 </div>
                 <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
                   <div
@@ -660,13 +682,14 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const router = useRouter()
 const config = useRuntimeConfig()
-const { tiers: subscriptionTiers, fetchTiers, formatPrice } = useSubscriptionTiers()
+const { tiers: subscriptionTiers, fetchTiers, formatPrice, getMonthlyEquivalent } = useSubscriptionTiers()
 const { createCheckout } = useEdgeFunctions()
 
 // State
 const currentStep = ref(1)
 const showUpgradeStep = ref(true) // Will be set based on plan check
 const totalSteps = computed(() => showUpgradeStep.value ? 7 : 6)
+const billingPeriod = ref<'monthly' | 'yearly'>('monthly')
 
 // Company form
 const companyForm = ref({ name: '' })
@@ -817,7 +840,7 @@ const loadCountries = async () => {
 
 const selectPlan = async (tier: any) => {
   try {
-    const result = await createCheckout(tier.id, 'monthly')
+    const result = await createCheckout(tier.id, billingPeriod.value)
     if (result.url) {
       window.location.href = result.url
     }
@@ -836,38 +859,13 @@ const saveCompany = async () => {
 
   savingCompany.value = true
   try {
-    // Create organization
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({
-        name: companyForm.value.name,
-        plan: 'free',
-        product_limit: 1,
-        created_by: user.value?.id
-      })
-      .select()
-      .single()
+    // Create organization via edge function (bypasses RLS)
+    const { data, error } = await supabase.functions.invoke('create-organization', {
+      body: { name: companyForm.value.name }
+    })
 
-    if (orgError) throw orgError
-
-    // Update user profile
-    await supabase
-      .from('profiles')
-      .update({
-        organization_id: org.id,
-        active_organization_id: org.id,
-        role: 'owner'
-      })
-      .eq('id', user.value?.id)
-
-    // Add to organization_members
-    await supabase
-      .from('organization_members')
-      .insert({
-        organization_id: org.id,
-        user_id: user.value?.id,
-        role: 'owner'
-      })
+    if (error) throw error
+    if (!data.success) throw new Error(data.error || 'Failed to create organization')
 
     currentStep.value++
   } catch (e: any) {
@@ -1014,7 +1012,7 @@ const pollProgress = async (jobId: string) => {
         // Simulate progress if no realtime updates
         analysisProgress.value.progress_percent = Math.min(
           95,
-          analysisProgress.value.progress_percent + Math.random() * 5
+          Math.round(analysisProgress.value.progress_percent + Math.random() * 5)
         )
       }
     } catch (e) {

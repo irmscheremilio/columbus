@@ -62,15 +62,32 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    console.log('Looking up plan:', planId)
+
     const { data: plan, error: planError } = await supabaseAdmin
       .from('subscription_tiers')
       .select('*')
       .eq('id', planId)
       .single()
 
+    if (planError) {
+      console.error('Plan lookup error:', planError)
+    }
+
     if (planError || !plan) {
+      // Try to list available plans for debugging
+      const { data: allPlans } = await supabaseAdmin
+        .from('subscription_tiers')
+        .select('id, name')
+
+      console.log('Available plans:', allPlans)
+
       return new Response(
-        JSON.stringify({ error: 'Plan not found' }),
+        JSON.stringify({
+          error: 'Plan not found',
+          requestedPlan: planId,
+          availablePlans: allPlans?.map(p => p.id) || []
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
