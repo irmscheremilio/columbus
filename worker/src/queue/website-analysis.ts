@@ -129,6 +129,7 @@ export interface WebsiteAnalysisJobData {
   multiPageAnalysis?: boolean // New option for multi-page crawling
   // NOTE: triggerVisibilityScan is DEPRECATED - visibility scans are now done via browser extension
   jobId?: string
+  language?: string // Language code for prompt generation (e.g., 'en', 'de', 'es')
 }
 
 /**
@@ -155,9 +156,9 @@ export const websiteAnalysisQueue = new Queue<WebsiteAnalysisJobData>('website-a
 export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
   'website-analysis',
   async (job) => {
-    const { organizationId, productId, domain, includeCompetitorGaps = false, multiPageAnalysis = true } = job.data
+    const { organizationId, productId, domain, includeCompetitorGaps = false, multiPageAnalysis = true, language = 'en' } = job.data
 
-    console.log(`[Website Analysis] Starting analysis for ${domain} (productId: ${productId || 'none'}, multiPage: ${multiPageAnalysis})`)
+    console.log(`[Website Analysis] Starting analysis for ${domain} (productId: ${productId || 'none'}, multiPage: ${multiPageAnalysis}, language: ${language})`)
 
     // Initialize progress tracker if we have a job ID
     const progress = job.data.jobId
@@ -425,7 +426,8 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
 
       const generatedPrompts = await promptGenerator.generatePrompts(
         productAnalysis,
-        websiteAnalysis
+        websiteAnalysis,
+        { language } // Pass selected language for prompt generation
       )
 
       console.log(`[Website Analysis] Generated ${generatedPrompts.length} prompts`)

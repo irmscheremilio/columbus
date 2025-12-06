@@ -41,6 +41,8 @@ serve(async (req) => {
     const primaryLocation = body.primaryLocation
     const primaryCountry = body.primaryCountry
     const primaryLanguage = body.primaryLanguage || 'en'
+    // Domain aliases - additional domains to count as brand citations
+    const domainAliases: string[] = Array.isArray(body.domainAliases) ? body.domainAliases : []
 
     // Validate input
     if (!name || !website) {
@@ -181,6 +183,7 @@ serve(async (req) => {
         primary_country: primaryCountry?.trim() || null,
         primary_language: primaryLanguage || 'en',
         icon_url: iconUrl,
+        domain_aliases: domainAliases.length > 0 ? domainAliases : null,
         is_active: true,
       }])
       .select()
@@ -232,7 +235,8 @@ serve(async (req) => {
                 organizationId,
                 productId: product.id,
                 domain,
-                jobId: job.id
+                jobId: job.id,
+                language: primaryLanguage
               })
             })
           } catch (err) {

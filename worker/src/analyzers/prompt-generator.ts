@@ -94,16 +94,25 @@ Return ONLY valid JSON, no markdown or explanation.`
     websiteAnalysis: WebsiteAnalysis,
     locationContext?: LocationContext
   ): Promise<GeneratedPrompt[]> {
-    // Build location-specific instructions
-    const locationInstruction = locationContext?.country && locationContext.country !== 'GLOBAL'
-      ? `
+    // Build location/language-specific instructions
+    let locationInstruction = ''
+
+    if (locationContext?.country && locationContext.country !== 'GLOBAL') {
+      // Region-specific instructions
+      const langName = this.getLanguageName(locationContext.language || 'en')
+      locationInstruction = `
 
 TARGET REGION: ${locationContext.location || locationContext.country}
-${locationContext.language && locationContext.language !== 'en'
-  ? `IMPORTANT: Generate ALL prompts in ${this.getLanguageName(locationContext.language)} language. The prompts should be written as a native ${locationContext.location || locationContext.country} speaker would naturally search.`
-  : `The prompts should be written as someone from ${locationContext.location || locationContext.country} would naturally search - use region-appropriate terminology and context.`}
+IMPORTANT: Generate ALL prompts in ${langName} language. The prompts should be written as a native ${langName} speaker would naturally search.
 `
-      : ''
+    } else if (locationContext?.language && locationContext.language !== 'en') {
+      // Language-only instructions (no specific region)
+      const langName = this.getLanguageName(locationContext.language)
+      locationInstruction = `
+
+IMPORTANT: Generate ALL prompts in ${langName} language. The prompts should be written as a native ${langName} speaker would naturally search.
+`
+    }
 
     const prompt = `You are an expert at understanding how real users search for solutions using AI assistants like ChatGPT, Claude, and Perplexity.
 

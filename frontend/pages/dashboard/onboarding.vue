@@ -175,10 +175,21 @@
         >
           <div v-if="currentStep === (showUpgradeStep ? 3 : 2)" class="space-y-8">
             <div class="text-center">
-              <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-brand to-yellow-500 flex items-center justify-center shadow-lg shadow-brand/25">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+              <div class="w-16 h-16 mx-auto mb-6 rounded-2xl overflow-hidden shadow-lg" :class="validatedFaviconUrl && !faviconLoadError ? 'bg-white border border-gray-200' : 'bg-gradient-to-br from-brand to-yellow-500 shadow-brand/25'">
+                <img
+                  v-if="validatedFaviconUrl"
+                  v-show="!faviconLoadError"
+                  :src="validatedFaviconUrl"
+                  alt="Product icon"
+                  class="w-full h-full object-contain p-2"
+                  @error="faviconLoadError = true"
+                  @load="faviconLoadError = false"
+                />
+                <div v-if="!validatedFaviconUrl || faviconLoadError" class="w-full h-full flex items-center justify-center">
+                  <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
+                </div>
               </div>
               <h1 class="text-3xl font-bold text-gray-900 mb-3">Add your first product</h1>
               <p class="text-lg text-gray-600">We'll analyze your website to understand your product</p>
@@ -197,14 +208,105 @@
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Website URL *</label>
-                  <input
-                    v-model="productForm.website"
-                    type="url"
-                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all"
-                    placeholder="https://yourproduct.com"
-                  />
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Website Domain *</label>
+                  <div class="flex">
+                    <span class="inline-flex items-center px-4 py-3 border border-r-0 border-gray-200 rounded-l-xl bg-gray-50 text-gray-500 text-sm">
+                      https://
+                    </span>
+                    <input
+                      v-model="productForm.website"
+                      type="text"
+                      class="flex-1 px-4 py-3 border border-gray-200 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all"
+                      placeholder="yourproduct.com"
+                    />
+                  </div>
                   <p class="text-xs text-gray-400 mt-2">We'll crawl this to understand your product and generate relevant prompts</p>
+                </div>
+
+                <!-- Prompt Language Selection -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Language</label>
+                  <p class="text-xs text-gray-400 mb-2">Language for generated prompts and AI testing</p>
+                  <div class="relative">
+                    <button
+                      type="button"
+                      @click="showLanguageDropdown = !showLanguageDropdown"
+                      class="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all"
+                    >
+                      <span class="flex items-center gap-2">
+                        <span class="text-lg">{{ selectedLanguage?.flag }}</span>
+                        <span>{{ selectedLanguage?.name }}</span>
+                      </span>
+                      <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <div
+                      v-if="showLanguageDropdown"
+                      class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                    >
+                      <input
+                        v-model="languageSearch"
+                        type="text"
+                        class="w-full px-4 py-3 border-b border-gray-100 focus:outline-none"
+                        placeholder="Search languages..."
+                      />
+                      <div
+                        v-for="lang in filteredLanguages"
+                        :key="lang.code"
+                        @click="selectLanguage(lang)"
+                        class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2"
+                        :class="{ 'bg-brand/5': selectedLanguage?.code === lang.code }"
+                      >
+                        <span class="text-lg">{{ lang.flag }}</span>
+                        <span>{{ lang.name }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Domain Aliases -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Domain Aliases
+                    <span class="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <p class="text-xs text-gray-400 mb-3">Additional domains that should be counted as your brand in AI responses</p>
+
+                  <div class="space-y-2">
+                    <div
+                      v-for="(alias, index) in productForm.domainAliases"
+                      :key="index"
+                      class="flex items-center gap-2"
+                    >
+                      <input
+                        v-model="productForm.domainAliases[index]"
+                        type="text"
+                        class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all text-sm"
+                        placeholder="otherdomain.com"
+                      />
+                      <button
+                        @click="removeDomainAlias(index)"
+                        class="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                        type="button"
+                      >
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <button
+                      @click="addDomainAlias"
+                      type="button"
+                      class="inline-flex items-center gap-1.5 text-sm text-brand hover:text-brand/80 font-medium"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add domain alias
+                    </button>
+                  </div>
                 </div>
 
                 <div v-if="productError" class="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
@@ -333,110 +435,13 @@
             </div>
 
             <div class="bg-white rounded-2xl border border-gray-200 p-8">
-              <!-- Language Selection -->
-              <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Language</label>
-                <div class="relative">
-                  <button
-                    type="button"
-                    @click="showLanguageDropdown = !showLanguageDropdown"
-                    class="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all"
-                  >
-                    <span class="flex items-center gap-2">
-                      <span class="text-lg">{{ selectedLanguage?.flag }}</span>
-                      <span>{{ selectedLanguage?.name }}</span>
-                    </span>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <div
-                    v-if="showLanguageDropdown"
-                    class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
-                  >
-                    <input
-                      v-model="languageSearch"
-                      type="text"
-                      class="w-full px-4 py-3 border-b border-gray-100 focus:outline-none"
-                      placeholder="Search languages..."
-                    />
-                    <div
-                      v-for="lang in filteredLanguages"
-                      :key="lang.code"
-                      @click="selectLanguage(lang)"
-                      class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2"
-                      :class="{ 'bg-brand/5': selectedLanguage?.code === lang.code }"
-                    >
-                      <span class="text-lg">{{ lang.flag }}</span>
-                      <span>{{ lang.name }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Region Selection -->
-              <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Target Regions</label>
-                <p class="text-xs text-gray-400 mb-2">Select regions where prompts should be tested</p>
-                <div class="relative">
-                  <button
-                    type="button"
-                    @click="showRegionDropdown = !showRegionDropdown"
-                    class="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all"
-                  >
-                    <span v-if="selectedRegions.length === 0" class="text-gray-400">Select regions...</span>
-                    <span v-else class="flex flex-wrap gap-1">
-                      <span
-                        v-for="code in selectedRegions.slice(0, 5)"
-                        :key="code"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-brand/10 text-brand rounded-md text-sm"
-                      >
-                        {{ getRegionFlag(code) }} {{ code.toUpperCase() }}
-                      </span>
-                      <span v-if="selectedRegions.length > 5" class="text-gray-400 text-sm">
-                        +{{ selectedRegions.length - 5 }} more
-                      </span>
-                    </span>
-                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <div
-                    v-if="showRegionDropdown"
-                    class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
-                  >
-                    <div
-                      @click="toggleRegion('local')"
-                      class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
-                      :class="{ 'bg-brand/5': selectedRegions.includes('local') }"
-                    >
-                      <span class="text-lg">🏠</span>
-                      <span class="flex-1">Local (Your Location)</span>
-                      <svg v-if="selectedRegions.includes('local')" class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                    </div>
-                    <div
-                      v-for="country in availableCountries"
-                      :key="country.code"
-                      @click="toggleRegion(country.code)"
-                      class="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2"
-                      :class="{ 'bg-brand/5': selectedRegions.includes(country.code) }"
-                    >
-                      <span class="text-lg">{{ country.flag_emoji || '🌐' }}</span>
-                      <span class="flex-1">{{ country.name }}</span>
-                      <svg v-if="selectedRegions.includes(country.code)" class="w-5 h-5 text-brand" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Prompts List -->
+              <!-- Prompts List with Per-Prompt Regions -->
               <div>
                 <div class="flex items-center justify-between mb-3">
-                  <label class="block text-sm font-medium text-gray-700">Generated Prompts</label>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">Generated Prompts</label>
+                    <p class="text-xs text-gray-400 mt-1">Each prompt can be tested in different regions</p>
+                  </div>
                   <button
                     @click="addPrompt"
                     class="text-sm text-brand hover:text-brand/80 font-medium"
@@ -444,41 +449,99 @@
                     + Add Prompt
                   </button>
                 </div>
-                <div class="space-y-3">
+                <div class="space-y-4">
                   <div
                     v-for="(prompt, index) in editablePrompts"
                     :key="index"
-                    class="flex items-start gap-3 p-4 bg-gray-50 rounded-xl"
+                    class="p-4 bg-gray-50 rounded-xl"
                   >
-                    <textarea
-                      v-model="prompt.text"
-                      rows="2"
-                      class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm resize-none"
-                    />
-                    <button
-                      v-if="editablePrompts.length > 1"
-                      @click="removePrompt(index)"
-                      class="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <!-- Prompt Text -->
+                    <div class="flex items-start gap-3 mb-3">
+                      <textarea
+                        v-model="prompt.text"
+                        rows="2"
+                        class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm resize-none bg-white"
+                        placeholder="Enter prompt text..."
+                      />
+                      <button
+                        v-if="editablePrompts.length > 1"
+                        @click="removePrompt(index)"
+                        class="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- Per-Prompt Region Selection -->
+                    <div class="relative">
+                      <button
+                        type="button"
+                        @click="prompt.showRegionDropdown = !prompt.showRegionDropdown"
+                        class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-left flex items-center justify-between transition-all text-sm"
+                      >
+                        <span class="flex items-center gap-2">
+                          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span v-if="prompt.regions.length === 0" class="text-gray-400">Select regions...</span>
+                          <span v-else class="flex flex-wrap gap-1">
+                            <span
+                              v-for="code in prompt.regions.slice(0, 4)"
+                              :key="code"
+                              class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-brand/10 text-brand rounded text-xs"
+                            >
+                              {{ getRegionFlag(code) }} {{ code === 'local' ? 'Local' : code.toUpperCase() }}
+                            </span>
+                            <span v-if="prompt.regions.length > 4" class="text-gray-400 text-xs">
+                              +{{ prompt.regions.length - 4 }} more
+                            </span>
+                          </span>
+                        </span>
+                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <div
+                        v-if="prompt.showRegionDropdown"
+                        class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                      >
+                        <div
+                          @click="togglePromptRegion(index, 'local')"
+                          class="px-3 py-2 cursor-pointer hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 text-sm"
+                          :class="{ 'bg-brand/5': prompt.regions.includes('local') }"
+                        >
+                          <span class="text-base">🏠</span>
+                          <span class="flex-1">Local (Your Location)</span>
+                          <svg v-if="prompt.regions.includes('local')" class="w-4 h-4 text-brand" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <div
+                          v-for="country in availableCountries"
+                          :key="country.code"
+                          @click="togglePromptRegion(index, country.code)"
+                          class="px-3 py-2 cursor-pointer hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          :class="{ 'bg-brand/5': prompt.regions.includes(country.code) }"
+                        >
+                          <span class="text-base">{{ country.flag_emoji || '🌐' }}</span>
+                          <span class="flex-1">{{ country.name }}</span>
+                          <svg v-if="prompt.regions.includes(country.code)" class="w-4 h-4 text-brand" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="flex gap-3 pt-6 mt-6 border-t border-gray-100">
-                <button
-                  @click="currentStep--"
-                  class="px-6 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Back
-                </button>
+              <div class="pt-6 mt-6 border-t border-gray-100">
                 <button
                   @click="savePrompts"
                   :disabled="editablePrompts.length === 0 || savingPrompts"
-                  class="flex-1 py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="w-full py-3 px-6 rounded-xl font-medium bg-gradient-to-r from-brand to-yellow-500 text-white hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {{ savingPrompts ? 'Saving...' : 'Continue' }}
                 </button>
@@ -604,11 +667,14 @@
             <div class="bg-white rounded-2xl border border-gray-200 p-8">
               <!-- Product Summary -->
               <div class="text-center mb-8">
-                <div class="inline-flex items-center gap-3 px-6 py-4 bg-gray-50 rounded-xl">
-                  <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
+                <div class="inline-flex items-center gap-3 px-6 py-4 bg-white rounded-xl shadow-sm border border-gray-100">
+                  <div class="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+                    <img
+                      :src="getFaviconUrl(productForm.website)"
+                      :alt="productForm.name"
+                      class="w-8 h-8 object-contain"
+                      @error="($event.target as HTMLImageElement).src = '/brand/logo.svg'"
+                    />
                   </div>
                   <div class="text-left">
                     <h3 class="font-semibold text-gray-900">{{ productForm.name }}</h3>
@@ -619,22 +685,22 @@
 
               <!-- Stats -->
               <div class="grid grid-cols-3 gap-4 mb-8">
-                <div class="text-center p-4 bg-gray-50 rounded-xl">
+                <div class="text-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
                   <div class="text-2xl font-bold text-brand">{{ editablePrompts.length }}</div>
                   <div class="text-sm text-gray-500">Prompts</div>
                 </div>
-                <div class="text-center p-4 bg-gray-50 rounded-xl">
-                  <div class="text-2xl font-bold text-brand">{{ selectedRegions.length }}</div>
+                <div class="text-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+                  <div class="text-2xl font-bold text-brand">{{ totalUniqueRegions }}</div>
                   <div class="text-sm text-gray-500">Regions</div>
                 </div>
-                <div class="text-center p-4 bg-gray-50 rounded-xl">
-                  <div class="text-2xl font-bold text-brand">{{ analysisProgress.pages_analyzed || 1 }}</div>
+                <div class="text-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+                  <div class="text-2xl font-bold text-brand">{{ pagesAnalyzedCount || analysisProgress.pages_analyzed || 1 }}</div>
                   <div class="text-sm text-gray-500">Pages</div>
                 </div>
               </div>
 
               <!-- Next Steps -->
-              <div class="p-4 bg-brand/5 border border-brand/20 rounded-xl mb-8">
+              <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
                 <h4 class="font-medium text-gray-900 mb-2">What's next?</h4>
                 <ul class="space-y-2 text-sm text-gray-600">
                   <li class="flex items-center gap-2">
@@ -696,8 +762,10 @@ const companyForm = ref({ name: '' })
 const savingCompany = ref(false)
 
 // Product form
-const productForm = ref({ name: '', website: '' })
+const productForm = ref({ name: '', website: '', domainAliases: [] as string[] })
 const productError = ref('')
+const validatedFaviconUrl = ref<string | null>(null)
+const faviconLoadError = ref(false)
 const analyzingWebsite = ref(false)
 const createdProductId = ref<string | null>(null)
 const analysisJobId = ref<string | null>(null)
@@ -718,12 +786,11 @@ const analysisProgress = ref({
 const analysisUpdates = ref<Array<{ title: string; detail?: string; completed: boolean }>>([])
 
 // Prompts configuration
-const editablePrompts = ref<Array<{ text: string }>>([])
+const editablePrompts = ref<Array<{ text: string; regions: string[]; showRegionDropdown?: boolean }>>([])
 const selectedLanguage = ref({ code: 'en', name: 'English', flag: '🇺🇸' })
 const showLanguageDropdown = ref(false)
 const languageSearch = ref('')
-const selectedRegions = ref<string[]>(['local'])
-const showRegionDropdown = ref(false)
+const defaultRegions = ref<string[]>(['local'])
 const availableCountries = ref<Array<{ code: string; name: string; flag_emoji: string | null }>>([])
 const savingPrompts = ref(false)
 
@@ -780,15 +847,150 @@ const osName = computed(() => {
   return 'Desktop'
 })
 
+// Get favicon URL using Google's favicon service
+const getFaviconUrl = (url: string) => {
+  try {
+    let domain = url
+    if (url.includes('://')) {
+      domain = new URL(url).hostname
+    } else if (url.includes('/')) {
+      domain = url.split('/')[0]
+    }
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+  } catch {
+    return '/brand/logo.svg'
+  }
+}
+
+// Persistence helpers
+const STORAGE_KEY = 'columbus_onboarding_state'
+
+// Computed property for total unique regions across all prompts
+const totalUniqueRegions = computed(() => {
+  const allRegions = new Set<string>()
+  editablePrompts.value.forEach(p => {
+    p.regions.forEach(r => allRegions.add(r))
+  })
+  return allRegions.size
+})
+
+const saveState = () => {
+  if (typeof localStorage === 'undefined') return
+
+  // Only save UI preferences that aren't in DB
+  const state = {
+    selectedLanguage: selectedLanguage.value,
+    defaultRegions: defaultRegions.value,
+    billingPeriod: billingPeriod.value,
+    timestamp: Date.now()
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+const restoreState = () => {
+  if (typeof localStorage === 'undefined') return false
+
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved) return false
+
+    const state = JSON.parse(saved)
+
+    // Only restore if saved within the last hour
+    if (Date.now() - state.timestamp > 60 * 60 * 1000) {
+      localStorage.removeItem(STORAGE_KEY)
+      return false
+    }
+
+    // Only restore UI preferences, not step/data (that comes from DB)
+    if (state.selectedLanguage) selectedLanguage.value = state.selectedLanguage
+    if (state.defaultRegions?.length > 0) defaultRegions.value = state.defaultRegions
+    if (state.billingPeriod) billingPeriod.value = state.billingPeriod
+
+    return true
+  } catch (e) {
+    console.error('Error restoring onboarding state:', e)
+    localStorage.removeItem(STORAGE_KEY)
+    return false
+  }
+}
+
+const clearSavedState = () => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY)
+  }
+}
+
+// Watch for preference changes and save
+watch([selectedLanguage, defaultRegions, billingPeriod], () => {
+  saveState()
+}, { deep: true })
+
+// Validate favicon when website changes using Image object
+let faviconDebounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => productForm.value.website, (newWebsite) => {
+  // Clear previous timer
+  if (faviconDebounceTimer) {
+    clearTimeout(faviconDebounceTimer)
+  }
+
+  // Reset immediately
+  validatedFaviconUrl.value = null
+  faviconLoadError.value = false
+
+  // Debounce the check
+  if (!newWebsite || newWebsite.length < 3) return
+
+  faviconDebounceTimer = setTimeout(() => {
+    // Clean the domain - must look like a valid domain
+    const domain = newWebsite.trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+
+    // Basic domain validation - must have at least one dot and valid chars
+    if (!domain || domain.length < 4 || !domain.includes('.')) return
+
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+
+    // Use Image object to load - no crossOrigin to avoid CORS
+    const img = new Image()
+
+    img.onload = () => {
+      // Image loaded successfully - Google always returns something
+      // We trust it if domain looks valid (has a dot)
+      validatedFaviconUrl.value = faviconUrl
+    }
+
+    img.onerror = () => {
+      validatedFaviconUrl.value = null
+    }
+
+    img.src = faviconUrl
+  }, 500)
+})
+
 // Initialize
 onMounted(async () => {
   await fetchTiers()
   await loadCountries()
-  await checkUserPlan()
+  await determineCurrentStep()
 })
 
-const checkUserPlan = async () => {
+// Stored data from DB
+const existingOrgId = ref<string | null>(null)
+const existingOrgName = ref<string | null>(null)
+const existingProductId = ref<string | null>(null)
+const existingProductName = ref<string | null>(null)
+const existingProductDomain = ref<string | null>(null)
+const pagesAnalyzedCount = ref(0)
+
+/**
+ * Determine what step the user should be on based on database state
+ */
+const determineCurrentStep = async () => {
   try {
+    // 1. Check user profile for organization
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id, active_organization_id')
@@ -797,31 +999,169 @@ const checkUserPlan = async () => {
 
     const orgId = profile?.active_organization_id || profile?.organization_id
 
+    // 2. Check organization details if exists
+    let org: any = null
     if (orgId) {
-      const { data: org } = await supabase
+      const { data } = await supabase
         .from('organizations')
-        .select('plan')
+        .select('id, name, plan')
         .eq('id', orgId)
         .single()
+      org = data
+      existingOrgId.value = org?.id
+      existingOrgName.value = org?.name
+      companyForm.value.name = org?.name || ''
+    }
 
-      // If user already has a paid plan, skip upgrade step
-      if (org?.plan && org.plan !== 'free') {
-        showUpgradeStep.value = false
+    // If user has a paid plan, skip upgrade step
+    if (org?.plan && org.plan !== 'free') {
+      showUpgradeStep.value = false
+    }
+
+    // 3. Check for existing products
+    let product: any = null
+    if (orgId) {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, domain, domain_aliases')
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        product = data
+        existingProductId.value = product.id
+        existingProductName.value = product.name
+        existingProductDomain.value = product.domain
+        productForm.value.name = product.name
+        productForm.value.website = product.domain
+        productForm.value.domainAliases = product.domain_aliases || []
+        createdProductId.value = product.id
+
+        // Get crawled pages count for this product/org
+        const { count } = await supabase
+          .from('crawled_pages')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+
+        pagesAnalyzedCount.value = count || 0
       }
     }
+
+    // 4. Check for pending/running analysis job
+    let pendingJob: any = null
+    if (product?.id) {
+      const { data } = await supabase
+        .from('jobs')
+        .select('id, status')
+        .eq('product_id', product.id)
+        .eq('job_type', 'website_analysis')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        pendingJob = data
+        analysisJobId.value = data.id
+      }
+    }
+
+    // 5. Check for generated prompts
+    let hasPrompts = false
+    if (orgId) {
+      const { count } = await supabase
+        .from('prompts')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+
+      hasPrompts = (count || 0) > 0
+
+      if (hasPrompts) {
+        // Load all prompts for editing with their regions
+        const { data: prompts } = await supabase
+          .from('prompts')
+          .select('prompt_text, target_regions')
+          .eq('organization_id', orgId)
+          .limit(10)
+
+        if (prompts?.length) {
+          editablePrompts.value = prompts.map(p => ({
+            text: p.prompt_text,
+            regions: p.target_regions || [...defaultRegions.value],
+            showRegionDropdown: false
+          }))
+        }
+      }
+    }
+
+    // Now determine the correct step based on what exists
+    const upgradeStep = 1
+    const companyStep = showUpgradeStep.value ? 2 : 1
+    const productStep = showUpgradeStep.value ? 3 : 2
+    const analysisStep = showUpgradeStep.value ? 4 : 3
+    const promptsStep = showUpgradeStep.value ? 5 : 4
+    const downloadStep = showUpgradeStep.value ? 6 : 5
+    const completeStep = showUpgradeStep.value ? 7 : 6
+
+    if (!orgId) {
+      // No organization - start at company step (or upgrade if shown)
+      currentStep.value = showUpgradeStep.value ? upgradeStep : companyStep
+    } else if (!product) {
+      // Has org but no product - go to product step
+      currentStep.value = productStep
+    } else if (pendingJob) {
+      // Has product with pending job - go to analysis step and start polling
+      currentStep.value = analysisStep
+      pollProgress(pendingJob.id)
+    } else if (!hasPrompts) {
+      // Has product, no pending job, but no prompts - check if analysis completed
+      // If there's a completed job, go to prompts step
+      const { data: completedJob } = await supabase
+        .from('jobs')
+        .select('id')
+        .eq('product_id', product.id)
+        .eq('job_type', 'website_analysis')
+        .eq('status', 'completed')
+        .limit(1)
+        .maybeSingle()
+
+      if (completedJob) {
+        // Analysis done, load prompts and go to prompts step
+        await loadGeneratedPrompts()
+        currentStep.value = promptsStep
+      } else {
+        // No completed job either - might need to re-run analysis
+        currentStep.value = productStep
+      }
+    } else {
+      // Has prompts - always go to prompts step (never skip it)
+      currentStep.value = promptsStep
+    }
+
+    // Restore any additional UI state from localStorage (like selected regions, language)
+    restoreState()
+
   } catch (e) {
-    console.error('Error checking plan:', e)
+    console.error('Error determining onboarding step:', e)
+    // Default to first step on error
+    currentStep.value = 1
   }
 }
 
 const loadCountries = async () => {
   try {
-    const { data: proxies } = await supabase
-      .from('proxies')
-      .select('country_code')
-      .eq('is_active', true)
+    // Use RPC function to get countries with active proxies (bypasses RLS on static_proxies)
+    const { data: configuredCountries, error: rpcError } = await supabase
+      .rpc('get_configured_proxy_countries')
 
-    const countryCodes = [...new Set(proxies?.map(p => p.country_code) || [])]
+    if (rpcError) {
+      console.error('Error calling get_configured_proxy_countries:', rpcError)
+    }
+
+    const countryCodes = configuredCountries?.map((c: { country_code: string }) => c.country_code) || []
 
     if (countryCodes.length > 0) {
       const { data } = await supabase
@@ -829,6 +1169,15 @@ const loadCountries = async () => {
         .select('code, name, flag_emoji')
         .eq('is_active', true)
         .in('code', countryCodes)
+        .order('sort_order', { ascending: true })
+
+      availableCountries.value = data || []
+    } else {
+      // Fallback: load all active countries from proxy_countries if no proxies configured
+      const { data } = await supabase
+        .from('proxy_countries')
+        .select('code, name, flag_emoji')
+        .eq('is_active', true)
         .order('sort_order', { ascending: true })
 
       availableCountries.value = data || []
@@ -876,6 +1225,15 @@ const saveCompany = async () => {
   }
 }
 
+// Domain alias helpers
+const addDomainAlias = () => {
+  productForm.value.domainAliases.push('')
+}
+
+const removeDomainAlias = (index: number) => {
+  productForm.value.domainAliases.splice(index, 1)
+}
+
 const startAnalysis = async () => {
   if (!productForm.value.name || !productForm.value.website) return
 
@@ -883,17 +1241,24 @@ const startAnalysis = async () => {
   analyzingWebsite.value = true
 
   try {
-    // Normalize URL
-    let websiteUrl = productForm.value.website.trim()
-    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-      websiteUrl = 'https://' + websiteUrl
-    }
+    // Normalize domain to URL - strip any protocol the user may have pasted
+    let domain = productForm.value.website.trim()
+      .replace(/^https?:\/\//, '') // Remove http:// or https://
+      .replace(/\/.*$/, '') // Remove any path
+    const websiteUrl = 'https://' + domain
 
-    // Create product via edge function
+    // Filter out empty domain aliases
+    const domainAliases = productForm.value.domainAliases
+      .map(a => a.trim())
+      .filter(a => a.length > 0)
+
+    // Create product via edge function with language for prompt generation
     const { data: result, error } = await supabase.functions.invoke('create-product', {
       body: {
         name: productForm.value.name,
         domain: websiteUrl,
+        domainAliases,
+        primaryLanguage: selectedLanguage.value.code,
         runInitialAnalysis: true
       }
     })
@@ -950,9 +1315,13 @@ const updateProgress = (data: any) => {
 
   // Add to updates list
   if (data.message && data.message !== analysisUpdates.value[0]?.title) {
+    // Only show page details for page analysis steps (when current_page_url is explicitly set in this update)
+    const isPageAnalysisStep = data.current_step === 'analyzing_pages' ||
+      (data.current_page_url && data.current_page_url.length > 0)
+
     analysisUpdates.value.unshift({
       title: data.message,
-      detail: data.current_page_title || data.current_page_url,
+      detail: isPageAnalysisStep ? (data.current_page_title || data.current_page_url) : undefined,
       completed: false
     })
 
@@ -984,7 +1353,7 @@ const pollProgress = async (jobId: string) => {
         .from('jobs')
         .select('status')
         .eq('id', jobId)
-        .single()
+        .maybeSingle()
 
       if (job?.status === 'completed') {
         analysisProgress.value.progress_percent = 100
@@ -1004,7 +1373,7 @@ const pollProgress = async (jobId: string) => {
         .from('website_analysis_progress')
         .select('*')
         .eq('job_id', jobId)
-        .single()
+        .maybeSingle()
 
       if (progress) {
         updateProgress(progress)
@@ -1027,7 +1396,14 @@ const pollProgress = async (jobId: string) => {
   await loadGeneratedPrompts()
 }
 
+// Flag to prevent double-loading prompts
+let promptsLoaded = false
+
 const loadGeneratedPrompts = async () => {
+  // Prevent multiple calls from incrementing step multiple times
+  if (promptsLoaded) return
+  promptsLoaded = true
+
   try {
     const { data: profile } = await supabase
       .from('profiles')
@@ -1039,19 +1415,23 @@ const loadGeneratedPrompts = async () => {
 
     const { data: prompts } = await supabase
       .from('prompts')
-      .select('prompt_text')
+      .select('prompt_text, target_regions')
       .eq('organization_id', orgId)
       .eq('is_custom', false)
       .limit(10)
 
     if (prompts && prompts.length > 0) {
-      editablePrompts.value = prompts.map(p => ({ text: p.prompt_text }))
+      editablePrompts.value = prompts.map(p => ({
+        text: p.prompt_text,
+        regions: p.target_regions || [...defaultRegions.value],
+        showRegionDropdown: false
+      }))
     } else {
-      // Default prompts if none generated
+      // Default prompts if none generated - each gets default regions
       editablePrompts.value = [
-        { text: `What is ${productForm.value.name}?` },
-        { text: `Best alternatives to ${productForm.value.name}` },
-        { text: `${productForm.value.name} reviews` }
+        { text: `What is ${productForm.value.name}?`, regions: [...defaultRegions.value], showRegionDropdown: false },
+        { text: `Best alternatives to ${productForm.value.name}`, regions: [...defaultRegions.value], showRegionDropdown: false },
+        { text: `${productForm.value.name} reviews`, regions: [...defaultRegions.value], showRegionDropdown: false }
       ]
     }
 
@@ -1069,12 +1449,15 @@ const selectLanguage = (lang: any) => {
   languageSearch.value = ''
 }
 
-const toggleRegion = (code: string) => {
-  const index = selectedRegions.value.indexOf(code)
+const togglePromptRegion = (promptIndex: number, code: string) => {
+  const prompt = editablePrompts.value[promptIndex]
+  if (!prompt) return
+
+  const index = prompt.regions.indexOf(code)
   if (index === -1) {
-    selectedRegions.value.push(code)
+    prompt.regions.push(code)
   } else {
-    selectedRegions.value.splice(index, 1)
+    prompt.regions.splice(index, 1)
   }
 }
 
@@ -1085,7 +1468,8 @@ const getRegionFlag = (code: string) => {
 }
 
 const addPrompt = () => {
-  editablePrompts.value.push({ text: '' })
+  // New prompts get the default regions
+  editablePrompts.value.push({ text: '', regions: [...defaultRegions.value], showRegionDropdown: false })
 }
 
 const removePrompt = (index: number) => {
@@ -1119,13 +1503,13 @@ const savePrompts = async () => {
       .eq('product_id', createdProductId.value)
       .eq('is_custom', false)
 
-    // Insert new prompts
+    // Insert new prompts with per-prompt regions
     const promptsToInsert = validPrompts.map((p, i) => ({
       organization_id: orgId,
       product_id: createdProductId.value,
       prompt_text: p.text,
       granularity_level: Math.floor(i / 5) + 1, // Distribute across levels
-      target_regions: selectedRegions.value.length > 0 ? selectedRegions.value : null,
+      target_regions: p.regions.length > 0 ? p.regions : null,
       is_custom: false
     }))
 
@@ -1153,6 +1537,9 @@ const completeOnboarding = async () => {
       .update({ onboarding_complete: true })
       .eq('id', user.value?.id)
 
+    // Clear saved onboarding state
+    clearSavedState()
+
     // Redirect to dashboard
     router.push('/dashboard')
   } catch (e: any) {
@@ -1167,7 +1554,8 @@ const handleClickOutside = (e: MouseEvent) => {
   const target = e.target as HTMLElement
   if (!target.closest('.relative')) {
     showLanguageDropdown.value = false
-    showRegionDropdown.value = false
+    // Close all prompt region dropdowns
+    editablePrompts.value.forEach(p => p.showRegionDropdown = false)
   }
 }
 
