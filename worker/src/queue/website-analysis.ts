@@ -204,7 +204,7 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
           message: `Analyzed homepage structure and content`,
           details: {
             domain,
-            techStack: websiteAnalysis.techStack?.slice(0, 5),
+            platform: websiteAnalysis.techStack?.platform,
             hasSchema: websiteAnalysis.schemaMarkup?.length > 0
           }
         })
