@@ -453,7 +453,7 @@
                   <div
                     v-for="(prompt, index) in editablePrompts"
                     :key="index"
-                    class="p-4 bg-gray-50 rounded-xl"
+                    class="p-4 bg-white border border-gray-200 rounded-xl"
                   >
                     <!-- Prompt Text -->
                     <div class="flex items-start gap-3 mb-3">

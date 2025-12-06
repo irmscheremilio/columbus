@@ -424,11 +424,13 @@ export const websiteAnalysisWorker = new Worker<WebsiteAnalysisJobData>(
         })
       }
 
+      console.log(`[Website Analysis] Calling promptGenerator.generatePrompts with language: "${language}"`)
       const generatedPrompts = await promptGenerator.generatePrompts(
         productAnalysis,
         websiteAnalysis,
         { language } // Pass selected language for prompt generation
       )
+      console.log(`[Website Analysis] Prompts generated:`, generatedPrompts.map(p => p.promptText))
 
       console.log(`[Website Analysis] Generated ${generatedPrompts.length} prompts`)
 

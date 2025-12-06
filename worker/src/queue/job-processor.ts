@@ -99,11 +99,13 @@ class JobProcessor {
 
     switch (job.job_type) {
       case 'website_analysis':
+        console.log(`[Job Processor] Website analysis job metadata:`, JSON.stringify(job.metadata, null, 2))
         await websiteAnalysisQueue.add('analyze', {
           organizationId: job.organization_id,
           productId: job.metadata.productId || job.product_id,
           domain: job.metadata.domain,
           includeCompetitorGaps: job.metadata.includeCompetitorGaps ?? true,
+          language: job.metadata.language || 'en', // Pass language for prompt generation
           jobId: job.id
         })
         break

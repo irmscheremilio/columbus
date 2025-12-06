@@ -213,7 +213,7 @@ serve(async (req) => {
           product_id: product.id,
           job_type: 'website_analysis',
           status: 'queued',
-          metadata: { domain, productId: product.id }
+          metadata: { domain, productId: product.id, language: primaryLanguage }
         })
         .select()
         .single()

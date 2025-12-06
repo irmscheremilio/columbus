@@ -94,12 +94,16 @@ Return ONLY valid JSON, no markdown or explanation.`
     websiteAnalysis: WebsiteAnalysis,
     locationContext?: LocationContext
   ): Promise<GeneratedPrompt[]> {
+    // Log the incoming location context for debugging
+    console.log('[Prompt Generator] generatePrompts called with locationContext:', JSON.stringify(locationContext, null, 2))
+
     // Build location/language-specific instructions
     let locationInstruction = ''
 
     if (locationContext?.country && locationContext.country !== 'GLOBAL') {
       // Region-specific instructions
       const langName = this.getLanguageName(locationContext.language || 'en')
+      console.log('[Prompt Generator] Using region-specific instructions. Country:', locationContext.country, 'Language code:', locationContext.language, 'Language name:', langName)
       locationInstruction = `
 
 TARGET REGION: ${locationContext.location || locationContext.country}
@@ -108,11 +112,16 @@ IMPORTANT: Generate ALL prompts in ${langName} language. The prompts should be w
     } else if (locationContext?.language && locationContext.language !== 'en') {
       // Language-only instructions (no specific region)
       const langName = this.getLanguageName(locationContext.language)
+      console.log('[Prompt Generator] Using language-only instructions. Language code:', locationContext.language, 'Language name:', langName)
       locationInstruction = `
 
 IMPORTANT: Generate ALL prompts in ${langName} language. The prompts should be written as a native ${langName} speaker would naturally search.
 `
+    } else {
+      console.log('[Prompt Generator] No language instruction added. locationContext.language:', locationContext?.language, 'locationContext.country:', locationContext?.country)
     }
+
+    console.log('[Prompt Generator] Final locationInstruction:', locationInstruction || '(empty - defaulting to English)')
 
     const prompt = `You are an expert at understanding how real users search for solutions using AI assistants like ChatGPT, Claude, and Perplexity.
 
@@ -155,8 +164,15 @@ Return ONLY a valid JSON array with exactly 3 objects:
 
 No markdown, no explanation, just the JSON array.`
 
+    // Log the full prompt being sent to AI
+    console.log('[Prompt Generator] Full AI prompt being sent:')
+    console.log('---START PROMPT---')
+    console.log(prompt)
+    console.log('---END PROMPT---')
+
     try {
       const response = await this.callAI(prompt)
+      console.log('[Prompt Generator] AI response received:', response)
 
       // Clean up response - remove markdown code blocks if present
       let cleanResponse = response.trim()
